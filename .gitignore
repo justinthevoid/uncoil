@@ -1,0 +1,8 @@
+/target
+**/node_modules
+apps/uncoil/build
+apps/uncoil/.svelte-kit
+apps/uncoil/src-tauri/target
+apps/uncoil/src-tauri/gen
+*.log
+__pycache__/
