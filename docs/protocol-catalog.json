@@ -1,0 +1,3117 @@
+{
+ "commands": {
+  "Get Dock Extended Firmware Version": {
+   "class": 0,
+   "id": 147,
+   "size": 4,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "FAIL",
+     "reply": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{}"
+    }
+   ],
+   "pids": [
+    "691"
+   ]
+  },
+  "Get Low Power Mode State": {
+   "class": 7,
+   "id": 149,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "FAIL",
+     "reply": [
+      0
+     ],
+     "json": "{}"
+    },
+    {
+     "args": [],
+     "status": "FAIL",
+     "reply": [],
+     "json": "{}"
+    }
+   ],
+   "pids": [
+    "691",
+    "692",
+    "693"
+   ]
+  },
+  "Get Macro Storage Info": {
+   "class": 6,
+   "id": 142,
+   "size": 14,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      0,
+      100,
+      0,
+      4,
+      176,
+      0,
+      0,
+      4,
+      176,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"maxId\":100,\"maxMemory\":307200,\"availableMemory\":307200,\"recyclableMemory\":0}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Low Power Mode": {
+   "class": 23,
+   "id": 147,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      0
+     ],
+     "json": "{\"mode\":0,\"modeEnum\":\"INACTIVE\"}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      0
+     ],
+     "json": "{\"mode\":0,\"modeEnum\":\"INACTIVE\"}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Home Screen Animation State": {
+   "class": 23,
+   "id": 148,
+   "size": 6,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "json": "{\"animation1State\":1,\"animation1StateEnum\":\"ENABLE\",\"animation2State\":1,\"animation2StateEnum\":\"ENABLE\",\"animation3State\":1,\"animation3StateEnum\":\"ENABLE\",\"animation4State\":1,\"animation4StateEnum\":\"ENABLE\",\"animation5State\":1,\"animation5StateEnum\":\"ENABLE\",\"animation6State\":1,\"animation6StateEnum\":\"E"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "json": "{\"animation1State\":1,\"animation1StateEnum\":\"ENABLE\",\"animation2State\":1,\"animation2StateEnum\":\"ENABLE\",\"animation3State\":1,\"animation3StateEnum\":\"ENABLE\",\"animation4State\":1,\"animation4StateEnum\":\"ENABLE\",\"animation5State\":1,\"animation5StateEnum\":\"ENABLE\",\"animation6State\":1,\"animation6StateEnum\":\"E"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Set Chroma Brightness Status": {
+   "class": 23,
+   "id": 24,
+   "size": 3,
+   "examples": [
+    {
+     "args": [
+      1,
+      0,
+      1
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      0,
+      1
+     ],
+     "json": "{\"profileId\":1,\"regionId\":0,\"status\":1}"
+    },
+    {
+     "args": [
+      0,
+      1
+     ],
+     "status": "SUCCESS",
+     "reply": [],
+     "json": "{}"
+    },
+    {
+     "args": [
+      1,
+      0,
+      0
+     ],
+     "status": "FAIL",
+     "reply": [
+      1,
+      0,
+      0
+     ],
+     "json": "{}"
+    },
+    {
+     "args": [
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [],
+     "json": "{}"
+    }
+   ],
+   "pids": [
+    "692",
+    "693",
+    "?"
+   ]
+  },
+  "Get OLED Image GUID": {
+   "class": 23,
+   "id": 143,
+   "size": 22,
+   "examples": [
+    {
+     "args": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"imageType\":2,\"imageIndex\":0,\"imageGUID\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}"
+    },
+    {
+     "args": [
+      2,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      2,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"imageType\":2,\"imageIndex\":1,\"imageGUID\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}"
+    },
+    {
+     "args": [
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"imageType\":2,\"imageIndex\":2,\"imageGUID\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}"
+    },
+    {
+     "args": [
+      2,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      2,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"imageType\":2,\"imageIndex\":3,\"imageGUID\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Set OLED Command dial active mode": {
+   "class": 23,
+   "id": 0,
+   "size": 4,
+   "examples": [
+    {
+     "args": [
+      1,
+      0,
+      1,
+      6
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      0,
+      1,
+      6
+     ],
+     "json": "{\"profileId\":1,\"mode\":0,\"modeEnum\":\"VOLUME\",\"displayOrder\":1,\"totalEnabledFunctions\":6}"
+    },
+    {
+     "args": [
+      1,
+      2,
+      6
+     ],
+     "status": "SUCCESS",
+     "reply": [],
+     "json": "{}"
+    },
+    {
+     "args": [
+      1,
+      1,
+      2,
+      6
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      1,
+      2,
+      6
+     ],
+     "json": "{\"profileId\":1,\"mode\":1,\"modeEnum\":\"TRACK_SELECTOR\",\"displayOrder\":2,\"totalEnabledFunctions\":6}"
+    },
+    {
+     "args": [
+      1,
+      2,
+      3,
+      7
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      2,
+      3,
+      7
+     ],
+     "json": "{\"profileId\":1,\"mode\":2,\"modeEnum\":\"OLED_BRIGHTNESS\",\"displayOrder\":3,\"totalEnabledFunctions\":7}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Display home screen": {
+   "class": 23,
+   "id": 130,
+   "size": 7,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"type\":0,\"typeEnum\":\"ANIMATION\",\"data\":{\"gifIndex\":1}}"
+    },
+    {
+     "args": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"type\":1,\"typeEnum\":\"IMAGE\",\"data\":{\"imageIndex\":0,\"imageIndexEnum\":\"IMAGE_NONE\"}}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Home Screen Image State": {
+   "class": 23,
+   "id": 149,
+   "size": 10,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "json": "{\"image1State\":1,\"image1StateEnum\":\"ENABLE\",\"image2State\":1,\"image2StateEnum\":\"ENABLE\",\"image3State\":1,\"image3StateEnum\":\"ENABLE\",\"image4State\":1,\"image4StateEnum\":\"ENABLE\",\"image5State\":1,\"image5StateEnum\":\"ENABLE\",\"image6State\":1,\"image6StateEnum\":\"ENABLE\",\"image7State\":1,\"image7StateEnum\":\"ENABLE"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "json": "{\"image1State\":1,\"image1StateEnum\":\"ENABLE\",\"image2State\":1,\"image2StateEnum\":\"ENABLE\",\"image3State\":1,\"image3StateEnum\":\"ENABLE\",\"image4State\":1,\"image4StateEnum\":\"ENABLE\",\"image5State\":1,\"image5StateEnum\":\"ENABLE\",\"image6State\":1,\"image6StateEnum\":\"ENABLE\",\"image7State\":1,\"image7StateEnum\":\"ENABLE"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Home Screen Active Item": {
+   "class": 23,
+   "id": 141,
+   "size": 2,
+   "examples": [
+    {
+     "args": [
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      3,
+      3
+     ],
+     "json": "{\"activeItem\":3,\"activeItemEnum\":\"KEYBOARD_INFO\"}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      0,
+      0
+     ],
+     "json": "{\"activeItem\":0,\"activeItemEnum\":\"ANIMATION\"}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Display time to home screen": {
+   "class": 23,
+   "id": 132,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1
+     ],
+     "json": "{\"time\":1,\"timeEnum\":\"TIME_5S\"}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      1
+     ],
+     "json": "{\"time\":1,\"timeEnum\":\"TIME_5S\"}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Display time to dim": {
+   "class": 23,
+   "id": 134,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      2
+     ],
+     "json": "{\"time\":2,\"timeEnum\":\"2 minute\"}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      2
+     ],
+     "json": "{\"time\":2}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Screensaver Option": {
+   "class": 23,
+   "id": 150,
+   "size": 2,
+   "examples": [
+    {
+     "args": [
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      0,
+      0
+     ],
+     "json": "{\"mode\":0,\"item\":0}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      0,
+      0
+     ],
+     "json": "{\"mode\":0,\"item\":0}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Display brightness": {
+   "class": 23,
+   "id": 131,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      55
+     ],
+     "json": "{\"brightness\":55}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      55
+     ],
+     "json": "{\"brightness\":55}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Display language": {
+   "class": 23,
+   "id": 133,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      0
+     ],
+     "json": "{\"language\":0,\"languageEnum\":\"ENGLISH\"}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      0
+     ],
+     "json": "{\"language\":0,\"languageEnum\":\"ENGLISH\"}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get OLED Low Battery Warning Percentage": {
+   "class": 23,
+   "id": 146,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      30
+     ],
+     "json": "{\"percentage\":30}"
+    },
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      30
+     ],
+     "json": "{\"percentage\":30}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get Edition Information": {
+   "class": 1,
+   "id": 134,
+   "size": 0,
+   "examples": [
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      0,
+      0
+     ],
+     "json": "{\"keyboardLayout\":1,\"keyboardLayoutEnum\":\"PC_English_United_States\",\"edition\":0,\"firmwareId\":0}"
+    },
+    {
+     "args": [
+      0,
+      0,
+      0
+     ],
+     "status": "FAIL",
+     "reply": [
+      0,
+      0,
+      0
+     ],
+     "json": "{}"
+    }
+   ],
+   "pids": [
+    "692",
+    "693",
+    "?"
+   ]
+  },
+  "Set Device Mode": {
+   "class": 0,
+   "id": 4,
+   "size": 2,
+   "examples": [
+    {
+     "args": [
+      3,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      3,
+      0
+     ],
+     "json": "{\"mode\":3,\"modeEnum\":\"Driver_Mode\",\"param\":0}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get Serial Number": {
+   "class": 0,
+   "id": 130,
+   "size": 22,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "FAIL",
+     "reply": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{}"
+    }
+   ],
+   "pids": [
+    "692"
+   ]
+  },
+  "Get Extended Firmware Version": {
+   "class": 0,
+   "id": 135,
+   "size": 4,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "FAIL",
+     "reply": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{}"
+    }
+   ],
+   "pids": [
+    "692"
+   ]
+  },
+  "Set OLED Display brightness": {
+   "class": 23,
+   "id": 3,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      46
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      46
+     ],
+     "json": "{\"brightness\":46}"
+    },
+    {
+     "args": [
+      51
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      51
+     ],
+     "json": "{\"brightness\":51}"
+    },
+    {
+     "args": [
+      56
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      56
+     ],
+     "json": "{\"brightness\":56}"
+    },
+    {
+     "args": [
+      61
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      61
+     ],
+     "json": "{\"brightness\":61}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get Device Charging Status": {
+   "class": 7,
+   "id": 132,
+   "size": 2,
+   "examples": [
+    {
+     "args": [
+      0,
+      0
+     ],
+     "status": "FAIL",
+     "reply": [
+      0,
+      0
+     ],
+     "json": "{}"
+    }
+   ],
+   "pids": [
+    "692"
+   ]
+  },
+  "Get Battery Level": {
+   "class": 5,
+   "id": 129,
+   "size": 0,
+   "examples": [
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      255
+     ],
+     "json": "{\"batteryId\":1,\"batteryLevel\":100}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get Chroma Region Id List": {
+   "class": 16,
+   "id": 128,
+   "size": 0,
+   "examples": [
+    {
+     "args": [],
+     "status": "SUCCESS",
+     "reply": [
+      4,
+      1,
+      10
+     ],
+     "json": "{\"regionIdList\":[4,1,10],\"Logo_LED\":{},\"Scroll_Wheel_LED\":{},\"Underglow_LED\":{}}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get Force Chroma Ctrl": {
+   "class": 15,
+   "id": 144,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1
+     ],
+     "json": "{\"enabled\":1}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Set Force Chroma Ctrl": {
+   "class": 15,
+   "id": 16,
+   "size": 1,
+   "examples": [
+    {
+     "args": [
+      1
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1
+     ],
+     "json": "{\"enabled\":1}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Set OLED Menu Chroma Effect": {
+   "class": 23,
+   "id": 23,
+   "size": 2,
+   "examples": [
+    {
+     "args": [
+      1,
+      14
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      14
+     ],
+     "json": "{\"profileId\":1,\"chromaEffectId\":14}"
+    }
+   ],
+   "pids": [
+    "?"
+   ]
+  },
+  "Get Multiple Device Wireless Connection Status V2": {
+   "class": 0,
+   "id": 191,
+   "size": 80,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      2,
+      0,
+      0,
+      171,
+      0,
+      255,
+      255,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "json": "{\"deviceCount\":2,\"status\":[{\"productId\":171,\"status\":0},{\"productId\":65535,\"status\":0}]}"
+    }
+   ],
+   "pids": [
+    "170",
+    "171"
+   ]
+  },
+  "Get Multiple Device Primary Device": {
+   "class": 0,
+   "id": 197,
+   "size": 3,
+   "examples": [
+    {
+     "args": [
+      0,
+      0,
+      0
+     ],
+     "status": "SUCCESS",
+     "reply": [
+      1,
+      0,
+      171
+     ],
+     "json": "{\"type\":1,\"typeEnum\":\"Mouse\",\"productId\":171}"
+    }
+   ],
+   "pids": [
+    "171"
+   ]
+  }
+ },
+ "events": [
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    81,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":81,\"eventIdDesc\":\"OLED_MODE\",\"eventValue\":{\"mode\":2,\"modeEnum\":\"Command_Dial_Mode\"}}",
+   "pid": "691"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    81,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":81,\"eventIdDesc\":\"OLED_MODE\",\"eventValue\":{\"mode\":1,\"modeEnum\":\"Home_Screen_Mode\"}}",
+   "pid": "691"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    81,
+    5,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":81,\"eventIdDesc\":\"OLED_MODE\",\"eventValue\":{\"mode\":5,\"modeEnum\":\"OFF_Mode\"}}",
+   "pid": "691"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    81,
+    4,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":81,\"eventIdDesc\":\"OLED_MODE\",\"eventValue\":{\"mode\":4,\"modeEnum\":\"FN_Mode\"}}",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    141,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":55,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    85,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":85,\"eventIdDesc\":\"OLED_LOW_POWER_MODE_CHANGE\",\"eventValue\":{\"status\":1,\"statusEnum\":\"Enter_Low_Power_Mode\"}}",
+   "pid": "691"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    85,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":85,\"eventIdDesc\":\"OLED_LOW_POWER_MODE_CHANGE\",\"eventValue\":{\"status\":0,\"statusEnum\":\"Exit_Low_Power_Mode\"}}",
+   "pid": "691"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    9,
+    2,
+    2,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":9,\"eventIdDesc\":\"WIRELESS_CHANGE_EVENT\",\"eventValue\":{\"state\":2,\"stateDesc\":\"DISCONNECT_EVENT\",\"type\":2,\"typeDesc\":\"KEYBOARD\"}}",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    9,
+    3,
+    2,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":9,\"eventIdDesc\":\"WIRELESS_CHANGE_EVENT\",\"eventValue\":{\"state\":3,\"stateDesc\":\"CONNECT_EVENT\",\"type\":2,\"typeDesc\":\"KEYBOARD\"}}",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    255,
+    0,
+    1,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":100,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":1,\"powerSourceStatusDesc\":\"EXTE",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    255,
+    1,
+    1,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":100,\"chargingStatus\":1,\"chargingStatusDesc\":\"CHARGING\",\"powerSourceStatus\":1,\"powerSourceStatusDesc\":\"EXTERNAL_POWER_CON",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    82,
+    5,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":82,\"eventIdDesc\":\"OLED_MENU\",\"eventValue\":{\"menu\":5,\"menuEnum\":\"Home_Screen_Change\"}}",
+   "pid": "692"
+  },
+  {
+   "record": "RAZER_KEYS",
+   "buffer": [
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"razerKeys\":[0,0,0,0,0,0,0]}",
+   "pid": "172"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":16,\"eventIdDesc\":\"RESERVED\"}",
+   "pid": "172"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    57,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":57,\"eventIdDesc\":\"SCROLL_FREE_OR_NOTCH_MODE_CHANGE_EVENT\",\"eventValue\":{\"mode\":0,\"modeEnum\":\"Notch\"}}",
+   "pid": "172"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    9,
+    2,
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":9,\"eventIdDesc\":\"WIRELESS_CHANGE_EVENT\",\"eventValue\":{\"state\":2,\"stateDesc\":\"DISCONNECT_EVENT\",\"type\":1,\"typeDesc\":\"MOUSE\"}}",
+   "pid": "172"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    57,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":57,\"eventIdDesc\":\"SCROLL_FREE_OR_NOTCH_MODE_CHANGE_EVENT\",\"eventValue\":{\"mode\":1,\"modeEnum\":\"Free_SPIN\"}}",
+   "pid": "172"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    240,
+    0,
+    0,
+    1,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":94,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "172"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    233,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":91,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    230,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":90,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    227,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":89,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    225,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":88,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    222,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":87,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    220,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":86,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    217,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":85,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    215,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":84,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    212,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":83,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    210,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":82,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    207,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":81,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    204,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":80,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    202,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":79,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    199,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":78,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    197,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":77,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    194,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":76,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    192,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":75,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    189,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":74,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    187,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":73,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    184,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":72,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    182,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":71,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "692"
+  },
+  {
+   "record": "MEDIA_KEYS",
+   "buffer": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"key\":0}",
+   "pid": "692"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    138,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":54,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    136,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":53,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    133,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":52,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    131,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":51,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    128,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":50,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    125,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":49,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    123,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":48,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    120,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":47,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    118,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":46,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    115,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":45,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    113,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":44,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    110,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":43,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    108,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":42,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    105,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":41,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    102,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":40,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    100,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":39,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    97,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":38,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    95,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":37,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    8,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":3,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTERN",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    81,
+    7,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":81,\"eventIdDesc\":\"OLED_MODE\",\"eventValue\":{\"mode\":7,\"modeEnum\":\"Low_Battery_Waring_Mode\"}}",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    169,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":66,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    166,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":65,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    164,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":64,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    161,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":63,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    159,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":62,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    156,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":61,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    153,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":60,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    151,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":59,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    148,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":58,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    146,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":57,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    143,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":56,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    81,
+    6,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":81,\"eventIdDesc\":\"OLED_MODE\",\"eventValue\":{\"mode\":6,\"modeEnum\":\"BLE_Paring_Mode\"}}",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    253,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":99,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    250,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":98,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    248,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":97,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    245,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":96,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    243,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":95,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    238,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":93,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    235,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":92,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    179,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":70,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    176,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":69,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    90,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":35,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    87,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":34,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    85,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":33,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    82,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":32,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    80,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":31,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    77,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":30,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    74,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":29,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    72,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":28,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    69,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":27,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    67,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":26,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    64,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":25,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    62,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":24,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    59,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":23,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    57,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":22,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    54,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":21,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    51,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":20,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    49,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":19,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    46,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":18,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    44,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":17,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    41,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":16,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    39,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":15,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    36,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":14,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    34,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":13,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    31,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":12,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    29,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":11,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    26,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":10,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTER",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    23,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":9,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTERN",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    21,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":8,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTERN",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    18,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":7,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTERN",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    16,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":6,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTERN",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    49,
+    13,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":49,\"eventIdDesc\":\"BATTERY_CHANGE_EVENT\",\"eventValue\":{\"batteryLevel\":5,\"chargingStatus\":0,\"chargingStatusDesc\":\"NO_CHARGE_BATTERY_FULL\",\"powerSourceStatus\":0,\"powerSourceStatusDesc\":\"EXTERN",
+   "pid": "693"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    9,
+    3,
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":9,\"eventIdDesc\":\"WIRELESS_CHANGE_EVENT\",\"eventValue\":{\"state\":3,\"stateDesc\":\"CONNECT_EVENT\",\"type\":1,\"typeDesc\":\"MOUSE\"}}",
+   "pid": "171"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    25,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":25,\"eventIdDesc\":\"LAMP_ARRAY_EVENT\"}",
+   "pid": "171"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    12,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":12,\"eventIdDesc\":\"DEVICE_EXTERNAL_POWER_SOURCE_CHANGE_EVENT\",\"eventValue\":{\"value\":0,\"valueDesc\":\"EXTERNAL_POWER_REMOVED\"}}",
+   "pid": "171"
+  },
+  {
+   "record": "NOTIFICATION_EVENTS",
+   "buffer": [
+    5,
+    2,
+    11,
+    184,
+    11,
+    184,
+    0,
+    0
+   ],
+   "data": "{\"eventId\":2,\"eventIdDesc\":\"DPI_CHANGE\",\"eventValue\":{\"x\":3000,\"y\":3000,\"z\":0}}",
+   "pid": "171"
+  }
+ ]
+}
