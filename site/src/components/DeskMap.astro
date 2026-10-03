@@ -1,0 +1,79 @@
+---
+// The maintainer's desk as uncoil sees it: every LED at its real position (key units), coloured by the
+// default wave at t = 6 s. Rendered at build time from the app's desk snapshot and effect port, so it
+// is the engine's answer, not an illustration.
+import desk from '$uncoil/mock/desk.json';
+import { frame, hex } from '$uncoil/effect';
+import type { DeskDevice, Effect } from '$uncoil/types';
+
+const devices = desk as unknown as DeskDevice[];
+const effect: Effect = { kind: 'wave', angle_deg: 35, period_s: 14, wavelength: 26, reverse: false };
+const at = frame(effect, 6, 1, 1);
+
+const mat = devices.find((d) => d.kind === 'mousemat')!;
+const pad = 0.6;
+const vb = [mat.x - pad, mat.y - pad, mat.w + pad * 2, mat.h + pad * 2].map((n) => +n.toFixed(2)).join(' ');
+const kb = devices.find((d) => d.kind === 'keyboard');
+const mouse = devices.find((d) => d.kind === 'mouse');
+const ledCount = devices.reduce((n, d) => n + d.shapes.length, 0);
+const f = (n: number) => +n.toFixed(3);
+---
+
+<figure class="deskmap">
+	<svg viewBox={vb} role="img" aria-label={`The maintainer's desk: ${ledCount} LEDs on ${devices.length} devices, each coloured by the same wave.`}>
+		<!-- mat: one edge LED, drawn as the frame of the field -->
+		<rect x={f(mat.x)} y={f(mat.y)} width={f(mat.w)} height={f(mat.h)} fill="none" stroke={hex(at(mat.shapes[0].x, mat.shapes[0].y))} stroke-width="0.06" />
+		{kb && <rect x={f(kb.x)} y={f(kb.y)} width={f(kb.w)} height={f(kb.h)} fill="none" stroke="#3d3d3d" stroke-width="0.04" />}
+		{
+			mouse && (
+				<ellipse cx={f(mouse.x + mouse.w / 2)} cy={f(mouse.y + mouse.h / 2)} rx={f(mouse.w / 2)} ry={f(mouse.h / 2)} fill="none" stroke="#3d3d3d" stroke-width="0.04" />
+			)
+		}
+		{
+			devices
+				.filter((d) => d.kind !== 'mousemat')
+				.flatMap((d) => d.shapes)
+				.map((s) => {
+					const c = hex(at(s.x, s.y));
+					if (s.is_key) {
+						const w = Math.max(s.w - 0.16, 0.2);
+						const h = Math.max(s.h - 0.16, 0.2);
+						return <rect x={f(s.x - w / 2)} y={f(s.y - h / 2)} width={f(w)} height={f(h)} fill={c} />;
+					}
+					return <rect x={f(s.x - 0.17)} y={f(s.y - 0.17)} width="0.34" height="0.34" fill={c} />;
+				})
+		}
+	</svg>
+	<figcaption>
+		<span class="caps-sm">FAC 202 · desk map</span>
+		<span class="cap">
+			{ledCount} LEDs on {devices.length} devices, each at its measured position, sampled from one wave at t = 6 s.
+			Keys, the keyboard's 18 underglow LEDs, the mouse's wheel, logo and strip, and the mat's single edge LED.
+		</span>
+	</figcaption>
+</figure>
+
+<style>
+	.deskmap {
+		margin: 0;
+	}
+	svg {
+		display: block;
+		width: 100%;
+		height: auto;
+		background: var(--color-ground);
+	}
+	figcaption {
+		display: grid;
+		gap: 6px;
+		margin-top: 14px;
+		padding-top: 12px;
+		border-top: 1px solid var(--color-seam);
+		color: var(--color-ink-3);
+		font-size: 13px;
+		line-height: 1.5;
+	}
+	.caps-sm {
+		color: var(--color-ink-2);
+	}
+</style>

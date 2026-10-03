@@ -1,0 +1,34 @@
+/*
+ * uncoil design tokens as plain custom properties, for the Starlight docs (which don't load Tailwind).
+ * Same names and values as the @theme block in apps/uncoil/src/app.css and ./site.css. Keep in step.
+ */
+:root {
+	--font-sans: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif;
+	--font-mono: 'Cascadia Mono', ui-monospace, Consolas, monospace;
+
+	--color-ground: #0b0b0b;
+	--color-raised: #111111;
+	--color-ink: #f2f2f2;
+	--color-ink-2: #a8a8a8;
+	--color-ink-3: #8a8a8a;
+	--color-ink-4: #5c5c5c;
+	--color-seam: #262626;
+	--color-seam-2: #3d3d3d;
+
+	--color-fac-grey: #6b6b6b;
+	--color-fac-blue: #2f63e8;
+	--color-fac-yellow: #e9c31b;
+	--color-fac-red: #e2372c;
+	--color-fac-white: #f2f2f2;
+
+	--ease: cubic-bezier(0.16, 1, 0.3, 1);
+	--t-fast: 160ms;
+	--hair: 1px solid var(--color-seam);
+	--hair-strong: 1px solid var(--color-seam-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--t-fast: 0ms;
+	}
+}

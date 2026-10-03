@@ -1,0 +1,68 @@
+# GitHub Pages deployment for the uncoil website + docs (site/).
+#
+# Manual-only for now: Pages can't publish from a private repository on a free plan. When the repo goes
+# public, set Settings > Pages > Source to "GitHub Actions" and restore the push trigger below.
+#
+# The site build reads files outside site/ (devices/*.toml for the device tables, and the desktop app's
+# effect maths and desk snapshot in apps/uncoil/src/lib), so it needs the whole repository checked out.
+#
+# Served at https://justinthevoid.github.io/uncoil/ by default. For a custom domain, set the SITE and BASE
+# env vars on the build step (e.g. SITE: https://uncoil.example, BASE: /) and add the domain in
+# Settings > Pages; see site/README.md.
+
+name: Deploy site
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  #   paths: ['site/**', 'devices/**', 'apps/uncoil/src/lib/effect.ts', 'apps/uncoil/src/lib/types.ts', 'apps/uncoil/src/lib/mock/desk.json']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: site/package.json
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+        # env:
+        #   SITE: https://uncoil.example
+        #   BASE: /
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

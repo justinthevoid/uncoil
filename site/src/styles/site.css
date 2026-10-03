@@ -1,0 +1,175 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/archivo/wdth.css';
+
+/*
+ * uncoil design tokens: the Factory catalog world, identical to apps/uncoil/src/app.css.
+ * Matte black ground, plot-white ink, industrial greys for seams. Colour is code: the FAC hues mark
+ * state and catalog strips; live LED colour appears only where something is decoded. Zero radius,
+ * one-pixel hairlines, wide-tracked engraved caps for labels, a wide grotesk for display numerals.
+ * The docs (Starlight) read the same values from ./tokens.css. Keep all three in step.
+ */
+@theme {
+	--font-sans: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif;
+	--font-mono: 'Cascadia Mono', ui-monospace, Consolas, monospace;
+
+	--color-ground: #0b0b0b;
+	--color-raised: #111111;
+	--color-ink: #f2f2f2;
+	--color-ink-2: #a8a8a8;
+	--color-ink-3: #8a8a8a;
+	--color-ink-4: #5c5c5c;
+	--color-seam: #262626;
+	--color-seam-2: #3d3d3d;
+
+	--color-fac-grey: #6b6b6b;
+	--color-fac-blue: #2f63e8;
+	--color-fac-yellow: #e9c31b;
+	--color-fac-red: #e2372c;
+	--color-fac-white: #f2f2f2;
+}
+
+:root {
+	color-scheme: dark;
+	--ease: cubic-bezier(0.16, 1, 0.3, 1);
+	--t-fast: 160ms;
+	--t-mid: 260ms;
+	--hair: 1px solid var(--color-seam);
+	--hair-strong: 1px solid var(--color-seam-2);
+	--gutter: 16px;
+	--rail: 0px;
+	--header: 56px;
+}
+
+@media (min-width: 768px) {
+	:root {
+		--gutter: 32px;
+	}
+}
+@media (min-width: 1100px) {
+	:root {
+		--gutter: 48px;
+	}
+	/* Pages with a section rail reserve room for it. */
+	body:has(nav.rail) {
+		--rail: 72px;
+	}
+}
+
+@layer base {
+	html {
+		background: var(--color-ground);
+		scroll-padding-top: calc(var(--header) + 16px);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		html {
+			scroll-behavior: smooth;
+		}
+	}
+	body {
+		background: var(--color-ground);
+		color: var(--color-ink);
+		font-family: var(--font-sans);
+		font-size: 16px;
+		line-height: 1.6;
+		font-stretch: 100%;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+		overflow-x: clip;
+	}
+	output,
+	.num,
+	td,
+	th {
+		font-variant-numeric: tabular-nums;
+	}
+	::selection {
+		background: var(--color-ink);
+		color: var(--color-ground);
+	}
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-seam-2) transparent;
+		caret-color: var(--color-fac-red);
+	}
+	:focus-visible {
+		outline: 1px solid var(--color-ink);
+		outline-offset: 3px;
+	}
+	a {
+		color: inherit;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.22em;
+	}
+	code,
+	kbd,
+	pre {
+		font-family: var(--font-mono);
+		font-size: 0.875em;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		:root {
+			--t-fast: 0ms;
+			--t-mid: 0ms;
+		}
+	}
+}
+
+@layer components {
+	/* Engraved caps: the world's label voice. Small, wide, generously tracked. */
+	.caps {
+		font-size: 11px;
+		font-weight: 500;
+		font-stretch: 115%;
+		letter-spacing: 0.22em;
+		text-transform: uppercase;
+		line-height: 1.4;
+	}
+	.caps-sm {
+		font-size: 10px;
+		font-weight: 500;
+		font-stretch: 112%;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+	}
+	/* Display: wide, light, set tight. */
+	.display {
+		font-weight: 380;
+		font-stretch: 125%;
+		letter-spacing: -0.02em;
+		line-height: 0.95;
+		font-variant-numeric: tabular-nums;
+	}
+	.prose-ink {
+		color: var(--color-ink-2);
+		max-width: 62ch;
+	}
+	.prose-ink strong {
+		color: var(--color-ink);
+		font-weight: 560;
+	}
+	.prose-ink code {
+		color: var(--color-ink);
+		background: var(--color-raised);
+		border: var(--hair);
+		padding: 0 0.3em;
+		overflow-wrap: anywhere;
+	}
+	.sr-only-focusable:not(:focus) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	/* Link with the engraved-caps voice and a hairline under it. */
+	.caps-link {
+		text-decoration: none;
+		border-bottom: 1px solid var(--color-seam-2);
+		padding-bottom: 2px;
+		transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+	}
+	.caps-link:hover {
+		border-color: var(--color-ink);
+	}
+}

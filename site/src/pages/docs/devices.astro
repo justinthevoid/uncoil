@@ -1,0 +1,23 @@
+---
+// /docs/devices/: a Starlight page (not a content entry) so the supported-devices table can be generated at
+// build time from devices/*.toml, the same files the daemon compiles in. The prose lives in
+// src/docs-fragments/devices.md.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import DeviceTable from '../../components/docs/DeviceTable.astro';
+import { Content as Guide, getHeadings } from '../../docs-fragments/devices.md';
+
+const headings = [{ depth: 2, slug: 'supported-today', text: 'Supported today' }, ...getHeadings()];
+---
+
+<StarlightPage
+	frontmatter={{
+		title: 'Devices',
+		description: 'The Razer devices uncoil supports today, and how to add one with a single TOML file.',
+		fac: 'FAC 203',
+	}}
+	headings={headings}
+>
+	<h2 id="supported-today">Supported today</h2>
+	<DeviceTable />
+	<Guide />
+</StarlightPage>

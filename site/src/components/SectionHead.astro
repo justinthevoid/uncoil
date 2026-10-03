@@ -1,0 +1,51 @@
+---
+// Section heading with its catalog number on the same line (a catalog entry, not a kicker above it).
+interface Props {
+	id: string;
+	fac: string;
+	title: string;
+}
+const { id, fac, title } = Astro.props;
+---
+
+<div class="head">
+	<span class="cat caps" aria-hidden="true">{fac}</span>
+	<h2 {id}><span class="sr-cat">{fac}: </span>{title}</h2>
+</div>
+
+<style>
+	.head {
+		display: grid;
+		grid-template-columns: 5.5rem minmax(0, 1fr);
+		gap: 16px;
+		align-items: baseline;
+		margin-bottom: 40px;
+	}
+	.cat {
+		color: var(--color-ink-3);
+		white-space: nowrap;
+	}
+	h2 {
+		font-size: clamp(1.75rem, 1.2rem + 2vw, 3rem);
+		font-weight: 380;
+		font-stretch: 122%;
+		letter-spacing: -0.02em;
+		line-height: 1.05;
+		color: var(--color-ink);
+	}
+	.sr-cat {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	@media (max-width: 560px) {
+		.head {
+			grid-template-columns: auto minmax(0, 1fr);
+			gap: 12px;
+			margin-bottom: 28px;
+		}
+	}
+</style>

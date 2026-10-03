@@ -1,0 +1,9 @@
+---
+// uncoil's world is dark only. Starlight's provider would pick light from the OS preference; this one
+// pins the theme to dark and keeps the global Starlight scripts expect (updatePickers) as a no-op.
+---
+
+<script is:inline>
+	document.documentElement.dataset.theme = 'dark';
+	window.StarlightThemeProvider = { updatePickers() {} };
+</script>

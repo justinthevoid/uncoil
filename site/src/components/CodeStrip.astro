@@ -1,0 +1,26 @@
+---
+// The five FAC code hues as a strip. Decorative: the hues carry no meaning on their own here.
+interface Props {
+	class?: string;
+	cell?: number;
+}
+const { class: cls, cell = 14 } = Astro.props;
+const hues = ['#6b6b6b', '#2f63e8', '#e9c31b', '#e2372c', '#f2f2f2'];
+---
+
+<span class:list={['strip', cls]} aria-hidden="true" style={`--cell:${cell}px`}>
+	{hues.map((h) => <span style={`background:${h}`} />)}
+</span>
+
+<style>
+	.strip {
+		display: inline-grid;
+		grid-auto-flow: column;
+		gap: 4px;
+		vertical-align: middle;
+	}
+	.strip > span {
+		width: var(--cell);
+		height: calc(var(--cell) * 0.5);
+	}
+</style>

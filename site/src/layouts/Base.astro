@@ -1,0 +1,202 @@
+---
+import '../styles/site.css';
+import Mark from '../components/Mark.astro';
+import CodeStrip from '../components/CodeStrip.astro';
+import { url, REPO } from '../lib/url';
+
+interface Props {
+	title: string;
+	description: string;
+}
+const { title, description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const year = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" href={url('favicon.svg')} type="image/svg+xml" />
+		<meta name="theme-color" content="#0b0b0b" />
+		<meta name="color-scheme" content="dark" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta name="twitter:card" content="summary" />
+		<meta name="generator" content={Astro.generator} />
+	</head>
+	<body>
+		<a class="skip caps" href="#main">Skip to content</a>
+		<header class="top">
+			<a class="brand" href={url()} aria-label="uncoil home">
+				<Mark size={22} />
+				<span class="word" translate="no">uncoil</span>
+			</a>
+			<CodeStrip class="top-strip" cell={14} />
+			<nav aria-label="Site">
+				<a class="caps" href={url('docs/')}>Docs</a>
+				<a class="caps hide-sm" href={url('docs/protocol/')}>Protocol</a>
+				<a class="caps" href={REPO}>GitHub</a>
+			</nav>
+		</header>
+		<slot name="rail" />
+		<main id="main">
+			<slot />
+		</main>
+		<footer class="foot">
+			<div class="foot-grid">
+				<div class="foot-brand">
+					<a class="brand" href={url()}>
+						<Mark size={22} />
+						<span class="word" translate="no">uncoil</span>
+					</a>
+					<p class="shed">Sheds the skin, keeps the colours.</p>
+				</div>
+				<dl class="foot-meta">
+					<div><dt class="caps-sm">Licence</dt><dd><a href={`${REPO}/blob/main/LICENSE`}>GPL-3.0-or-later</a></dd></div>
+					<div><dt class="caps-sm">Source</dt><dd><a href={REPO}>github.com/justinthevoid/uncoil</a></dd></div>
+					<div><dt class="caps-sm">Docs</dt><dd><a href={url('docs/')}>Getting started, protocol, devices</a></dd></div>
+				</dl>
+			</div>
+			<p class="legal">
+				uncoil is an independent open-source project, not affiliated with, endorsed by or sponsored by Razer Inc.
+				“Razer”, “Synapse” and “Chroma” are trademarks of Razer Inc., used here only to say which hardware and software
+				uncoil works with. Protocol facts and some device data derive from OpenRazer and OpenRGB (GPL-2.0).
+			</p>
+			<p class="legal caps-sm">FAC 000 · uncoil site · {year}</p>
+		</footer>
+	</body>
+</html>
+
+<style>
+	.skip {
+		position: absolute;
+		left: var(--gutter);
+		top: -40px;
+		z-index: 50;
+		background: var(--color-ink);
+		color: var(--color-ground);
+		padding: 8px 12px;
+		text-decoration: none;
+	}
+	.skip:focus {
+		top: 8px;
+	}
+	.top {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		height: var(--header);
+		display: flex;
+		align-items: center;
+		gap: 24px;
+		padding: 0 var(--gutter) 0 calc(var(--gutter) + var(--rail));
+		background: var(--color-ground);
+		border-bottom: var(--hair);
+	}
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 12px;
+		text-decoration: none;
+		color: var(--color-ink);
+	}
+	.word {
+		font-size: 17px;
+		font-weight: 500;
+		font-stretch: 125%;
+		letter-spacing: 0.16em;
+	}
+	.top :global(.top-strip) {
+		display: none;
+	}
+	nav {
+		margin-left: auto;
+		display: flex;
+		gap: 22px;
+	}
+	nav a {
+		text-decoration: none;
+		color: var(--color-ink-2);
+		padding: 6px 0;
+		border-bottom: 1px solid transparent;
+		transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+	}
+	nav a:hover {
+		color: var(--color-ink);
+		border-color: var(--color-ink);
+	}
+	@media (min-width: 768px) {
+		.top :global(.top-strip) {
+			display: inline-grid;
+		}
+		nav {
+			gap: 32px;
+		}
+	}
+	@media (max-width: 480px) {
+		.hide-sm {
+			display: none;
+		}
+	}
+
+	main {
+		padding-left: var(--rail);
+	}
+	.foot {
+		border-top: var(--hair);
+		padding: 56px var(--gutter) 40px calc(var(--gutter) + var(--rail));
+		display: grid;
+		gap: 32px;
+	}
+	.foot-grid {
+		display: grid;
+		gap: 32px;
+	}
+	.shed {
+		margin-top: 14px;
+		color: var(--color-ink-3);
+		font-size: 14px;
+	}
+	.foot-meta {
+		display: grid;
+		gap: 0;
+		margin: 0;
+	}
+	.foot-meta > div {
+		display: grid;
+		grid-template-columns: 7rem 1fr;
+		gap: 16px;
+		padding: 10px 0;
+		border-top: var(--hair);
+		font-size: 14px;
+	}
+	.foot-meta dt {
+		color: var(--color-ink-3);
+		padding-top: 3px;
+	}
+	.foot-meta dd {
+		margin: 0;
+		color: var(--color-ink-2);
+		overflow-wrap: anywhere;
+	}
+	.legal {
+		color: var(--color-ink-3);
+		font-size: 13px;
+		max-width: 80ch;
+	}
+	p.caps-sm {
+		color: var(--color-ink-3);
+	}
+	@media (min-width: 900px) {
+		.foot-grid {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+		}
+	}
+</style>

@@ -1,0 +1,327 @@
+/*
+ * Starlight themed into the uncoil catalog world (Read mode). Same tokens as the app and the landing
+ * page; dark only (the ThemeSelect override removes the picker). Unlayered on purpose: these rules
+ * win over Starlight's @layer starlight.* styles without !important.
+ */
+@import './tokens.css';
+
+:root,
+:root[data-theme='light'],
+::backdrop {
+	color-scheme: dark;
+
+	--sl-font: 'Archivo Variable';
+	--sl-font-mono: 'Cascadia Mono', ui-monospace, Consolas;
+
+	--sl-color-white: var(--color-ink);
+	--sl-color-gray-1: #d4d4d4;
+	--sl-color-gray-2: var(--color-ink-2);
+	--sl-color-gray-3: var(--color-ink-3);
+	--sl-color-gray-4: var(--color-ink-4);
+	--sl-color-gray-5: var(--color-seam-2);
+	--sl-color-gray-6: var(--color-seam);
+	--sl-color-gray-7: var(--color-raised);
+	--sl-color-black: var(--color-ground);
+
+	--sl-color-accent-low: var(--color-raised);
+	--sl-color-accent: var(--color-ink-2);
+	--sl-color-accent-high: var(--color-ink);
+
+	--sl-color-text: var(--color-ink-2);
+	--sl-color-text-accent: var(--color-ink);
+	--sl-color-text-invert: var(--color-ground);
+	--sl-color-bg: var(--color-ground);
+	--sl-color-bg-nav: var(--color-ground);
+	--sl-color-bg-sidebar: var(--color-ground);
+	--sl-color-bg-inline-code: var(--color-raised);
+	--sl-color-bg-accent: var(--color-ink);
+	--sl-color-hairline-light: var(--color-seam-2);
+	--sl-color-hairline: var(--color-seam);
+	--sl-color-hairline-shade: var(--color-ground);
+	--sl-color-backdrop-overlay: rgba(11, 11, 11, 0.8);
+
+	/* FAC code hues stand in for Starlight's named colours (asides, badges). */
+	--sl-color-blue: var(--color-fac-blue);
+	--sl-color-blue-low: var(--color-raised);
+	--sl-color-blue-high: var(--color-ink);
+	--sl-color-orange: var(--color-fac-yellow);
+	--sl-color-orange-low: var(--color-raised);
+	--sl-color-orange-high: var(--color-ink);
+	--sl-color-red: var(--color-fac-red);
+	--sl-color-red-low: var(--color-raised);
+	--sl-color-red-high: var(--color-ink);
+	--sl-color-purple: var(--color-fac-white);
+	--sl-color-purple-low: var(--color-raised);
+	--sl-color-purple-high: var(--color-ink);
+	--sl-color-green: var(--color-fac-grey);
+	--sl-color-green-low: var(--color-raised);
+	--sl-color-green-high: var(--color-ink);
+
+	--sl-shadow-sm: none;
+	--sl-shadow-md: none;
+	--sl-shadow-lg: none;
+
+	--sl-text-h1: clamp(1.9rem, 1.2rem + 2.4vw, 2.75rem);
+	--sl-text-h2: 1.6rem;
+	--sl-text-h3: 1.2rem;
+	--sl-text-h4: 1.05rem;
+	--sl-line-height: 1.7;
+	--sl-line-height-headings: 1.15;
+	--sl-content-width: 46rem;
+}
+
+/* Zero radius everywhere: hairlines, not pills. */
+*,
+*::before,
+*::after {
+	border-radius: 0;
+}
+
+::selection {
+	background: var(--color-ink);
+	color: var(--color-ground);
+}
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-seam-2) transparent;
+	caret-color: var(--color-fac-red);
+}
+:focus-visible {
+	outline: 1px solid var(--color-ink);
+	outline-offset: 3px;
+}
+
+body {
+	font-stretch: 100%;
+	-webkit-font-smoothing: antialiased;
+	font-variant-numeric: tabular-nums;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+header.header {
+	border-bottom: var(--hair);
+	background: var(--color-ground);
+}
+
+/* Search reads as a hairline field. */
+site-search button[data-open-modal] {
+	border: var(--hair-strong);
+	background: transparent;
+	font-stretch: 112%;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	font-size: 11px;
+}
+site-search button[data-open-modal]:hover {
+	border-color: var(--color-ink);
+}
+site-search kbd {
+	background: transparent;
+	border: var(--hair);
+}
+
+/* ── Sidebar: a catalog index ─────────────────────────────────────────────── */
+nav.sidebar .sidebar-pane {
+	border-inline-end: var(--hair);
+}
+nav.sidebar .large,
+nav.sidebar summary .group-label span {
+	font-size: 11px;
+	font-weight: 500;
+	font-stretch: 115%;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	color: var(--color-ink-3);
+}
+nav.sidebar a {
+	position: relative;
+	font-size: 0.875rem;
+	border: 1px solid transparent;
+}
+nav.sidebar a:hover {
+	border-color: var(--color-seam-2);
+}
+/* Active entry: the board's active nav item, white field with the red code block. */
+nav.sidebar a[aria-current='page'] {
+	background: var(--color-ink);
+	color: var(--color-ground);
+	font-weight: 560;
+	padding-inline-end: 1.25rem;
+}
+nav.sidebar a[aria-current='page']::after {
+	content: '';
+	position: absolute;
+	inset-block: -1px;
+	inset-inline-end: -1px;
+	width: 6px;
+	background: var(--color-fac-red);
+}
+nav.sidebar ul ul li {
+	border-inline-start-color: var(--color-seam);
+}
+
+/* ── Page title and headings ──────────────────────────────────────────────── */
+.content-panel {
+	border-top-color: var(--color-seam);
+}
+h1#_top {
+	font-weight: 380;
+	font-stretch: 125%;
+	letter-spacing: -0.02em;
+	line-height: 1.05;
+}
+.sl-markdown-content :is(h2, h3, h4) {
+	color: var(--color-ink);
+	font-stretch: 112%;
+	font-weight: 460;
+	letter-spacing: -0.005em;
+}
+.sl-markdown-content h2 {
+	font-stretch: 118%;
+	font-weight: 400;
+}
+/* A hairline above each section, across the full measure (on the wrapper when Starlight adds one). */
+.sl-markdown-content .sl-heading-wrapper.level-h2,
+.sl-markdown-content > h2 {
+	padding-top: 1.25rem;
+	border-top: var(--hair);
+}
+.sl-markdown-content :is(h2, h3, h4, h5) + * {
+	margin-top: 0.75rem;
+}
+
+/* ── Body copy ────────────────────────────────────────────────────────────── */
+.sl-markdown-content a {
+	color: var(--color-ink);
+	text-decoration-color: var(--color-seam-2);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.22em;
+	transition: text-decoration-color var(--t-fast) var(--ease);
+}
+.sl-markdown-content a:hover {
+	text-decoration-color: var(--color-ink);
+}
+.sl-markdown-content strong {
+	color: var(--color-ink);
+	font-weight: 560;
+}
+.sl-markdown-content :not(pre) > code {
+	color: var(--color-ink);
+	background: var(--color-raised);
+	border: var(--hair);
+	padding: 0.05em 0.3em;
+	font-size: 0.85em;
+}
+.sl-markdown-content kbd {
+	font-family: var(--font-mono);
+	font-size: 0.8em;
+	border: var(--hair-strong);
+	padding: 0.05em 0.4em;
+	color: var(--color-ink);
+	background: transparent;
+}
+
+/* Tables: ruled ledger, caps header. */
+.sl-markdown-content table {
+	border-collapse: collapse;
+	font-size: 0.9rem;
+	display: block;
+	overflow-x: auto;
+}
+.sl-markdown-content :is(th, td) {
+	border: 0;
+	border-bottom: var(--hair);
+	padding: 0.55rem 1rem 0.55rem 0;
+	background: transparent;
+	vertical-align: top;
+}
+.sl-markdown-content th {
+	font-size: 10px;
+	font-weight: 500;
+	font-stretch: 112%;
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	color: var(--color-ink-3);
+	border-bottom: var(--hair-strong);
+	text-align: start;
+}
+.sl-markdown-content tr:nth-child(2n) {
+	background: transparent;
+}
+
+/* Asides: raised field, hairline, a coded block for the kind (colour as code, title says it too). */
+.starlight-aside {
+	background: var(--color-raised);
+	border: var(--hair);
+	border-inline-start: 4px solid var(--sl-color-asides-border, var(--color-fac-grey));
+	padding: 1rem 1.1rem;
+}
+.starlight-aside--note {
+	--sl-color-asides-border: var(--color-fac-blue);
+}
+.starlight-aside--tip {
+	--sl-color-asides-border: var(--color-fac-white);
+}
+.starlight-aside--caution {
+	--sl-color-asides-border: var(--color-fac-yellow);
+}
+.starlight-aside--danger {
+	--sl-color-asides-border: var(--color-fac-red);
+}
+.starlight-aside__title {
+	color: var(--color-ink);
+	font-size: 11px;
+	font-weight: 500;
+	font-stretch: 115%;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+}
+.starlight-aside__icon {
+	display: none;
+}
+
+/* Table of contents and pagination. */
+starlight-toc h2,
+mobile-starlight-toc .toggle {
+	font-size: 11px;
+	font-weight: 500;
+	font-stretch: 115%;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	color: var(--color-ink-3);
+}
+starlight-toc a[aria-current='true'] {
+	color: var(--color-ink);
+	box-shadow: inset 2px 0 0 var(--color-fac-red);
+}
+.pagination-links a {
+	border: var(--hair);
+	box-shadow: none;
+}
+.pagination-links a:hover {
+	border-color: var(--color-ink);
+}
+.pagination-links .link-title {
+	color: var(--color-ink);
+	font-stretch: 112%;
+}
+
+/* Expressive Code frames sit on the same hairline as everything else. */
+.expressive-code .frame {
+	box-shadow: none;
+}
+
+/* Footer meta (edit link). */
+footer .meta a {
+	color: var(--color-ink-3);
+}
+
+/* Visible code-strip helper used by the custom SiteTitle and PageTitle. */
+.fac {
+	font-size: 11px;
+	font-weight: 500;
+	font-stretch: 115%;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	color: var(--color-ink-3);
+}
