@@ -1,0 +1,38 @@
+# Normalise line endings: LF in the repository and working tree, except Windows scripts.
+* text=auto eol=lf
+
+# Windows scripts keep CRLF (PowerShell 5.1 and cmd are happier with it).
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Generated lockfiles: don't diff noisily, don't count in language stats.
+Cargo.lock      text eol=lf -diff linguist-generated
+pnpm-lock.yaml  text eol=lf -diff linguist-generated
+
+# Binary assets
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.icns   binary
+*.bmp    binary
+*.mp4    binary
+*.webm   binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.pdf    binary
+*.zip    binary
+*.exe    binary
+*.dll    binary
+
+# Language stats: the reverse-engineering scripts and the design sampler are reference material.
+tools/reference/**     linguist-documentation
+.impeccable/**         linguist-documentation
+docs/*.json            linguist-documentation

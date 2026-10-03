@@ -5,7 +5,19 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+  # Daemon and pure crates. uncoil-gui (apps/uncoil/src-tauri) is excluded here because it
+  # needs the front end built first; the gui job covers it.
   rust:
     runs-on: windows-latest
     steps:
@@ -23,6 +35,7 @@ jobs:
           name: uncoild
           path: target/release/uncoild.exe
 
+  # Desktop app: SvelteKit front end, then the Tauri crate (package uncoil-gui) that embeds it.
   gui:
     runs-on: windows-latest
     defaults:
@@ -33,6 +46,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: pnpm/action-setup@v4
+        with:
+          # apps/uncoil/package.json has no "packageManager" field, so the version must be given here.
+          version: 12
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,3 +58,29 @@ jobs:
       - run: pnpm build
       - run: cargo build -p uncoil-gui
         working-directory: .
+      # Checks the browser mock (src/lib/mock) still matches the real desk layout.
+      - run: cargo test -p uncoil-gui
+        working-directory: .
+
+  # Marketing site. Every step is skipped until site/package.json exists.
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: detect
+        if: hashFiles('site/package.json') != ''
+        run: echo "present=true" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v4
+        if: steps.detect.outputs.present == 'true'
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.present == 'true'
+        with:
+          node-version: 22
+      - if: steps.detect.outputs.present == 'true'
+        working-directory: site
+        run: pnpm install --frozen-lockfile
+      - if: steps.detect.outputs.present == 'true'
+        working-directory: site
+        run: pnpm build

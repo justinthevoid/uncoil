@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest something uncoil should do.
+title: "[feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        uncoil tries to stay small: the daemon runs all day, so every feature has to earn its bytes. Requests that describe the problem are more useful than ones that describe a solution. The [roadmap](https://github.com/justinthevoid/uncoil#roadmap) lists what's already planned.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+      placeholder: I use Fn+F10 for play/pause in Synapse; without it I have to reach for the dial.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like
+      description: How you imagine it working. Rough is fine.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Lighting / effects
+        - Keys, Fn layer, macros
+        - Command dial / OLED
+        - Profiles
+        - Desktop app
+        - Install / updates
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: devices
+    attributes:
+      label: Devices this applies to
+      placeholder: BlackWidow V4 Pro 75%
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use now, or how other tools handle it.
+    validations:
+      required: false

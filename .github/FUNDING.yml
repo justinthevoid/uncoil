@@ -1,0 +1,12 @@
+# Funding links shown in the repository's "Sponsor" button.
+#
+# Every entry is commented out on purpose: none of these accounts exist yet. To turn one on:
+#   1. Create or enable the account (for GitHub Sponsors: https://github.com/sponsors, apply as justinthevoid).
+#   2. Uncomment the matching line and put in the real handle.
+#   3. Enable Settings -> General -> Features -> Sponsorships on the repository.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# github: [justinthevoid]
+# ko_fi: your-ko-fi-handle
+# liberapay: your-liberapay-handle
+# custom: ["https://example.com/donate"]

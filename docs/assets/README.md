@@ -1,0 +1,17 @@
+# docs/assets
+
+Images used by the top-level README and the docs.
+
+| File | Status | What |
+|---|---|---|
+| `app.png` | present | Real capture of the desktop app's Lighting page at its default 1100×720 window, running on the built-in demo data (mock mode, reduced motion). Replace with a capture against the live engine before launch. |
+| `desk.mp4` / `desk.gif` | optional | Short clip of the wave running across the physical desk. Keep it under 10 MB; GitHub renders an uploaded video if you drag it into the README editor. |
+| `social-preview.png` | optional | 1280×640 repository social preview (upload under Settings → General → Social preview). |
+
+Rules for anything added here:
+
+- No personal information in frame: no notifications, usernames, file paths with names, serial numbers or
+  other windows.
+- Note provenance in this table (screenshot, code render or photo). Nothing AI-generated is presented as a
+  real screenshot.
+- Do not use Razer logos or marks as decoration; device names in captions are fine.

@@ -1,0 +1,11 @@
+# Default owner for everything. Review requests go here automatically.
+* @justinthevoid
+
+# Paths that touch hardware or elevated execution; listed separately so a co-maintainer
+# can be added to them later without owning the whole repo.
+/crates/uncoil-hid/        @justinthevoid
+/devices/                  @justinthevoid
+/scripts/                  @justinthevoid
+/tools/reference/          @justinthevoid
+/.github/                  @justinthevoid
+/SECURITY.md               @justinthevoid

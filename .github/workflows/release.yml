@@ -1,0 +1,116 @@
+name: release
+
+# Push a tag like v0.1.0 (or v0.2.0-rc.1 for a pre-release) to build Windows binaries and
+# attach them to a DRAFT GitHub Release. Nothing is published until you review the draft
+# and press "Publish release".
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches every version field
+        shell: pwsh
+        run: |
+          $want   = $env:TAG.TrimStart('v')
+          $cargo  = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          $tauri  = (Get-Content apps/uncoil/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $pkg    = (Get-Content apps/uncoil/package.json -Raw | ConvertFrom-Json).version
+          "tag $want / Cargo.toml $cargo / tauri.conf.json $tauri / package.json $pkg"
+          if ($want -ne $cargo -or $want -ne $tauri -or $want -ne $pkg) {
+            Write-Error "Tag $env:TAG does not match the versions in Cargo.toml, tauri.conf.json and package.json."
+            exit 1
+          }
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/uncoil/pnpm-lock.yaml
+
+      - name: Test
+        run: cargo test --locked -p uncoil-core -p uncoil-hid -p uncoild
+
+      - name: Build daemon
+        run: cargo build --locked --release -p uncoild
+
+      - name: Build desktop app and installer
+        working-directory: apps/uncoil
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm tauri build
+
+      - name: Stage release files
+        shell: pwsh
+        run: |
+          $ver = $env:TAG.TrimStart('v')
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item target/release/uncoild.exe dist/uncoild.exe
+          Copy-Item scripts/install-task.ps1 dist/install-task.ps1
+          $installers = Get-ChildItem target/release/bundle/nsis/*.exe
+          if (-not $installers) { Write-Error "No NSIS installer found under target/release/bundle/nsis"; exit 1 }
+          foreach ($i in $installers) { Copy-Item $i.FullName "dist/uncoil-app-$ver-x64-setup.exe" }
+          Push-Location dist
+          Get-ChildItem -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content -Encoding ascii SHA256SUMS.txt
+          Pop-Location
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uncoil-${{ github.ref_name }}-windows
+          path: dist/*
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          name: uncoil ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/uncoild.exe
+            dist/install-task.ps1
+            dist/uncoil-app-*-x64-setup.exe
+            dist/SHA256SUMS.txt
+          body: |
+            **Windows 10/11 x64. Pre-release software; read the notes below before installing.**
+
+            | File | What |
+            |---|---|
+            | `uncoild.exe` | the lighting daemon (single executable) |
+            | `install-task.ps1` | installs the daemon as a logon task: `powershell -ExecutionPolicy Bypass -File install-task.ps1 -Exe .\uncoild.exe` |
+            | `uncoil-app-*-x64-setup.exe` | the optional desktop app (settings and live preview); does not install the daemon |
+            | `SHA256SUMS.txt` | checksums: `Get-FileHash <file> -Algorithm SHA256` |
+
+            - Quit Razer Synapse first; two programs driving one device don't mix.
+            - The binaries are not code-signed yet, so Windows SmartScreen may warn.
+            - The logon task runs elevated; see SECURITY.md for what that means.
+
+            Changes: see CHANGELOG.md and the generated notes below.

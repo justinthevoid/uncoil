@@ -1,0 +1,99 @@
+name: Device support request
+description: Ask for a Razer device to be supported, or offer to help test one.
+title: "[device] "
+labels: ["device", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Supporting a device is mostly a data file: USB endpoints, quirks, the LED matrix and where each LED physically sits. The details below are what's needed to write one. If you'd like to write it yourself, see [Adding a device](https://github.com/justinthevoid/uncoil/blob/main/CONTRIBUTING.md#adding-a-device).
+
+        **Please don't attach HID captures, Synapse logs or serial numbers.** Nothing below needs them. If a capture is ever useful, we'll agree on a safe, minimal one in the thread first.
+
+  - type: input
+    id: device
+    attributes:
+      label: Device name
+      description: Exact model, including edition and layout.
+      placeholder: Razer Huntsman V3 Pro TKL (ANSI, US)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Keyboard
+        - Mouse
+        - Mouse mat
+        - Headset
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: pid
+    attributes:
+      label: USB IDs, per connection
+      description: |
+        For each way the device connects (cable, HyperSpeed dongle, Bluetooth), the USB product ID. Device Manager → the device → Properties → Details → **Hardware Ids** shows `VID_1532&PID_xxxx`. Most Razer devices list several entries with `MI_xx` (interface); include them all.
+      placeholder: |
+        Wired:  USB\VID_1532&PID_02B3&MI_00, MI_01, MI_02, MI_03
+        Dongle: USB\VID_1532&PID_02B4&MI_00 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: interfaces
+    attributes:
+      label: HID interface details (optional, very helpful)
+      description: |
+        If you have Python, `pip install hidapi`, then run the snippet below and paste the output. It only lists collections; it sends nothing to the device. It deliberately leaves out serial numbers.
+
+        ```python
+        import hid
+        for d in hid.enumerate(0x1532):
+            print(hex(d['product_id']), d['interface_number'], hex(d['usage_page']), hex(d['usage']), d['product_string'])
+        ```
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: lighting
+    attributes:
+      label: Lighting
+      description: Which zones light up (per-key, logo, wheel, underglow, edge strip), and roughly how many LEDs if you know.
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Known elsewhere?
+      description: Is the device supported by OpenRazer or OpenRGB? A link to its entry saves a lot of work.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: help
+    attributes:
+      label: Can you help test?
+      description: Testing means running a build with a draft device file and reporting what the LEDs do. It never writes to the device's onboard memory without asking you first.
+      options:
+        - Yes, I can test builds and report back
+        - Yes, and I'd like to write the device file myself
+        - No, just requesting
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for this device.
+          required: true
+        - label: I haven't included serial numbers, HID captures or Synapse logs.
+          required: true

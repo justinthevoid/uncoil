@@ -1,0 +1,116 @@
+name: Bug report
+description: Something uncoil does wrong, or doesn't do.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Two requests before you start:
+        - **Security problems go to [SECURITY.md](https://github.com/justinthevoid/uncoil/blob/main/SECURITY.md)**, not here.
+        - Remove serial numbers, your Windows username and other personal details from anything you paste. Never attach HID captures that contain typed keys.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        Set the wave to 35°, closed the app. The mouse kept animating; the keyboard froze on one frame after about 10 minutes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Daemon (uncoild)
+        - Desktop app
+        - Installer / logon task
+        - Device definition
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: devices
+    attributes:
+      label: Devices
+      description: |
+        Name, connection and USB product ID (PID) of each Razer device involved. To find the PID: Device Manager → the device → Properties → Details → Hardware Ids, the `PID_xxxx` part.
+      placeholder: |
+        Razer BlackWidow V4 Pro 75%, wired, PID 02B3, firmware unknown
+        Razer Basilisk V3 Pro, HyperSpeed dongle, PID 00AB
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: "Run `winver`, or Settings → System → About."
+      placeholder: Windows 11 24H2, build 26100.xxxx
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: uncoil version or commit
+      description: The release you installed, the commit you built (`git rev-parse --short HEAD`), or the version on the app's About page.
+      placeholder: 0.1.0 / a1b2c3d
+    validations:
+      required: true
+
+  - type: dropdown
+    id: synapse
+    attributes:
+      label: Is Razer Synapse installed or running?
+      options:
+        - Not installed
+        - Installed but not running
+        - Running
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: uncoild log
+      description: |
+        Paste the relevant part of `%LOCALAPPDATA%\uncoil\uncoild.log` (open it with `notepad %LOCALAPPDATA%\uncoil\uncoild.log`). Check it for anything personal first.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: config.json (optional)
+      description: "`%APPDATA%\\uncoil\\config.json`, if the problem involves an effect or setting."
+      render: json
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and this isn't a duplicate.
+          required: true
+        - label: I removed serial numbers, usernames and other personal data from what I pasted.
+          required: true
