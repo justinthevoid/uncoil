@@ -130,7 +130,8 @@ mod tests {
         assert!(devices.as_array().is_some_and(|d| !d.is_empty()), "{devices}");
         let key = run(Some("keyboard"), "keymap.get", Some(serde_json::json!({ "key": "P", "layer": "fn" }))).unwrap();
         assert_eq!(key["name"], "P");
-        let refused = run(Some("keyboard"), "keymap.set", Some(serde_json::json!({ "key": "P", "function": "key F5" })));
+        let refused =
+            run(Some("keyboard"), "keymap.set", Some(serde_json::json!({ "key": "P", "function": "key F5" })));
         assert!(refused.unwrap_err().contains("write=true"), "onboard writes need write=true");
         assert!(run(None, "no.such.command", None).is_err());
     }
