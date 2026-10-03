@@ -1,0 +1,634 @@
+[
+  {
+    "description": "Escape",
+    "function": "key ESCAPE",
+    "key": 110,
+    "layer": "normal",
+    "name": "ESC",
+    "profile": 1
+  },
+  {
+    "description": "F1",
+    "function": "key F1",
+    "key": 112,
+    "layer": "normal",
+    "name": "F1",
+    "profile": 1
+  },
+  {
+    "description": "F2",
+    "function": "key F2",
+    "key": 113,
+    "layer": "normal",
+    "name": "F2",
+    "profile": 1
+  },
+  {
+    "description": "F3",
+    "function": "key F3",
+    "key": 114,
+    "layer": "normal",
+    "name": "F3",
+    "profile": 1
+  },
+  {
+    "description": "F4",
+    "function": "key F4",
+    "key": 115,
+    "layer": "normal",
+    "name": "F4",
+    "profile": 1
+  },
+  {
+    "description": "F5",
+    "function": "key F5",
+    "key": 116,
+    "layer": "normal",
+    "name": "F5",
+    "profile": 1
+  },
+  {
+    "description": "F6",
+    "function": "key F6",
+    "key": 117,
+    "layer": "normal",
+    "name": "F6",
+    "profile": 1
+  },
+  {
+    "description": "F7",
+    "function": "key F7",
+    "key": 118,
+    "layer": "normal",
+    "name": "F7",
+    "profile": 1
+  },
+  {
+    "description": "F8",
+    "function": "key F8",
+    "key": 119,
+    "layer": "normal",
+    "name": "F8",
+    "profile": 1
+  },
+  {
+    "description": "F9",
+    "function": "key F9",
+    "key": 120,
+    "layer": "normal",
+    "name": "F9",
+    "profile": 1
+  },
+  {
+    "description": "F10",
+    "function": "key F10",
+    "key": 121,
+    "layer": "normal",
+    "name": "F10",
+    "profile": 1
+  },
+  {
+    "description": "F11",
+    "function": "key F11",
+    "key": 122,
+    "layer": "normal",
+    "name": "F11",
+    "profile": 1
+  },
+  {
+    "description": "F12",
+    "function": "key F12",
+    "key": 123,
+    "layer": "normal",
+    "name": "F12",
+    "profile": 1
+  },
+  {
+    "description": "Grave",
+    "function": "key GRAVE",
+    "key": 1,
+    "layer": "normal",
+    "name": "TILDE",
+    "profile": 1
+  },
+  {
+    "description": "1",
+    "function": "key 1",
+    "key": 2,
+    "layer": "normal",
+    "name": "1",
+    "profile": 1
+  },
+  {
+    "description": "2",
+    "function": "key 2",
+    "key": 3,
+    "layer": "normal",
+    "name": "2",
+    "profile": 1
+  },
+  {
+    "description": "3",
+    "function": "key 3",
+    "key": 4,
+    "layer": "normal",
+    "name": "3",
+    "profile": 1
+  },
+  {
+    "description": "4",
+    "function": "key 4",
+    "key": 5,
+    "layer": "normal",
+    "name": "4",
+    "profile": 1
+  },
+  {
+    "description": "5",
+    "function": "key 5",
+    "key": 6,
+    "layer": "normal",
+    "name": "5",
+    "profile": 1
+  },
+  {
+    "description": "6",
+    "function": "key 6",
+    "key": 7,
+    "layer": "normal",
+    "name": "6",
+    "profile": 1
+  },
+  {
+    "description": "7",
+    "function": "key 7",
+    "key": 8,
+    "layer": "normal",
+    "name": "7",
+    "profile": 1
+  },
+  {
+    "description": "8",
+    "function": "key 8",
+    "key": 9,
+    "layer": "normal",
+    "name": "8",
+    "profile": 1
+  },
+  {
+    "description": "9",
+    "function": "key 9",
+    "key": 10,
+    "layer": "normal",
+    "name": "9",
+    "profile": 1
+  },
+  {
+    "description": "0",
+    "function": "key 0",
+    "key": 11,
+    "layer": "normal",
+    "name": "0",
+    "profile": 1
+  },
+  {
+    "description": "Minus",
+    "function": "key MINUS",
+    "key": 12,
+    "layer": "normal",
+    "name": "HYPEN",
+    "profile": 1
+  },
+  {
+    "description": "Equal",
+    "function": "key EQUAL",
+    "key": 13,
+    "layer": "normal",
+    "name": "EQUAL",
+    "profile": 1
+  },
+  {
+    "description": "Backspace",
+    "function": "key BACKSPACE",
+    "key": 15,
+    "layer": "normal",
+    "name": "BACKSPACE",
+    "profile": 1
+  },
+  {
+    "description": "Delete",
+    "function": "key DELETE",
+    "key": 76,
+    "layer": "normal",
+    "name": "DELETE",
+    "profile": 1
+  },
+  {
+    "description": "Tab",
+    "function": "key TAB",
+    "key": 16,
+    "layer": "normal",
+    "name": "TAB",
+    "profile": 1
+  },
+  {
+    "description": "Q",
+    "function": "key Q",
+    "key": 17,
+    "layer": "normal",
+    "name": "Q",
+    "profile": 1
+  },
+  {
+    "description": "W",
+    "function": "key W",
+    "key": 18,
+    "layer": "normal",
+    "name": "W",
+    "profile": 1
+  },
+  {
+    "description": "E",
+    "function": "key E",
+    "key": 19,
+    "layer": "normal",
+    "name": "E",
+    "profile": 1
+  },
+  {
+    "description": "R",
+    "function": "key R",
+    "key": 20,
+    "layer": "normal",
+    "name": "R",
+    "profile": 1
+  },
+  {
+    "description": "T",
+    "function": "key T",
+    "key": 21,
+    "layer": "normal",
+    "name": "T",
+    "profile": 1
+  },
+  {
+    "description": "Y",
+    "function": "key Y",
+    "key": 22,
+    "layer": "normal",
+    "name": "Y",
+    "profile": 1
+  },
+  {
+    "description": "U",
+    "function": "key U",
+    "key": 23,
+    "layer": "normal",
+    "name": "U",
+    "profile": 1
+  },
+  {
+    "description": "I",
+    "function": "key I",
+    "key": 24,
+    "layer": "normal",
+    "name": "I",
+    "profile": 1
+  },
+  {
+    "description": "O",
+    "function": "key O",
+    "key": 25,
+    "layer": "normal",
+    "name": "O",
+    "profile": 1
+  },
+  {
+    "description": "P",
+    "function": "key P",
+    "key": 26,
+    "layer": "normal",
+    "name": "P",
+    "profile": 1
+  },
+  {
+    "description": "Left Bracket",
+    "function": "key LEFT_BRACKET",
+    "key": 27,
+    "layer": "normal",
+    "name": "OPEN_SQUARE_BRACKET",
+    "profile": 1
+  },
+  {
+    "description": "Right Bracket",
+    "function": "key RIGHT_BRACKET",
+    "key": 28,
+    "layer": "normal",
+    "name": "CLOSE_SQUARE_BRACKET",
+    "profile": 1
+  },
+  {
+    "description": "Backslash",
+    "function": "key BACKSLASH",
+    "key": 29,
+    "layer": "normal",
+    "name": "BACKSLASH",
+    "profile": 1
+  },
+  {
+    "description": "Page Up",
+    "function": "key PAGE_UP",
+    "key": 85,
+    "layer": "normal",
+    "name": "PAGE_UP",
+    "profile": 1
+  },
+  {
+    "description": "Caps Lock",
+    "function": "key CAPS_LOCK",
+    "key": 30,
+    "layer": "normal",
+    "name": "CAPS_LOCK",
+    "profile": 1
+  },
+  {
+    "description": "A",
+    "function": "key A",
+    "key": 31,
+    "layer": "normal",
+    "name": "A",
+    "profile": 1
+  },
+  {
+    "description": "S",
+    "function": "key S",
+    "key": 32,
+    "layer": "normal",
+    "name": "S",
+    "profile": 1
+  },
+  {
+    "description": "D",
+    "function": "key D",
+    "key": 33,
+    "layer": "normal",
+    "name": "D",
+    "profile": 1
+  },
+  {
+    "description": "F",
+    "function": "key F",
+    "key": 34,
+    "layer": "normal",
+    "name": "F",
+    "profile": 1
+  },
+  {
+    "description": "G",
+    "function": "key G",
+    "key": 35,
+    "layer": "normal",
+    "name": "G",
+    "profile": 1
+  },
+  {
+    "description": "H",
+    "function": "key H",
+    "key": 36,
+    "layer": "normal",
+    "name": "H",
+    "profile": 1
+  },
+  {
+    "description": "J",
+    "function": "key J",
+    "key": 37,
+    "layer": "normal",
+    "name": "J",
+    "profile": 1
+  },
+  {
+    "description": "K",
+    "function": "key K",
+    "key": 38,
+    "layer": "normal",
+    "name": "K",
+    "profile": 1
+  },
+  {
+    "description": "L",
+    "function": "key L",
+    "key": 39,
+    "layer": "normal",
+    "name": "L",
+    "profile": 1
+  },
+  {
+    "description": "Semicolon",
+    "function": "key SEMICOLON",
+    "key": 40,
+    "layer": "normal",
+    "name": "SEMICOLON",
+    "profile": 1
+  },
+  {
+    "description": "Apostrophe",
+    "function": "key APOSTROPHE",
+    "key": 41,
+    "layer": "normal",
+    "name": "APOSTROPHE",
+    "profile": 1
+  },
+  {
+    "description": "Enter",
+    "function": "key ENTER",
+    "key": 43,
+    "layer": "normal",
+    "name": "ENTER",
+    "profile": 1
+  },
+  {
+    "description": "Page Down",
+    "function": "key PAGE_DOWN",
+    "key": 86,
+    "layer": "normal",
+    "name": "PAGE_DOWN",
+    "profile": 1
+  },
+  {
+    "description": "LShift",
+    "function": "key +lshift",
+    "key": 44,
+    "layer": "normal",
+    "name": "LEFT_SHIFT",
+    "profile": 1
+  },
+  {
+    "description": "Z",
+    "function": "key Z",
+    "key": 46,
+    "layer": "normal",
+    "name": "Z",
+    "profile": 1
+  },
+  {
+    "description": "X",
+    "function": "key X",
+    "key": 47,
+    "layer": "normal",
+    "name": "X",
+    "profile": 1
+  },
+  {
+    "description": "C",
+    "function": "key C",
+    "key": 48,
+    "layer": "normal",
+    "name": "C",
+    "profile": 1
+  },
+  {
+    "description": "V",
+    "function": "key V",
+    "key": 49,
+    "layer": "normal",
+    "name": "V",
+    "profile": 1
+  },
+  {
+    "description": "B",
+    "function": "key B",
+    "key": 50,
+    "layer": "normal",
+    "name": "B",
+    "profile": 1
+  },
+  {
+    "description": "N",
+    "function": "key N",
+    "key": 51,
+    "layer": "normal",
+    "name": "N",
+    "profile": 1
+  },
+  {
+    "description": "M",
+    "function": "key M",
+    "key": 52,
+    "layer": "normal",
+    "name": "M",
+    "profile": 1
+  },
+  {
+    "description": "Comma",
+    "function": "key COMMA",
+    "key": 53,
+    "layer": "normal",
+    "name": "COMMA",
+    "profile": 1
+  },
+  {
+    "description": "Period",
+    "function": "key PERIOD",
+    "key": 54,
+    "layer": "normal",
+    "name": "PERIOD",
+    "profile": 1
+  },
+  {
+    "description": "Slash",
+    "function": "key SLASH",
+    "key": 55,
+    "layer": "normal",
+    "name": "SLASH",
+    "profile": 1
+  },
+  {
+    "description": "RShift",
+    "function": "key +rshift",
+    "key": 57,
+    "layer": "normal",
+    "name": "RIGHT_SHIFT",
+    "profile": 1
+  },
+  {
+    "description": "Up",
+    "function": "key UP",
+    "key": 83,
+    "layer": "normal",
+    "name": "UP_ARROW",
+    "profile": 1
+  },
+  {
+    "description": "Insert",
+    "function": "key INSERT",
+    "key": 75,
+    "layer": "normal",
+    "name": "INSERT",
+    "profile": 1
+  },
+  {
+    "description": "LCtrl",
+    "function": "key +lctrl",
+    "key": 58,
+    "layer": "normal",
+    "name": "LEFT_CTRL",
+    "profile": 1
+  },
+  {
+    "description": "LAlt",
+    "function": "key +lalt",
+    "key": 60,
+    "layer": "normal",
+    "name": "LEFT_ALT",
+    "profile": 1
+  },
+  {
+    "description": "Space",
+    "function": "key SPACE",
+    "key": 61,
+    "layer": "normal",
+    "name": "SPACEBAR",
+    "profile": 1
+  },
+  {
+    "description": "RAlt",
+    "function": "key +ralt",
+    "key": 62,
+    "layer": "normal",
+    "name": "RIGHT_ALT",
+    "profile": 1
+  },
+  {
+    "description": "RCtrl",
+    "function": "key +rctrl",
+    "key": 64,
+    "layer": "normal",
+    "name": "RIGHT_CTRL",
+    "profile": 1
+  },
+  {
+    "description": "Left",
+    "function": "key LEFT",
+    "key": 79,
+    "layer": "normal",
+    "name": "LEFT_ARROW",
+    "profile": 1
+  },
+  {
+    "description": "Down",
+    "function": "key DOWN",
+    "key": 84,
+    "layer": "normal",
+    "name": "DOWN_ARROW",
+    "profile": 1
+  },
+  {
+    "description": "Right",
+    "function": "key RIGHT",
+    "key": 89,
+    "layer": "normal",
+    "name": "RIGHT_ARROW",
+    "profile": 1
+  }
+]

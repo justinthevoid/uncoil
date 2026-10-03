@@ -5,16 +5,20 @@
 	import { app, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
 	import { ms } from '#lib/motion.ts';
 	import LightingView from '#lib/views/LightingView.svelte';
+	import KeysView from '#lib/views/KeysView.svelte';
+	import HardwareView from '#lib/views/HardwareView.svelte';
 	import DevicesView from '#lib/views/DevicesView.svelte';
 	import DisplayView from '#lib/views/DisplayView.svelte';
 	import AboutView from '#lib/views/AboutView.svelte';
 
-	type View = 'lighting' | 'devices' | 'display' | 'about';
+	type View = 'lighting' | 'keys' | 'hardware' | 'devices' | 'display' | 'about';
 	const nav: { id: View; label: string; code: string }[] = [
 		{ id: 'lighting', label: 'Lighting', code: '01' },
-		{ id: 'devices', label: 'Devices', code: '02' },
-		{ id: 'display', label: 'Display', code: '03' },
-		{ id: 'about', label: 'About', code: '04' }
+		{ id: 'keys', label: 'Keys', code: '02' },
+		{ id: 'hardware', label: 'Hardware', code: '03' },
+		{ id: 'devices', label: 'Devices', code: '04' },
+		{ id: 'display', label: 'Display', code: '05' },
+		{ id: 'about', label: 'About', code: '06' }
 	];
 	let view = $state<View>('lighting');
 	const index = $derived(nav.findIndex((n) => n.id === view));
@@ -53,7 +57,7 @@
 		return { state: 'running', rows };
 	});
 
-	// one keyboard shortcut per section: Ctrl+1..4
+	// one keyboard shortcut per section: Ctrl+1..6
 	function onkeydown(e: KeyboardEvent) {
 		if (!e.ctrlKey || e.altKey || e.metaKey) return;
 		const n = Number(e.key);
@@ -115,6 +119,10 @@
 				<div class="view" in:fly={{ y: 10, duration: ms(420), easing: expoOut }}>
 					{#if view === 'lighting'}
 						<LightingView config={app.config} />
+					{:else if view === 'keys'}
+						<KeysView config={app.config} />
+					{:else if view === 'hardware'}
+						<HardwareView />
 					{:else if view === 'devices'}
 						<DevicesView config={app.config} />
 					{:else if view === 'display'}

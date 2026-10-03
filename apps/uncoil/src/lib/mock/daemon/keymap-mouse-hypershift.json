@@ -1,0 +1,106 @@
+[
+  {
+    "description": "mouse button 1",
+    "function": "button 1",
+    "key": 1,
+    "layer": "hypershift",
+    "name": "LEFT_CLICK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 2",
+    "function": "button 2",
+    "key": 2,
+    "layer": "hypershift",
+    "name": "RIGHT_CLICK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 3",
+    "function": "button 3",
+    "key": 3,
+    "layer": "hypershift",
+    "name": "WHEEL_CLICK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 4",
+    "function": "button 4",
+    "key": 4,
+    "layer": "hypershift",
+    "name": "BACK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 5",
+    "function": "button 5",
+    "key": 5,
+    "layer": "hypershift",
+    "name": "FORWARD",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 9",
+    "function": "button 9",
+    "key": 9,
+    "layer": "hypershift",
+    "name": "WHEEL_UP",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 10",
+    "function": "button 10",
+    "key": 10,
+    "layer": "hypershift",
+    "name": "WHEEL_DOWN",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 104",
+    "function": "button 104",
+    "key": 52,
+    "layer": "hypershift",
+    "name": "WHEEL_LEFT",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 105",
+    "function": "button 105",
+    "key": 53,
+    "layer": "hypershift",
+    "name": "WHEEL_RIGHT",
+    "profile": 1
+  },
+  {
+    "description": "next profile",
+    "function": "profile 4",
+    "key": 14,
+    "layer": "hypershift",
+    "name": "PROFILE_BUTTON",
+    "profile": 1
+  },
+  {
+    "description": "dpi 5 1 144 1 144",
+    "function": "dpi 5 1 144 1 144",
+    "key": 15,
+    "layer": "hypershift",
+    "name": "CLUTCH",
+    "profile": 1
+  },
+  {
+    "description": "dpi 6",
+    "function": "dpi 6",
+    "key": 96,
+    "layer": "hypershift",
+    "name": "DPI_BUTTON",
+    "profile": 1
+  },
+  {
+    "description": "shortcut 1",
+    "function": "shortcut 1",
+    "key": 106,
+    "layer": "hypershift",
+    "name": "SCROLL_MODE",
+    "profile": 1
+  }
+]

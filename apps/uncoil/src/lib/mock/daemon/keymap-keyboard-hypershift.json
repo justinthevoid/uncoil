@@ -1,0 +1,634 @@
+[
+  {
+    "description": "Razer key 11 (low power mode; handled by host software)",
+    "function": "razer 11",
+    "key": 110,
+    "layer": "hypershift",
+    "name": "ESC",
+    "profile": 1
+  },
+  {
+    "description": "F1",
+    "function": "key F1",
+    "key": 112,
+    "layer": "hypershift",
+    "name": "F1",
+    "profile": 1
+  },
+  {
+    "description": "F2",
+    "function": "key F2",
+    "key": 113,
+    "layer": "hypershift",
+    "name": "F2",
+    "profile": 1
+  },
+  {
+    "description": "F3",
+    "function": "key F3",
+    "key": 114,
+    "layer": "hypershift",
+    "name": "F3",
+    "profile": 1
+  },
+  {
+    "description": "F4",
+    "function": "key F4",
+    "key": 115,
+    "layer": "hypershift",
+    "name": "F4",
+    "profile": 1
+  },
+  {
+    "description": "F5",
+    "function": "key F5",
+    "key": 116,
+    "layer": "hypershift",
+    "name": "F5",
+    "profile": 1
+  },
+  {
+    "description": "F6",
+    "function": "key F6",
+    "key": 117,
+    "layer": "hypershift",
+    "name": "F6",
+    "profile": 1
+  },
+  {
+    "description": "F7",
+    "function": "key F7",
+    "key": 118,
+    "layer": "hypershift",
+    "name": "F7",
+    "profile": 1
+  },
+  {
+    "description": "F8",
+    "function": "key F8",
+    "key": 119,
+    "layer": "hypershift",
+    "name": "F8",
+    "profile": 1
+  },
+  {
+    "description": "Razer key 4 (macro record; handled by host software)",
+    "function": "razer 4",
+    "key": 120,
+    "layer": "hypershift",
+    "name": "F9",
+    "profile": 1
+  },
+  {
+    "description": "Razer key 3 (game mode; handled by host software)",
+    "function": "razer 3",
+    "key": 121,
+    "layer": "hypershift",
+    "name": "F10",
+    "profile": 1
+  },
+  {
+    "description": "Razer key 9 (backlight down; handled by host software)",
+    "function": "razer 9",
+    "key": 122,
+    "layer": "hypershift",
+    "name": "F11",
+    "profile": 1
+  },
+  {
+    "description": "Razer key 8 (backlight up; handled by host software)",
+    "function": "razer 8",
+    "key": 123,
+    "layer": "hypershift",
+    "name": "F12",
+    "profile": 1
+  },
+  {
+    "description": "Grave",
+    "function": "key GRAVE",
+    "key": 1,
+    "layer": "hypershift",
+    "name": "TILDE",
+    "profile": 1
+  },
+  {
+    "description": "1",
+    "function": "key 1",
+    "key": 2,
+    "layer": "hypershift",
+    "name": "1",
+    "profile": 1
+  },
+  {
+    "description": "2",
+    "function": "key 2",
+    "key": 3,
+    "layer": "hypershift",
+    "name": "2",
+    "profile": 1
+  },
+  {
+    "description": "3",
+    "function": "key 3",
+    "key": 4,
+    "layer": "hypershift",
+    "name": "3",
+    "profile": 1
+  },
+  {
+    "description": "4",
+    "function": "key 4",
+    "key": 5,
+    "layer": "hypershift",
+    "name": "4",
+    "profile": 1
+  },
+  {
+    "description": "5",
+    "function": "key 5",
+    "key": 6,
+    "layer": "hypershift",
+    "name": "5",
+    "profile": 1
+  },
+  {
+    "description": "6",
+    "function": "key 6",
+    "key": 7,
+    "layer": "hypershift",
+    "name": "6",
+    "profile": 1
+  },
+  {
+    "description": "7",
+    "function": "key 7",
+    "key": 8,
+    "layer": "hypershift",
+    "name": "7",
+    "profile": 1
+  },
+  {
+    "description": "8",
+    "function": "key 8",
+    "key": 9,
+    "layer": "hypershift",
+    "name": "8",
+    "profile": 1
+  },
+  {
+    "description": "9",
+    "function": "key 9",
+    "key": 10,
+    "layer": "hypershift",
+    "name": "9",
+    "profile": 1
+  },
+  {
+    "description": "0",
+    "function": "key 0",
+    "key": 11,
+    "layer": "hypershift",
+    "name": "0",
+    "profile": 1
+  },
+  {
+    "description": "Minus",
+    "function": "key MINUS",
+    "key": 12,
+    "layer": "hypershift",
+    "name": "HYPEN",
+    "profile": 1
+  },
+  {
+    "description": "Equal",
+    "function": "key EQUAL",
+    "key": 13,
+    "layer": "hypershift",
+    "name": "EQUAL",
+    "profile": 1
+  },
+  {
+    "description": "Backspace",
+    "function": "key BACKSPACE",
+    "key": 15,
+    "layer": "hypershift",
+    "name": "BACKSPACE",
+    "profile": 1
+  },
+  {
+    "description": "Razer key 76 (system sleep; handled by host software)",
+    "function": "razer 76",
+    "key": 76,
+    "layer": "hypershift",
+    "name": "DELETE",
+    "profile": 1
+  },
+  {
+    "description": "Tab",
+    "function": "key TAB",
+    "key": 16,
+    "layer": "hypershift",
+    "name": "TAB",
+    "profile": 1
+  },
+  {
+    "description": "Q",
+    "function": "key Q",
+    "key": 17,
+    "layer": "hypershift",
+    "name": "Q",
+    "profile": 1
+  },
+  {
+    "description": "W",
+    "function": "key W",
+    "key": 18,
+    "layer": "hypershift",
+    "name": "W",
+    "profile": 1
+  },
+  {
+    "description": "E",
+    "function": "key E",
+    "key": 19,
+    "layer": "hypershift",
+    "name": "E",
+    "profile": 1
+  },
+  {
+    "description": "R",
+    "function": "key R",
+    "key": 20,
+    "layer": "hypershift",
+    "name": "R",
+    "profile": 1
+  },
+  {
+    "description": "T",
+    "function": "key T",
+    "key": 21,
+    "layer": "hypershift",
+    "name": "T",
+    "profile": 1
+  },
+  {
+    "description": "Y",
+    "function": "key Y",
+    "key": 22,
+    "layer": "hypershift",
+    "name": "Y",
+    "profile": 1
+  },
+  {
+    "description": "U",
+    "function": "key U",
+    "key": 23,
+    "layer": "hypershift",
+    "name": "U",
+    "profile": 1
+  },
+  {
+    "description": "I",
+    "function": "key I",
+    "key": 24,
+    "layer": "hypershift",
+    "name": "I",
+    "profile": 1
+  },
+  {
+    "description": "O",
+    "function": "key O",
+    "key": 25,
+    "layer": "hypershift",
+    "name": "O",
+    "profile": 1
+  },
+  {
+    "description": "empty key code (does nothing)",
+    "function": "key NONE",
+    "key": 26,
+    "layer": "hypershift",
+    "name": "P",
+    "profile": 1
+  },
+  {
+    "description": "Left Bracket",
+    "function": "key LEFT_BRACKET",
+    "key": 27,
+    "layer": "hypershift",
+    "name": "OPEN_SQUARE_BRACKET",
+    "profile": 1
+  },
+  {
+    "description": "Right Bracket",
+    "function": "key RIGHT_BRACKET",
+    "key": 28,
+    "layer": "hypershift",
+    "name": "CLOSE_SQUARE_BRACKET",
+    "profile": 1
+  },
+  {
+    "description": "Backslash",
+    "function": "key BACKSLASH",
+    "key": 29,
+    "layer": "hypershift",
+    "name": "BACKSLASH",
+    "profile": 1
+  },
+  {
+    "description": "Page Up",
+    "function": "key PAGE_UP",
+    "key": 85,
+    "layer": "hypershift",
+    "name": "PAGE_UP",
+    "profile": 1
+  },
+  {
+    "description": "Caps Lock",
+    "function": "key CAPS_LOCK",
+    "key": 30,
+    "layer": "hypershift",
+    "name": "CAPS_LOCK",
+    "profile": 1
+  },
+  {
+    "description": "A",
+    "function": "key A",
+    "key": 31,
+    "layer": "hypershift",
+    "name": "A",
+    "profile": 1
+  },
+  {
+    "description": "S",
+    "function": "key S",
+    "key": 32,
+    "layer": "hypershift",
+    "name": "S",
+    "profile": 1
+  },
+  {
+    "description": "D",
+    "function": "key D",
+    "key": 33,
+    "layer": "hypershift",
+    "name": "D",
+    "profile": 1
+  },
+  {
+    "description": "F",
+    "function": "key F",
+    "key": 34,
+    "layer": "hypershift",
+    "name": "F",
+    "profile": 1
+  },
+  {
+    "description": "G",
+    "function": "key G",
+    "key": 35,
+    "layer": "hypershift",
+    "name": "G",
+    "profile": 1
+  },
+  {
+    "description": "H",
+    "function": "key H",
+    "key": 36,
+    "layer": "hypershift",
+    "name": "H",
+    "profile": 1
+  },
+  {
+    "description": "J",
+    "function": "key J",
+    "key": 37,
+    "layer": "hypershift",
+    "name": "J",
+    "profile": 1
+  },
+  {
+    "description": "K",
+    "function": "key K",
+    "key": 38,
+    "layer": "hypershift",
+    "name": "K",
+    "profile": 1
+  },
+  {
+    "description": "L",
+    "function": "key L",
+    "key": 39,
+    "layer": "hypershift",
+    "name": "L",
+    "profile": 1
+  },
+  {
+    "description": "Semicolon",
+    "function": "key SEMICOLON",
+    "key": 40,
+    "layer": "hypershift",
+    "name": "SEMICOLON",
+    "profile": 1
+  },
+  {
+    "description": "Apostrophe",
+    "function": "key APOSTROPHE",
+    "key": 41,
+    "layer": "hypershift",
+    "name": "APOSTROPHE",
+    "profile": 1
+  },
+  {
+    "description": "Enter",
+    "function": "key ENTER",
+    "key": 43,
+    "layer": "hypershift",
+    "name": "ENTER",
+    "profile": 1
+  },
+  {
+    "description": "Page Down",
+    "function": "key PAGE_DOWN",
+    "key": 86,
+    "layer": "hypershift",
+    "name": "PAGE_DOWN",
+    "profile": 1
+  },
+  {
+    "description": "LShift",
+    "function": "key +lshift",
+    "key": 44,
+    "layer": "hypershift",
+    "name": "LEFT_SHIFT",
+    "profile": 1
+  },
+  {
+    "description": "Z",
+    "function": "key Z",
+    "key": 46,
+    "layer": "hypershift",
+    "name": "Z",
+    "profile": 1
+  },
+  {
+    "description": "X",
+    "function": "key X",
+    "key": 47,
+    "layer": "hypershift",
+    "name": "X",
+    "profile": 1
+  },
+  {
+    "description": "C",
+    "function": "key C",
+    "key": 48,
+    "layer": "hypershift",
+    "name": "C",
+    "profile": 1
+  },
+  {
+    "description": "V",
+    "function": "key V",
+    "key": 49,
+    "layer": "hypershift",
+    "name": "V",
+    "profile": 1
+  },
+  {
+    "description": "B",
+    "function": "key B",
+    "key": 50,
+    "layer": "hypershift",
+    "name": "B",
+    "profile": 1
+  },
+  {
+    "description": "N",
+    "function": "key N",
+    "key": 51,
+    "layer": "hypershift",
+    "name": "N",
+    "profile": 1
+  },
+  {
+    "description": "M",
+    "function": "key M",
+    "key": 52,
+    "layer": "hypershift",
+    "name": "M",
+    "profile": 1
+  },
+  {
+    "description": "Comma",
+    "function": "key COMMA",
+    "key": 53,
+    "layer": "hypershift",
+    "name": "COMMA",
+    "profile": 1
+  },
+  {
+    "description": "Period",
+    "function": "key PERIOD",
+    "key": 54,
+    "layer": "hypershift",
+    "name": "PERIOD",
+    "profile": 1
+  },
+  {
+    "description": "Slash",
+    "function": "key SLASH",
+    "key": 55,
+    "layer": "hypershift",
+    "name": "SLASH",
+    "profile": 1
+  },
+  {
+    "description": "RShift",
+    "function": "key +rshift",
+    "key": 57,
+    "layer": "hypershift",
+    "name": "RIGHT_SHIFT",
+    "profile": 1
+  },
+  {
+    "description": "Up",
+    "function": "key UP",
+    "key": 83,
+    "layer": "hypershift",
+    "name": "UP_ARROW",
+    "profile": 1
+  },
+  {
+    "description": "Insert",
+    "function": "key INSERT",
+    "key": 75,
+    "layer": "hypershift",
+    "name": "INSERT",
+    "profile": 1
+  },
+  {
+    "description": "LCtrl",
+    "function": "key +lctrl",
+    "key": 58,
+    "layer": "hypershift",
+    "name": "LEFT_CTRL",
+    "profile": 1
+  },
+  {
+    "description": "LAlt",
+    "function": "key +lalt",
+    "key": 60,
+    "layer": "hypershift",
+    "name": "LEFT_ALT",
+    "profile": 1
+  },
+  {
+    "description": "Space",
+    "function": "key SPACE",
+    "key": 61,
+    "layer": "hypershift",
+    "name": "SPACEBAR",
+    "profile": 1
+  },
+  {
+    "description": "RAlt",
+    "function": "key +ralt",
+    "key": 62,
+    "layer": "hypershift",
+    "name": "RIGHT_ALT",
+    "profile": 1
+  },
+  {
+    "description": "RCtrl",
+    "function": "key +rctrl",
+    "key": 64,
+    "layer": "hypershift",
+    "name": "RIGHT_CTRL",
+    "profile": 1
+  },
+  {
+    "description": "Left",
+    "function": "key LEFT",
+    "key": 79,
+    "layer": "hypershift",
+    "name": "LEFT_ARROW",
+    "profile": 1
+  },
+  {
+    "description": "Down",
+    "function": "key DOWN",
+    "key": 84,
+    "layer": "hypershift",
+    "name": "DOWN_ARROW",
+    "profile": 1
+  },
+  {
+    "description": "Right",
+    "function": "key RIGHT",
+    "key": 89,
+    "layer": "hypershift",
+    "name": "RIGHT_ARROW",
+    "profile": 1
+  }
+]

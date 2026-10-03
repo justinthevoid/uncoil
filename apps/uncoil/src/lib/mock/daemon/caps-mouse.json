@@ -1,0 +1,93 @@
+{
+  "connected": true,
+  "dial_modes": [],
+  "features": [
+    "lighting",
+    "hw_effects",
+    "keymap",
+    "profiles"
+  ],
+  "hw_effects": [
+    "off",
+    "static",
+    "breathing",
+    "spectrum",
+    "wave",
+    "reactive"
+  ],
+  "id": "razer-basilisk-v3-pro",
+  "keymap_layers": [
+    "normal",
+    "hypershift"
+  ],
+  "keys": [
+    {
+      "id": 1,
+      "led": null,
+      "name": "LEFT_CLICK"
+    },
+    {
+      "id": 2,
+      "led": null,
+      "name": "RIGHT_CLICK"
+    },
+    {
+      "id": 3,
+      "led": null,
+      "name": "WHEEL_CLICK"
+    },
+    {
+      "id": 4,
+      "led": null,
+      "name": "BACK"
+    },
+    {
+      "id": 5,
+      "led": null,
+      "name": "FORWARD"
+    },
+    {
+      "id": 9,
+      "led": null,
+      "name": "WHEEL_UP"
+    },
+    {
+      "id": 10,
+      "led": null,
+      "name": "WHEEL_DOWN"
+    },
+    {
+      "id": 52,
+      "led": null,
+      "name": "WHEEL_LEFT"
+    },
+    {
+      "id": 53,
+      "led": null,
+      "name": "WHEEL_RIGHT"
+    },
+    {
+      "id": 14,
+      "led": null,
+      "name": "PROFILE_BUTTON"
+    },
+    {
+      "id": 15,
+      "led": null,
+      "name": "CLUTCH"
+    },
+    {
+      "id": 96,
+      "led": null,
+      "name": "DPI_BUTTON"
+    },
+    {
+      "id": 106,
+      "led": null,
+      "name": "SCROLL_MODE"
+    }
+  ],
+  "kind": "mouse",
+  "name": "Razer Basilisk V3 Pro",
+  "probed": null
+}

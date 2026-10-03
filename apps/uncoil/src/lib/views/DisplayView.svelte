@@ -11,7 +11,7 @@
 
 <section class="display-view" aria-labelledby="display-title">
 	<header class="head">
-		<h1 id="display-title" class="title"><span class="display fac">FAC 300</span><span class="caps name">Display</span></h1>
+		<h1 id="display-title" class="title"><span class="display fac">FAC 500</span><span class="caps name">Display</span></h1>
 		<p class="lede">
 			{#if now}Windows reports the display as <strong>{now}</strong>; lighting is at {Math.round((app.status?.level ?? 1) * 100)}%.{:else}How lighting follows your monitor's power state.{/if}
 		</p>

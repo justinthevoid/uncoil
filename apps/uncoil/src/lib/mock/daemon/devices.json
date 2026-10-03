@@ -1,0 +1,32 @@
+[
+  {
+    "connection": "fake",
+    "features": [
+      "lighting",
+      "hw_effects",
+      "keymap",
+      "profiles"
+    ],
+    "hw_effect": null,
+    "id": "razer-basilisk-v3-pro",
+    "kind": "mouse",
+    "name": "Razer Basilisk V3 Pro",
+    "product_id": 170
+  },
+  {
+    "connection": "fake",
+    "features": [
+      "lighting",
+      "hw_effects",
+      "keymap",
+      "profiles",
+      "dial",
+      "oled"
+    ],
+    "hw_effect": null,
+    "id": "razer-blackwidow-v4-pro-75",
+    "kind": "keyboard",
+    "name": "Razer BlackWidow V4 Pro 75%",
+    "product_id": 691
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "active_item": "ANIMATION",
+  "animations_enabled": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  ],
+  "brightness": 100,
+  "home_screen": "ANIMATION",
+  "home_screen_index": 1,
+  "language": 0,
+  "low_battery_warning_percent": 20,
+  "low_power_mode": false,
+  "screensaver": [
+    0,
+    0
+  ],
+  "time_to_dim_minutes": 1,
+  "time_to_home": 1
+}

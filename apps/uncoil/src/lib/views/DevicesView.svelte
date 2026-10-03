@@ -38,7 +38,7 @@
 				return {
 					id: d.id,
 					index: i,
-					code: `2${String(i + 1).padStart(2, '0')}`,
+					code: `4${String(i + 1).padStart(2, "0")}`,
 					name: d.name,
 					kind: kindLabel[d.kind] ?? 'Device',
 					leds: d.kind === 'mousemat' ? 1 : d.shapes.length,
@@ -73,7 +73,7 @@
 
 <section class="devices" aria-labelledby="devices-title">
 	<header class="head">
-		<h1 id="devices-title" class="title"><span class="display fac">FAC 200</span><span class="caps name">Devices</span></h1>
+		<h1 id="devices-title" class="title"><span class="display fac">FAC 400</span><span class="caps name">Devices</span></h1>
 		<p class="lede">{app.status ? `${app.status.devices.length} of ${desk.length} devices live` : 'Engine not running: showing the desk as configured'}</p>
 	</header>
 

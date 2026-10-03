@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uncoil_core::config::{Config, Status};
 use uncoil_core::device::{self, DeviceDef, Kind};
+use uncoil_core::ipc::{self, Client, Command};
 use uncoil_core::layout::{self, PlacedDevice};
 
 /// The daemon rewrites status.json continuously; older than this means it is not running.
@@ -71,10 +72,31 @@ fn get_status() -> Option<Status> {
     (now.saturating_sub(status.updated_unix) <= STATUS_STALE_S).then_some(status)
 }
 
+/// Forward one typed command to uncoild's control pipe (the same surface the `uncoil` CLI uses).
+/// Errors from failing to reach the daemon start with `unreachable:` so the UI can explain them.
+/// `UNCOIL_PIPE` points the app at another daemon, e.g. `uncoild --fake` while developing.
+#[tauri::command]
+async fn daemon(
+    device: Option<String>,
+    cmd: String,
+    args: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let args = args.map(|a| a.to_string());
+        let command = Command::from_parts(&cmd, args.as_deref()).map_err(|e| e.to_string())?;
+        let pipe = std::env::var("UNCOIL_PIPE").unwrap_or_else(|_| ipc::PIPE_NAME.to_string());
+        let mut client = Client::connect_to(&pipe).map_err(|e| format!("unreachable: {e}"))?;
+        let response = client.call(device.as_deref(), &command).map_err(|e| format!("unreachable: {e}"))?;
+        response.into_result::<serde_json::Value>().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![get_config, save_config, get_desk, preview_frame, get_status])
+        .invoke_handler(tauri::generate_handler![get_config, save_config, get_desk, preview_frame, get_status, daemon])
         .run(tauri::generate_context!())
         .expect("error while running uncoil");
 }
@@ -94,6 +116,23 @@ mod tests {
         }
         let mock = std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n");
         assert!(mock == real, "{} is stale; rerun with UNCOIL_UPDATE_MOCK=1", path.display());
+    }
+
+    /// End to end through the control pipe. Needs `uncoild --fake` (built with `--features fake`) running:
+    /// `UNCOIL_PIPE=\\.\pipe\uncoil-fake cargo test -p uncoil-gui -- --ignored`
+    #[test]
+    #[ignore]
+    fn daemon_bridge_against_fake_daemon() {
+        let run = |device: Option<&str>, cmd: &str, args: Option<serde_json::Value>| {
+            tauri::async_runtime::block_on(daemon(device.map(String::from), cmd.into(), args))
+        };
+        let devices = run(None, "devices", None).unwrap();
+        assert!(devices.as_array().is_some_and(|d| !d.is_empty()), "{devices}");
+        let key = run(Some("keyboard"), "keymap.get", Some(serde_json::json!({ "key": "P", "layer": "fn" }))).unwrap();
+        assert_eq!(key["name"], "P");
+        let refused = run(Some("keyboard"), "keymap.set", Some(serde_json::json!({ "key": "P", "function": "key F5" })));
+        assert!(refused.unwrap_err().contains("write=true"), "onboard writes need write=true");
+        assert!(run(None, "no.such.command", None).is_err());
     }
 
     #[test]

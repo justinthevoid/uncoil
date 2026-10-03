@@ -15,7 +15,7 @@
 
 <section class="about" aria-labelledby="about-title">
 	<header class="head">
-		<h1 id="about-title" class="title"><span class="display fac">FAC 400</span><span class="caps name">About</span></h1>
+		<h1 id="about-title" class="title"><span class="display fac">FAC 600</span><span class="caps name">About</span></h1>
 		<p class="lede">uncoil {s?.version ?? '0.1.0'} · GPL-3.0-or-later</p>
 	</header>
 

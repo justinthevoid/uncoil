@@ -21,3 +21,23 @@ export const previewFrame = (config: Config, t: number) =>
 	invoke<string[][]>('preview_frame', { config, t });
 /** `null` when the daemon is not running (no status file, or it is more than 10 s old). */
 export const getStatus = () => invoke<Status | null>('get_status');
+
+/** A failed control-pipe call. `unreachable` means uncoild (0.2+, with the control pipe) isn't answering. */
+export class DaemonError extends Error {
+	constructor(
+		message: string,
+		readonly unreachable: boolean
+	) {
+		super(message);
+	}
+}
+
+/** One command on uncoild's control pipe; the same commands as the `uncoil` CLI. */
+export async function daemon<T>(cmd: string, device?: string | null, args?: Record<string, unknown>): Promise<T> {
+	try {
+		return await invoke<T>('daemon', { device: device ?? null, cmd, args: args ?? null });
+	} catch (e) {
+		const msg = String(e);
+		throw new DaemonError(msg.replace(/^unreachable:\s*/, ''), msg.startsWith('unreachable:'));
+	}
+}

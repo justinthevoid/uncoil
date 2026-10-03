@@ -87,3 +87,90 @@ export interface Status {
 	cpu_percent: number;
 	exe_bytes: number;
 }
+
+// ---- control pipe (uncoil_core::ipc). Keep in sync with crates/uncoil-core/src/{ipc,features/*}.rs ----
+
+export type Feature = 'lighting' | 'hw_effects' | 'keymap' | 'profiles' | 'dial' | 'oled';
+/** `hypershift` is the Fn layer. */
+export type Layer = 'normal' | 'hypershift';
+
+export interface DeviceInfo {
+	id: string;
+	name: string;
+	kind: DeviceKind;
+	product_id: number;
+	connection: string;
+	features: Feature[];
+	/** Firmware effect spec showing instead of the software effect, e.g. `"wave left speed 40"`. */
+	hw_effect: string | null;
+}
+
+export interface KeyInfo {
+	id: number;
+	name: string;
+	/** Matches a keyboard shape name in the desk layout. */
+	led: string | null;
+}
+
+export interface Capabilities {
+	id: string;
+	name: string;
+	kind: DeviceKind;
+	connected: boolean;
+	features: Feature[];
+	hw_effects: string[];
+	keymap_layers: Layer[];
+	keys: KeyInfo[];
+	dial_modes: string[];
+}
+
+export interface KeyMapping {
+	profile: number;
+	key: number;
+	name: string;
+	layer: Layer;
+	/** Spec string, e.g. `"key PRINT_SCREEN"`, `"razer 11"`, `"button 4"`, `"off"`. */
+	function: string;
+	description: string;
+}
+
+export interface WriteResult<T> {
+	before: T;
+	after: T;
+	verified: boolean;
+	unchanged: boolean;
+}
+
+export interface ProfileInfo {
+	max: number;
+	count: number;
+	ids: number[];
+	active: number | null;
+}
+
+export interface DialState {
+	profile: number;
+	mode_id: number;
+	mode: string | null;
+	display_order: number;
+	enabled_functions: number;
+}
+
+export interface OledState {
+	brightness: number | null;
+	home_screen: string | null;
+	home_screen_index: number | null;
+	time_to_home: number | null;
+	time_to_dim_minutes: number | null;
+	language: number | null;
+	active_item: string | null;
+	low_battery_warning_percent: number | null;
+	low_power_mode: boolean | null;
+	animations_enabled: boolean[] | null;
+	screensaver: number[] | null;
+}
+
+export interface EffectState {
+	effect: string | null;
+	storage: 'session' | 'onboard';
+}

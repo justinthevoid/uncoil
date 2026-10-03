@@ -1,0 +1,437 @@
+{
+  "connected": true,
+  "dial_modes": [
+    "VOLUME",
+    "TRACK_SELECTOR",
+    "OLED_BRIGHTNESS",
+    "LIGHTNING_BRIGHTNESS",
+    "SWITCH_APPS",
+    "ZOOM",
+    "TRACK_JOGGING",
+    "SCROLL_VERTICAL",
+    "SCROLL_HORIZONTAL"
+  ],
+  "features": [
+    "lighting",
+    "hw_effects",
+    "keymap",
+    "profiles",
+    "dial",
+    "oled"
+  ],
+  "hw_effects": [
+    "off",
+    "static",
+    "breathing",
+    "spectrum",
+    "wave",
+    "wheel",
+    "reactive",
+    "starlight"
+  ],
+  "id": "razer-blackwidow-v4-pro-75",
+  "keymap_layers": [
+    "normal",
+    "hypershift"
+  ],
+  "keys": [
+    {
+      "id": 110,
+      "led": "Escape",
+      "name": "ESC"
+    },
+    {
+      "id": 112,
+      "led": "F1",
+      "name": "F1"
+    },
+    {
+      "id": 113,
+      "led": "F2",
+      "name": "F2"
+    },
+    {
+      "id": 114,
+      "led": "F3",
+      "name": "F3"
+    },
+    {
+      "id": 115,
+      "led": "F4",
+      "name": "F4"
+    },
+    {
+      "id": 116,
+      "led": "F5",
+      "name": "F5"
+    },
+    {
+      "id": 117,
+      "led": "F6",
+      "name": "F6"
+    },
+    {
+      "id": 118,
+      "led": "F7",
+      "name": "F7"
+    },
+    {
+      "id": 119,
+      "led": "F8",
+      "name": "F8"
+    },
+    {
+      "id": 120,
+      "led": "F9",
+      "name": "F9"
+    },
+    {
+      "id": 121,
+      "led": "F10",
+      "name": "F10"
+    },
+    {
+      "id": 122,
+      "led": "F11",
+      "name": "F11"
+    },
+    {
+      "id": 123,
+      "led": "F12",
+      "name": "F12"
+    },
+    {
+      "id": 1,
+      "led": "`",
+      "name": "TILDE"
+    },
+    {
+      "id": 2,
+      "led": "1",
+      "name": "1"
+    },
+    {
+      "id": 3,
+      "led": "2",
+      "name": "2"
+    },
+    {
+      "id": 4,
+      "led": "3",
+      "name": "3"
+    },
+    {
+      "id": 5,
+      "led": "4",
+      "name": "4"
+    },
+    {
+      "id": 6,
+      "led": "5",
+      "name": "5"
+    },
+    {
+      "id": 7,
+      "led": "6",
+      "name": "6"
+    },
+    {
+      "id": 8,
+      "led": "7",
+      "name": "7"
+    },
+    {
+      "id": 9,
+      "led": "8",
+      "name": "8"
+    },
+    {
+      "id": 10,
+      "led": "9",
+      "name": "9"
+    },
+    {
+      "id": 11,
+      "led": "0",
+      "name": "0"
+    },
+    {
+      "id": 12,
+      "led": "-",
+      "name": "HYPEN"
+    },
+    {
+      "id": 13,
+      "led": "=",
+      "name": "EQUAL"
+    },
+    {
+      "id": 15,
+      "led": "Backspace",
+      "name": "BACKSPACE"
+    },
+    {
+      "id": 76,
+      "led": "Delete",
+      "name": "DELETE"
+    },
+    {
+      "id": 16,
+      "led": "Tab",
+      "name": "TAB"
+    },
+    {
+      "id": 17,
+      "led": "Q",
+      "name": "Q"
+    },
+    {
+      "id": 18,
+      "led": "W",
+      "name": "W"
+    },
+    {
+      "id": 19,
+      "led": "E",
+      "name": "E"
+    },
+    {
+      "id": 20,
+      "led": "R",
+      "name": "R"
+    },
+    {
+      "id": 21,
+      "led": "T",
+      "name": "T"
+    },
+    {
+      "id": 22,
+      "led": "Y",
+      "name": "Y"
+    },
+    {
+      "id": 23,
+      "led": "U",
+      "name": "U"
+    },
+    {
+      "id": 24,
+      "led": "I",
+      "name": "I"
+    },
+    {
+      "id": 25,
+      "led": "O",
+      "name": "O"
+    },
+    {
+      "id": 26,
+      "led": "P",
+      "name": "P"
+    },
+    {
+      "id": 27,
+      "led": "[",
+      "name": "OPEN_SQUARE_BRACKET"
+    },
+    {
+      "id": 28,
+      "led": "]",
+      "name": "CLOSE_SQUARE_BRACKET"
+    },
+    {
+      "id": 29,
+      "led": "\\",
+      "name": "BACKSLASH"
+    },
+    {
+      "id": 85,
+      "led": "Page Up",
+      "name": "PAGE_UP"
+    },
+    {
+      "id": 30,
+      "led": "Caps Lock",
+      "name": "CAPS_LOCK"
+    },
+    {
+      "id": 31,
+      "led": "A",
+      "name": "A"
+    },
+    {
+      "id": 32,
+      "led": "S",
+      "name": "S"
+    },
+    {
+      "id": 33,
+      "led": "D",
+      "name": "D"
+    },
+    {
+      "id": 34,
+      "led": "F",
+      "name": "F"
+    },
+    {
+      "id": 35,
+      "led": "G",
+      "name": "G"
+    },
+    {
+      "id": 36,
+      "led": "H",
+      "name": "H"
+    },
+    {
+      "id": 37,
+      "led": "J",
+      "name": "J"
+    },
+    {
+      "id": 38,
+      "led": "K",
+      "name": "K"
+    },
+    {
+      "id": 39,
+      "led": "L",
+      "name": "L"
+    },
+    {
+      "id": 40,
+      "led": ";",
+      "name": "SEMICOLON"
+    },
+    {
+      "id": 41,
+      "led": "'",
+      "name": "APOSTROPHE"
+    },
+    {
+      "id": 43,
+      "led": "Enter",
+      "name": "ENTER"
+    },
+    {
+      "id": 86,
+      "led": "Page Down",
+      "name": "PAGE_DOWN"
+    },
+    {
+      "id": 44,
+      "led": "Left Shift",
+      "name": "LEFT_SHIFT"
+    },
+    {
+      "id": 46,
+      "led": "Z",
+      "name": "Z"
+    },
+    {
+      "id": 47,
+      "led": "X",
+      "name": "X"
+    },
+    {
+      "id": 48,
+      "led": "C",
+      "name": "C"
+    },
+    {
+      "id": 49,
+      "led": "V",
+      "name": "V"
+    },
+    {
+      "id": 50,
+      "led": "B",
+      "name": "B"
+    },
+    {
+      "id": 51,
+      "led": "N",
+      "name": "N"
+    },
+    {
+      "id": 52,
+      "led": "M",
+      "name": "M"
+    },
+    {
+      "id": 53,
+      "led": ",",
+      "name": "COMMA"
+    },
+    {
+      "id": 54,
+      "led": ".",
+      "name": "PERIOD"
+    },
+    {
+      "id": 55,
+      "led": "/",
+      "name": "SLASH"
+    },
+    {
+      "id": 57,
+      "led": "Right Shift",
+      "name": "RIGHT_SHIFT"
+    },
+    {
+      "id": 83,
+      "led": "Up Arrow",
+      "name": "UP_ARROW"
+    },
+    {
+      "id": 75,
+      "led": "Insert",
+      "name": "INSERT"
+    },
+    {
+      "id": 58,
+      "led": "Left Control",
+      "name": "LEFT_CTRL"
+    },
+    {
+      "id": 60,
+      "led": "Left Alt",
+      "name": "LEFT_ALT"
+    },
+    {
+      "id": 61,
+      "led": "Space",
+      "name": "SPACEBAR"
+    },
+    {
+      "id": 62,
+      "led": "Right Alt",
+      "name": "RIGHT_ALT"
+    },
+    {
+      "id": 64,
+      "led": "Right Control",
+      "name": "RIGHT_CTRL"
+    },
+    {
+      "id": 79,
+      "led": "Left Arrow",
+      "name": "LEFT_ARROW"
+    },
+    {
+      "id": 84,
+      "led": "Down Arrow",
+      "name": "DOWN_ARROW"
+    },
+    {
+      "id": 89,
+      "led": "Right Arrow",
+      "name": "RIGHT_ARROW"
+    }
+  ],
+  "kind": "keyboard",
+  "name": "Razer BlackWidow V4 Pro 75%",
+  "probed": null
+}

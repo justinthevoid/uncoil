@@ -57,6 +57,10 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
 		}
 		case 'get_status':
 			return status() as T;
+		case 'daemon': {
+			const { mockDaemon } = await import('./daemon');
+			return (await mockDaemon(args.cmd as string, args.device as string | null, (args.args as Record<string, unknown>) ?? {})) as T;
+		}
 		default:
 			throw new Error(`mock: unknown command ${cmd}`);
 	}
