@@ -20,7 +20,7 @@ actually use, in one 0.65 MB process.**
 |---|---|---|
 | Processes | 17 | **1** |
 | Memory | ~1.4 GB at start, leaking to multiple GB over days | **~3 MB** private |
-| CPU, idle after startup | not yet measured | **<1%** of one core |
+| CPU, idle after startup | ~7% of a core | **<1%** of one core |
 | Install size | ~500 MB | **0.65 MB**, single executable |
 | Kernel drivers | yes | **none**, plain user-mode HID |
 
