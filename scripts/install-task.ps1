@@ -15,6 +15,7 @@ Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
 Get-Process uncoild -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep 1
 Copy-Item $Exe (Join-Path $bin 'uncoild.exe') -Force
+if (Test-Path (Join-Path $old 'uncoild.exe')) { Remove-Item (Join-Path $old 'uncoild.exe') -Force }  # from installs before 0.1.0
 
 $action    = New-ScheduledTaskAction -Execute (Join-Path $bin 'uncoild.exe') -WorkingDirectory $bin
 $logon     = New-ScheduledTaskTrigger -AtLogOn -User $User
