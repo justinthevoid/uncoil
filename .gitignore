@@ -1,8 +1,73 @@
-/target
-**/node_modules
-apps/uncoil/build
-apps/uncoil/.svelte-kit
-apps/uncoil/src-tauri/target
-apps/uncoil/src-tauri/gen
-*.log
+# ── Rust ──────────────────────────────────────────────────────────────
+/target/
+# Cargo.lock IS tracked (binaries)
+
+# ── Node / frontend (app, site, docs) ─────────────────────────────────
+node_modules/
+apps/uncoil/build/
+apps/uncoil/.svelte-kit/
+.svelte-kit/
+.astro/
+dist/
+.vite/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+# pnpm-lock.yaml IS tracked
+
+# ── Tauri ─────────────────────────────────────────────────────────────
+apps/uncoil/src-tauri/target/
+apps/uncoil/src-tauri/gen/
+
+# ── Python reference tools ────────────────────────────────────────────
 __pycache__/
+*.pyc
+.venv/
+
+# ── Logs, captures, local data ────────────────────────────────────────
+*.log
+# HID captures can contain typed keystrokes; never commit them
+*capture*.log
+*.pcap
+*.pcapng
+
+# ── Secrets / env ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── OS / editors ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp
+
+# ── Claude Code local state ───────────────────────────────────────────
+.claude/projects/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# ── Impeccable ────────────────────────────────────────────────────────
+# Tracked on purpose: PRODUCT.md, DESIGN.md, .impeccable/config.json,
+# .impeccable/design.json, surface briefs, .impeccable/live/config.json,
+# .impeccable/critique/ignore.md.
+.impeccable/config.local.json
+.impeccable/history/
+.impeccable/critique/*
+!.impeccable/critique/ignore.md
+**/.impeccable/hook.cache.json
+**/.impeccable/hook.pending.json
+.impeccable/provider-smoke/
+# decision-page runtime state and payloads, screenshots, build state, generated comps
+.impeccable/questions/
+.impeccable/decision-*.json
+.impeccable/review/
+.impeccable/build/
+.impeccable/mocks/
+# live-mode runtime state (config.json in live/ stays tracked)
+.impeccable/live/*
+!.impeccable/live/config.json
+.impeccable-live.json
+.impeccable-live/
