@@ -8,8 +8,11 @@ if (-not $isAdmin) {
     exit
 }
 
-$bin = Join-Path $env:LOCALAPPDATA 'uncoil\bin'
+# The task runs elevated, so its binary must live where only administrators can write.
+# (A copy under %LOCALAPPDATA% could be swapped by any program running as you.)
+$bin = Join-Path $env:ProgramFiles 'uncoil'
 New-Item -ItemType Directory -Force $bin | Out-Null
+$old = Join-Path $env:LOCALAPPDATA 'uncoil\bin'
 $name = 'uncoil'
 Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
 Get-Process uncoild -ErrorAction SilentlyContinue | Stop-Process -Force

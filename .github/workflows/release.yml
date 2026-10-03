@@ -53,10 +53,10 @@ jobs:
           cache-dependency-path: apps/uncoil/pnpm-lock.yaml
 
       - name: Test
-        run: cargo test --locked -p uncoil-core -p uncoil-hid -p uncoild
+        run: cargo test --locked -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli
 
       - name: Build daemon
-        run: cargo build --locked --release -p uncoild
+        run: cargo build --locked --release -p uncoild -p uncoil-cli
 
       - name: Build desktop app and installer
         working-directory: apps/uncoil
@@ -70,7 +70,9 @@ jobs:
           $ver = $env:TAG.TrimStart('v')
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item target/release/uncoild.exe dist/uncoild.exe
+          Copy-Item target/release/uncoil.exe dist/uncoil.exe
           Copy-Item scripts/install-task.ps1 dist/install-task.ps1
+          Copy-Item scripts/uninstall-task.ps1 dist/uninstall-task.ps1
           $installers = Get-ChildItem target/release/bundle/nsis/*.exe
           if (-not $installers) { Write-Error "No NSIS installer found under target/release/bundle/nsis"; exit 1 }
           foreach ($i in $installers) { Copy-Item $i.FullName "dist/uncoil-app-$ver-x64-setup.exe" }

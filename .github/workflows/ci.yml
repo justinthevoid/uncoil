@@ -27,9 +27,9 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
-      - run: cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -- -D warnings
-      - run: cargo test -p uncoil-core -p uncoil-hid -p uncoild
-      - run: cargo build --release -p uncoild
+      - run: cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli --all-targets -- -D warnings
+      - run: cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli
+      - run: cargo build --release -p uncoild -p uncoil-cli
       - uses: actions/upload-artifact@v4
         with:
           name: uncoild
