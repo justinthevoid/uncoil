@@ -34,9 +34,25 @@ Everything so far. Nothing has been released yet.
 - **Protocol documentation:** `docs/PROTOCOL.md`, a 30-command catalog mined from Synapse's own logs, the
   BlackWidow key-id table, and the onboard key-map commands (verified by mapping Fn+P to Print Screen in
   the keyboard's own memory).
+- **Control pipe and `uncoil` CLI.** The daemon now serves `\\.\pipe\uncoil` (newline-delimited JSON,
+  current user only) and stays the single owner of device I/O: commands are queued per device and run
+  between frames. The new `uncoil` command line covers status, devices, capabilities, onboard key maps
+  (get, dump, set, reset, TOML export/import of the Fn layer), profiles, the OLED command dial, OLED
+  settings and firmware lighting effects. Onboard writes need `--write`, print before/after, are read
+  back, logged and journaled. Design: `docs/ARCHITECTURE.md`.
+- **Feature modules** in `uncoil-core` (`features::{hw_effect, keymap, profile, dial, oled}`) and the
+  shared `ipc` types for the GUI; device files declare `features`, `[hw_effects]` and `[keymap]` (79 keys
+  of the BlackWidow V4 Pro 75%, 13 Basilisk V3 Pro buttons).
+- **Protocol documentation:** firmware-effect layout and per-device support, mouse button map, function-id
+  data layouts, profiles, command-dial modes and OLED getters, from a second pass over Synapse's logs and
+  read-only hardware probes (`tools/reference/readonly_probe.py`).
 - **Reverse-engineering tools** in `tools/reference` (log miners, read-only probes, capture and analysis).
 - Project scaffolding: CI, release workflow, issue and pull request templates, contributing guide, security
   policy, code of conduct.
+
+### Changed
+
+- The release daemon grew from 0.66 MB to about 0.93 MB for the control pipe and feature modules.
 
 ### In progress
 

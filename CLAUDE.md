@@ -12,7 +12,9 @@ peripheral lighting directly over HID, replacing Razer Synapse. It is pre-releas
 ```
 crates/uncoil-core         pure logic: report format (proto.rs), colour, effects, device defs, desk layout, config
 crates/uncoil-hid          hidapi transport, per-device quirks, display-power watcher
-apps/uncoild               daemon: main loop, log.rs, openrgb.rs (one-shot hand-off), selfstat.rs
+apps/uncoild               daemon: main loop, log.rs, openrgb.rs (one-shot hand-off), selfstat.rs,
+                           control pipe (pipe.rs, control.rs, exec.rs; see docs/ARCHITECTURE.md)
+apps/uncoil-cli            the `uncoil` CLI: talks to uncoild over \\.\pipe\uncoil, never to devices
 apps/uncoil                SvelteKit + Tailwind front end (Svelte 5 runes); src/lib/mock = browser mock
 apps/uncoil/src-tauri      Tauri shell, Cargo package `uncoil-gui`
 devices/*.toml             device definitions, include_str!'d into uncoil-core (BUILTIN in device.rs)
@@ -28,8 +30,8 @@ device overrides), `%LOCALAPPDATA%\uncoil\status.json`, `%LOCALAPPDATA%\uncoil\u
 
 ```powershell
 cargo fmt --all --check
-cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -- -D warnings
-cargo test   -p uncoil-core -p uncoil-hid -p uncoild
+cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli --all-targets -- -D warnings
+cargo test   -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli
 cargo build  --release -p uncoild
 
 # GUI: the front end must be built before the uncoil-gui crate compiles
