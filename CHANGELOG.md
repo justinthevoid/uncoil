@@ -29,12 +29,13 @@ Everything so far. Nothing has been released yet.
   `%LOCALAPPDATA%\uncoil\status.json`; a small self-trimming log at `%LOCALAPPDATA%\uncoil\uncoild.log`.
 - **Optional OpenRGB hand-off:** one CLI run at start puts motherboard, GPU and RAM RGB on their own
   hardware rainbow.
-- **Desktop app** (Tauri 2, SvelteKit, Tailwind) in the factory-catalogue design (`DESIGN.md`): a pulse
-  plot of the live effect drawn by the engine's real effect code, effect and display controls, device
-  status with a to-scale desk, and a browser mock for UI work without hardware.
-  - **Keys:** the keyboard drawn from its real geometry, normal and Fn layers, remap any key to a key
-    (with modifiers), a mouse button or nothing; restore the original. Mouse buttons too.
-  - **Hardware:** firmware effects per device, the command dial's mode, OLED brightness and readout,
+- **Desktop app** (Tauri 2, SvelteKit, Tailwind; design in `DESIGN.md`): your desk drawn to scale and lit
+  with the live effect from the engine's real effect code, effect and display controls, device status, and
+  a browser mock for UI work without hardware.
+  - **Keys:** the keyboard drawn as solid keycaps from its real geometry, normal and Fn layers, remap any
+    key to a key (with modifiers), a mouse button or nothing from a searchable list; restore the original.
+    Mouse buttons too.
+  - **Dial & screen:** the command dial's mode, OLED brightness and readout, firmware effects per device,
     onboard profile slots.
   - Every onboard write takes a second, explicit confirmation and reports the read-back.
 - **Protocol documentation:** `docs/PROTOCOL.md`, a 30-command catalog mined from Synapse's own logs, the
