@@ -68,11 +68,11 @@
 			background-color var(--t-mid) var(--ease);
 	}
 	.on {
-		background: var(--color-fac-red);
+		background: var(--color-ink);
 	}
 	.on .knob {
 		transform: translateX(16px);
-		background: #ffffff;
+		background: var(--color-ground);
 	}
 	button:hover .track:not(.on) {
 		background: var(--color-seam-2);

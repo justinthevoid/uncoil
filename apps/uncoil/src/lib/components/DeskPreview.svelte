@@ -79,21 +79,16 @@
 	}
 	.mat {
 		border-radius: 1.6%/4%;
-		background: #0d0d0d;
-		box-shadow:
-			inset 0 0 0 2px var(--c),
-			inset 0 0 24px -6px var(--c),
-			0 0 28px -8px var(--c);
+		background: var(--case);
+		box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 65%, var(--case));
 		transition:
 			box-shadow 120ms linear,
 			opacity var(--t-slow) var(--ease);
 	}
 	.mouse {
 		border-radius: 48% 48% 44% 44% / 30% 30% 22% 22%;
-		background: linear-gradient(#1b1b1b, #121212);
-		box-shadow:
-			inset 0 0 0 1px var(--color-seam),
-			0 10px 24px rgb(0 0 0 / 0.5);
+		background: var(--cap);
+		box-shadow: inset 0 0 0 1px var(--cap-edge), inset 0 -4px 0 var(--cap-edge);
 	}
 	.mled {
 		position: absolute;
@@ -102,9 +97,6 @@
 		translate: -50% -50%;
 		border-radius: 50%;
 		background: var(--c);
-		box-shadow: 0 0 10px 1px var(--c);
-		transition:
-			background-color 120ms linear,
-			box-shadow 120ms linear;
+		transition: background-color 120ms linear;
 	}
 </style>

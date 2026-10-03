@@ -1,43 +1,43 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-03T20:58:27+00:00",
+  "generatedAt": "2026-10-03T23:39:48+00:00",
   "title": "Design System: uncoil",
   "extensions": {
     "colorMeta": {
       "ground": {
         "role": "neutral",
         "displayName": "Ground",
-        "canonical": "#0b0b0b",
+        "canonical": "#f7f6f3",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#2e2a1f",
+          "#4d4633",
+          "#6b6247",
+          "#8a7e5c",
+          "#a39875",
+          "#beb69d",
+          "#dad6c8",
+          "#f5f4f0"
         ]
       },
       "raised": {
         "role": "neutral",
         "displayName": "Raised",
-        "canonical": "#111111",
+        "canonical": "#f1efeb",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#2d291f",
+          "#4b4434",
+          "#695f49",
+          "#877a5e",
+          "#a19378",
+          "#bcb29f",
+          "#d9d4c9",
+          "#f4f3f0"
         ]
       },
       "surface": {
         "role": "neutral",
-        "displayName": "Surface 1",
-        "canonical": "#161616",
+        "displayName": "Surface",
+        "canonical": "#ffffff",
         "tonalRamp": [
           "#262626",
           "#404040",
@@ -52,166 +52,391 @@
       "surface-2": {
         "role": "neutral",
         "displayName": "Surface 2",
-        "canonical": "#1e1e1e",
+        "canonical": "#ebe8e3",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#2d2820",
+          "#4a4235",
+          "#685d4a",
+          "#867860",
+          "#9f9179",
+          "#bbb1a0",
+          "#d9d3c9",
+          "#f4f3f0"
         ]
       },
       "surface-3": {
         "role": "neutral",
         "displayName": "Surface 3",
-        "canonical": "#282828",
+        "canonical": "#e2ded7",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#2c2820",
+          "#4a4336",
+          "#675d4b",
+          "#857860",
+          "#9f917a",
+          "#bab1a0",
+          "#d8d3ca",
+          "#f4f3f0"
         ]
       },
       "ink": {
         "role": "neutral",
         "displayName": "Ink",
-        "canonical": "#f2f2f2",
+        "canonical": "#1f1d1a",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#2a2723",
+          "#45413a",
+          "#615b51",
+          "#7d7569",
+          "#968e82",
+          "#b5afa6",
+          "#d5d2cd",
+          "#f3f2f1"
         ]
       },
       "ink-2": {
         "role": "neutral",
         "displayName": "Ink 2",
-        "canonical": "#b4b4b4",
+        "canonical": "#514c45",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#292723",
+          "#45413b",
+          "#605a52",
+          "#7c746a",
+          "#958e83",
+          "#b4aea7",
+          "#d5d2cd",
+          "#f3f2f1"
         ]
       },
       "ink-3": {
         "role": "neutral",
         "displayName": "Ink 3",
-        "canonical": "#8a8a8a",
+        "canonical": "#6b655d",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#292724",
+          "#44403b",
+          "#5f5a53",
+          "#7b746b",
+          "#948d84",
+          "#b3aea8",
+          "#d4d2ce",
+          "#f3f2f1"
         ]
       },
       "ink-4": {
         "role": "neutral",
         "displayName": "Ink 4",
-        "canonical": "#5c5c5c",
+        "canonical": "#a39d94",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#292723",
+          "#45413b",
+          "#605b53",
+          "#7b746a",
+          "#958e84",
+          "#b4afa7",
+          "#d5d2ce",
+          "#f3f2f1"
         ]
       },
       "seam": {
         "role": "neutral",
         "displayName": "Seam",
-        "canonical": "#262626",
+        "canonical": "#e3e0da",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#2c2821",
+          "#494337",
+          "#665d4d",
+          "#837863",
+          "#9c927c",
+          "#b9b1a2",
+          "#d7d3cb",
+          "#f4f3f0"
         ]
       },
       "seam-2": {
         "role": "neutral",
         "displayName": "Seam 2",
-        "canonical": "#3d3d3d",
+        "canonical": "#cfcac2",
         "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
+          "#2b2722",
+          "#474238",
+          "#645c4f",
+          "#807665",
+          "#9a8f7f",
+          "#b7b0a4",
+          "#d7d2cc",
+          "#f4f3f1"
         ]
       },
-      "accent": {
-        "role": "primary",
-        "displayName": "Accent red",
-        "canonical": "#e2372c",
+      "gel-yours": {
+        "role": "secondary",
+        "displayName": "Gel yours",
+        "canonical": "#2f8a4c",
         "tonalRamp": [
-          "#430d09",
-          "#70150f",
-          "#9d1e16",
-          "#ca261c",
-          "#e34035",
-          "#eb7770",
-          "#f4b2ae",
-          "#fceae9"
+          "#13391f",
+          "#205f34",
+          "#2d8549",
+          "#3aab5e",
+          "#54c578",
+          "#85d69f",
+          "#bbe8c9",
+          "#ecf9f0"
+        ]
+      },
+      "gel-media": {
+        "role": "secondary",
+        "displayName": "Gel media",
+        "canonical": "#b97a12",
+        "tonalRamp": [
+          "#462e07",
+          "#744d0b",
+          "#a36b10",
+          "#d18a14",
+          "#eba32e",
+          "#f1be6a",
+          "#f7daab",
+          "#fdf5e8"
+        ]
+      },
+      "gel-light": {
+        "role": "secondary",
+        "displayName": "Gel light",
+        "canonical": "#b13a80",
+        "tonalRamp": [
+          "#3a132a",
+          "#601f45",
+          "#862c61",
+          "#ad397d",
+          "#c65297",
+          "#d784b5",
+          "#e8bad5",
+          "#f9ecf3"
+        ]
+      },
+      "gel-system": {
+        "role": "secondary",
+        "displayName": "Gel system",
+        "canonical": "#3a63c4",
+        "tonalRamp": [
+          "#111e3b",
+          "#1d3262",
+          "#29468a",
+          "#3459b1",
+          "#4e73cb",
+          "#819bda",
+          "#b8c7ea",
+          "#ebeff9"
         ]
       },
       "ok": {
-        "role": "secondary",
-        "displayName": "OK green",
-        "canonical": "#3fb950",
+        "role": "status",
+        "displayName": "Ok",
+        "canonical": "#1f8f3f",
         "tonalRamp": [
-          "#133919",
-          "#205f29",
-          "#2d853a",
-          "#3aab4a",
-          "#54c564",
-          "#85d690",
-          "#bbe8c1",
-          "#ecf9ee"
+          "#0e3f1c",
+          "#17692e",
+          "#209341",
+          "#29bd53",
+          "#42d66d",
+          "#79e297",
+          "#b4efc4",
+          "#eafaef"
         ]
       },
       "warn": {
-        "role": "secondary",
-        "displayName": "Warning yellow",
-        "canonical": "#e9c31b",
+        "role": "status",
+        "displayName": "Warn",
+        "canonical": "#b45309",
         "tonalRamp": [
-          "#463a07",
-          "#74610b",
-          "#a38810",
-          "#d1ae14",
-          "#ebc82e",
-          "#f1d86a",
-          "#f7e9ab",
-          "#fdf9e8"
+          "#492204",
+          "#793806",
+          "#aa4e08",
+          "#db650b",
+          "#f47e24",
+          "#f7a364",
+          "#fbcca8",
+          "#fef1e7"
+        ]
+      },
+      "ground-dark": {
+        "role": "neutral",
+        "displayName": "Ground dark",
+        "canonical": "#161514",
+        "tonalRamp": [
+          "#282624",
+          "#43403d",
+          "#5e5955",
+          "#78736d",
+          "#928c87",
+          "#b1adaa",
+          "#d3d1cf",
+          "#f3f2f2"
+        ]
+      },
+      "raised-dark": {
+        "role": "neutral",
+        "displayName": "Raised dark",
+        "canonical": "#1b1a18",
+        "tonalRamp": [
+          "#282724",
+          "#44413c",
+          "#5e5b54",
+          "#7a756c",
+          "#938e86",
+          "#b2afa9",
+          "#d4d2ce",
+          "#f3f2f2"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Surface dark",
+        "canonical": "#22201e",
+        "tonalRamp": [
+          "#292624",
+          "#44403c",
+          "#5f5954",
+          "#7a736c",
+          "#938c85",
+          "#b3ada8",
+          "#d4d1ce",
+          "#f3f2f1"
+        ]
+      },
+      "surface-2-dark": {
+        "role": "neutral",
+        "displayName": "Surface 2 dark",
+        "canonical": "#2b2825",
+        "tonalRamp": [
+          "#292623",
+          "#45403b",
+          "#605953",
+          "#7b736a",
+          "#958c84",
+          "#b4ada7",
+          "#d5d1ce",
+          "#f3f2f1"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Ink dark",
+        "canonical": "#eeeae4",
+        "tonalRamp": [
+          "#2f281e",
+          "#4e4331",
+          "#6e5d45",
+          "#8d7859",
+          "#a69172",
+          "#c0b19b",
+          "#dcd3c7",
+          "#f5f3ef"
+        ]
+      },
+      "ink-2-dark": {
+        "role": "neutral",
+        "displayName": "Ink 2 dark",
+        "canonical": "#c2bbb1",
+        "tonalRamp": [
+          "#2b2722",
+          "#484138",
+          "#645b4e",
+          "#817565",
+          "#9a8f7e",
+          "#b7afa3",
+          "#d7d2cb",
+          "#f4f3f1"
+        ]
+      },
+      "ink-3-dark": {
+        "role": "neutral",
+        "displayName": "Ink 3 dark",
+        "canonical": "#948d83",
+        "tonalRamp": [
+          "#292723",
+          "#44413b",
+          "#605a53",
+          "#7b746a",
+          "#958e84",
+          "#b3aea7",
+          "#d4d2ce",
+          "#f3f2f1"
+        ]
+      },
+      "seam-dark": {
+        "role": "neutral",
+        "displayName": "Seam dark",
+        "canonical": "#2e2b28",
+        "tonalRamp": [
+          "#292624",
+          "#44403b",
+          "#5f5953",
+          "#7b736b",
+          "#948c84",
+          "#b3ada8",
+          "#d4d1ce",
+          "#f3f2f1"
+        ]
+      },
+      "gel-yours-dark": {
+        "role": "secondary",
+        "displayName": "Gel yours dark",
+        "canonical": "#58b06c",
+        "tonalRamp": [
+          "#19341f",
+          "#295733",
+          "#397948",
+          "#4a9c5c",
+          "#63b576",
+          "#90cb9d",
+          "#c1e2c8",
+          "#eef7f0"
+        ]
+      },
+      "gel-media-dark": {
+        "role": "secondary",
+        "displayName": "Gel media dark",
+        "canonical": "#e0a33e",
+        "tonalRamp": [
+          "#422d0b",
+          "#6e4b12",
+          "#9a6919",
+          "#c68720",
+          "#dfa139",
+          "#e8bc72",
+          "#f2d9b0",
+          "#fbf5e9"
+        ]
+      },
+      "gel-light-dark": {
+        "role": "secondary",
+        "displayName": "Gel light dark",
+        "canonical": "#cf5aa0",
+        "tonalRamp": [
+          "#3b112a",
+          "#631d47",
+          "#8a2863",
+          "#b2347f",
+          "#cb4d99",
+          "#da81b6",
+          "#eab8d6",
+          "#f9ebf4"
+        ]
+      },
+      "gel-system-dark": {
+        "role": "secondary",
+        "displayName": "Gel system dark",
+        "canonical": "#5b84e0",
+        "tonalRamp": [
+          "#0c1c40",
+          "#142f6b",
+          "#1c4296",
+          "#2455c1",
+          "#3e6edb",
+          "#7698e5",
+          "#b2c5f0",
+          "#eaeffb"
         ]
       }
     },
@@ -222,15 +447,15 @@
       },
       "section-title": {
         "displayName": "Section title",
-        "purpose": "Card headings."
-      },
-      "label": {
-        "displayName": "Label",
-        "purpose": "Field labels, sentence case."
+        "purpose": "Card and list headings."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Descriptions and hints."
+        "purpose": "Controls, lists, prose."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, sentence case, ink-3."
       },
       "keycap": {
         "displayName": "Keycap legend",
@@ -240,50 +465,53 @@
     "shadows": [
       {
         "name": "keycap-edge",
-        "value": "inset 0 -0.35cqw 0 rgb(0 0 0 / 0.45)",
-        "purpose": "The bottom edge of a keycap."
-      },
-      {
-        "name": "device-on-desk",
-        "value": "0 12px 32px rgb(0 0 0 / 0.45)",
-        "purpose": "Keyboard and mouse resting on the desk."
+        "value": "inset 0 -0.3cqw 0 var(--cap-edge), 0 0 0 1px var(--cap-edge)",
+        "purpose": "A keycap's edge and bottom."
       },
       {
         "name": "segment-pill",
-        "value": "0 1px 2px rgb(0 0 0 / 0.5)",
-        "purpose": "The raised pill in a segmented control."
+        "value": "0 1px 2px rgb(0 0 0 / 0.18), 0 0 0 1px var(--color-seam)",
+        "purpose": "The segmented control's pill."
       }
     ],
     "motion": [
       {
         "name": "ease",
         "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Expo-out; every transition."
+        "purpose": "Every transition."
       },
       {
         "name": "t-fast",
-        "value": "160ms",
-        "purpose": "Thumb scale, small flicks. 0 under reduced motion."
+        "value": "140ms",
+        "purpose": "Small flicks. 0 under reduced motion."
       },
       {
         "name": "t-mid",
-        "value": "260ms",
-        "purpose": "Hover and colour changes. 0 under reduced motion."
+        "value": "220ms",
+        "purpose": "Hover and colour. 0 under reduced motion."
       },
       {
         "name": "t-slow",
-        "value": "420ms",
-        "purpose": "Sliding highlights, toggle knob. 0 under reduced motion."
+        "value": "360ms",
+        "purpose": "Sliding pills and knobs. 0 under reduced motion."
       }
     ],
     "breakpoints": [
       {
-        "name": "content-narrow",
-        "value": "820px (container: view)"
+        "name": "panel-stacks",
+        "value": "720px (container: view)"
       },
       {
-        "name": "window-min",
-        "value": "900x600"
+        "name": "list-one-column",
+        "value": "600px (list container)"
+      },
+      {
+        "name": "keycap-second-line",
+        "value": "640px (keyboard container)"
+      },
+      {
+        "name": "window",
+        "value": "56% x 62.5% of monitor, 1024x680 to 1600x1000"
       }
     ]
   },
@@ -292,96 +520,96 @@
       "name": "Primary button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The main action of a card.",
+      "description": "The main action; filled ink.",
       "html": "<button class=\"ds-btn\">Save to keyboard</button>",
-      "css": ".ds-btn { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; height: 36px; padding: 0 16px; border: 1px solid #f2f2f2; border-radius: 6px; background: #f2f2f2; color: #0b0b0b; font-size: 13px; font-weight: 600; transition: background-color 260ms cubic-bezier(0.16,1,0.3,1); } .ds-btn:hover { background: #fff; } .ds-btn:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 2px; }"
+      "css": ".ds-btn { font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; height: 34px; padding: 0 14px; border: 1px solid #1f1d1a; border-radius: 8px; background: #1f1d1a; color: #f7f6f3; font-size: 13px; font-weight: 600; transition: opacity 220ms cubic-bezier(0.16,1,0.3,1); } .ds-btn:hover { opacity: .88; } .ds-btn:focus-visible { outline: 2px solid #1f1d1a; outline-offset: 2px; }"
     },
     {
       "name": "Quiet button",
       "kind": "button",
       "refersTo": "button-quiet",
-      "description": "Secondary actions.",
-      "html": "<button class=\"ds-btn-quiet\">Restore original</button>",
-      "css": ".ds-btn-quiet { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; height: 36px; padding: 0 16px; border: 1px solid #3d3d3d; border-radius: 6px; background: transparent; color: #f2f2f2; font-size: 13px; font-weight: 600; transition: background-color 260ms cubic-bezier(0.16,1,0.3,1), border-color 260ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-quiet:hover { border-color: #8a8a8a; background: #161616; } .ds-btn-quiet:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 2px; }"
+      "description": "Secondary actions; hairline outline.",
+      "html": "<button class=\"ds-btn-q\">Restore original</button>",
+      "css": ".ds-btn-q { font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; height: 34px; padding: 0 14px; border: 1px solid #cfcac2; border-radius: 8px; background: transparent; color: #1f1d1a; font-size: 13px; font-weight: 600; } .ds-btn-q:hover { background: #ebe8e3; }"
+    },
+    {
+      "name": "Device tabs",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Desk and one tab per device, each with a connection dot.",
+      "html": "<nav class=\"ds-tabs\"><span class=\"t\">Desk</span><span class=\"t on\">BlackWidow V4 Pro 75% <i></i></span><span class=\"t\">Basilisk V3 Pro <i></i></span><span class=\"t\">Goliathus Chroma <i class=\"off\"></i> <small>Not connected</small></span></nav>",
+      "css": ".ds-tabs { font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; display: flex; gap: 2px; padding: 9px 12px; background: #f1efeb; border-bottom: 1px solid #e3e0da; font-size: 13px; } .ds-tabs .t { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 8px; color: #6b655d; font-weight: 500; } .ds-tabs .on { background: #ebe8e3; color: #1f1d1a; } .ds-tabs i { width: 7px; height: 7px; border-radius: 50%; background: #1f8f3f; } .ds-tabs i.off { background: #a39d94; } .ds-tabs small { color: #a39d94; }"
+    },
+    {
+      "name": "Keycaps with gel tabs",
+      "kind": "custom",
+      "refersTo": "keycap",
+      "description": "Flat keycaps; a gel tab and second line mark keys that do something different.",
+      "html": "<div class=\"ds-keys\"><span class=\"k\">O</span><span class=\"k\" style=\"--g:#2f8a4c\"><b></b>P<small>PrtSc</small></span><span class=\"k\" style=\"--g:#b97a12\"><b></b>F9<small>Macro</small></span><span class=\"k sel\">[</span></div>",
+      "css": ".ds-keys { font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; display: flex; gap: 6px; padding: 12px; background: #e9e6e0; border-radius: 10px; } .ds-keys .k { position: relative; display: grid; place-content: center; justify-items: center; width: 46px; height: 46px; border-radius: 5px; background: #fff; box-shadow: inset 0 -3px 0 rgb(31 29 26 / .12), 0 0 0 1px rgb(31 29 26 / .12); color: #1f1d1a; font-size: 14px; font-weight: 600; overflow: hidden; } .ds-keys b { position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--g); } .ds-keys small { color: #6b655d; font-size: 10px; font-weight: 500; } .ds-keys .sel { box-shadow: inset 0 0 0 2px #1f1d1a, inset 0 -3px 0 rgb(31 29 26 / .12); }"
+    },
+    {
+      "name": "Fn change row",
+      "kind": "custom",
+      "description": "One row of the \"What Fn changes\" list: key, action, named gel.",
+      "html": "<div class=\"ds-row\"><span class=\"mk\">Esc</span><span>Low power mode</span><span class=\"g\"><i style=\"background:#3a63c4\"></i>System</span></div>",
+      "css": ".ds-row { font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 12px; width: 380px; height: 38px; padding: 0 10px 0 6px; border-radius: 8px; background: #fff; font-size: 13px; color: #1f1d1a; } .ds-row .mk { display: grid; place-items: center; height: 26px; border-radius: 5px; background: #fff; box-shadow: inset 0 -2px 0 rgb(31 29 26 / .12), 0 0 0 1px rgb(31 29 26 / .12); font-size: 11.5px; font-weight: 600; } .ds-row .g { display: flex; align-items: center; gap: 6px; color: #6b655d; font-size: 12px; } .ds-row i { width: 10px; height: 14px; border-radius: 2px; }"
     },
     {
       "name": "Segmented control",
       "kind": "custom",
-      "description": "Equal segments on a dark track; a raised pill marks the choice.",
-      "html": "<div class=\"ds-seg\"><button aria-checked=\"true\">Wave</button><button>Spectrum</button><button>Static</button><button>Off</button></div>",
-      "css": ".ds-seg { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: grid; grid-template-columns: repeat(4, 1fr); padding: 3px; width: 380px; border-radius: 9px; background: #161616; border: 1px solid #262626; } .ds-seg button { height: 32px; border: 0; border-radius: 6px; background: none; color: #8a8a8a; font: inherit; font-size: 13px; font-weight: 500; } .ds-seg button:hover { color: #b4b4b4; } .ds-seg button[aria-checked=true] { background: #282828; color: #f2f2f2; box-shadow: 0 1px 2px rgb(0 0 0 / .5); }"
+      "description": "Equal segments; a light pill slides to the choice.",
+      "html": "<div class=\"ds-seg\"><span>Normal</span><span class=\"on\">With Fn held</span></div>",
+      "css": ".ds-seg { font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 250px; padding: 3px; border-radius: 11px; background: #ebe8e3; border: 1px solid #e3e0da; font-size: 13px; font-weight: 500; } .ds-seg span { display: grid; place-items: center; height: 28px; border-radius: 8px; color: #6b655d; } .ds-seg .on { background: #fff; color: #1f1d1a; box-shadow: 0 1px 2px rgb(0 0 0 / .18), 0 0 0 1px #e3e0da; }"
     },
     {
-      "name": "Toggle",
-      "kind": "input",
-      "description": "Pill switch that turns red when on.",
-      "html": "<button class=\"ds-toggle\" role=\"switch\" aria-checked=\"true\"><span>Turn lighting off when the display sleeps</span><i></i></button>",
-      "css": ".ds-toggle { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 360px; border: 0; background: none; color: #f2f2f2; font-size: 14px; } .ds-toggle i { position: relative; width: 38px; height: 22px; border-radius: 11px; background: #282828; transition: background-color 260ms; } .ds-toggle i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #b4b4b4; transition: transform 420ms cubic-bezier(0.16,1,0.3,1); } .ds-toggle[aria-checked=true] i { background: #e2372c; } .ds-toggle[aria-checked=true] i::after { transform: translateX(16px); background: #fff; }"
-    },
-    {
-      "name": "Slider",
-      "kind": "input",
-      "description": "Rounded track filled in ink, round thumb.",
-      "html": "<label class=\"ds-slider\"><span><b>Brightness</b><output>72%</output></span><input type=\"range\" value=\"72\"></label>",
-      "css": ".ds-slider { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: grid; gap: 6px; width: 280px; color: #f2f2f2; } .ds-slider span { display: flex; justify-content: space-between; font-size: 13px; } .ds-slider b { font-weight: 500; color: #b4b4b4; } .ds-slider input { appearance: none; height: 20px; background: transparent; } .ds-slider input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, #f2f2f2 72%, #282828 72%); } .ds-slider input::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: #f2f2f2; box-shadow: 0 0 0 3px #0b0b0b; }"
-    },
-    {
-      "name": "Keycap",
-      "kind": "custom",
-      "refersTo": "keycap",
-      "description": "Solid keycaps; Fn actions in red on a tinted cap.",
-      "html": "<div class=\"ds-keys\"><span class=\"k\">O</span><span class=\"k fn\">P<small>PrtSc</small></span><span class=\"k sel\">[</span></div>",
-      "css": ".ds-keys { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: flex; gap: 6px; padding: 12px; background: #0e0e0e; border-radius: 8px; } .ds-keys .k { display: grid; place-content: center; justify-items: center; width: 44px; height: 44px; border-radius: 4px; background: #1e1e1e; box-shadow: inset 0 -3px 0 rgb(0 0 0 / .45); color: #f2f2f2; font-size: 14px; font-weight: 500; } .ds-keys .fn { background: #2a1a19; } .ds-keys small { color: #e2372c; font-size: 10px; } .ds-keys .sel { box-shadow: inset 0 0 0 2px #f2f2f2, inset 0 -3px 0 rgb(0 0 0 / .45); }"
-    },
-    {
-      "name": "Sidebar navigation",
-      "kind": "nav",
-      "refersTo": "nav-item-active",
-      "description": "Icon and label per section; filled highlight, red active icon.",
-      "html": "<ul class=\"ds-nav\"><li aria-current=\"page\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"10\" r=\"5\"/><path d=\"M9 18h6M10 21h4\"/></svg>Lighting</li><li><svg viewBox=\"0 0 24 24\"><rect x=\"2\" y=\"6\" width=\"20\" height=\"12\" rx=\"2\"/></svg>Keys</li></ul>",
-      "css": ".ds-nav { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; list-style: none; margin: 0; padding: 10px; width: 180px; background: #111; display: grid; gap: 2px; } .ds-nav li { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 12px; border-radius: 6px; color: #8a8a8a; font-size: 14px; font-weight: 500; } .ds-nav svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.75; } .ds-nav li[aria-current] { background: #282828; color: #f2f2f2; } .ds-nav li[aria-current] svg { color: #e2372c; }"
+      "name": "Effect swatch card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "An effect as a swatch card; the selected one is outlined in ink.",
+      "html": "<button class=\"ds-card on\"><span class=\"sw\"></span><b>Wave</b><small>A rainbow that moves across the whole desk</small></button>",
+      "css": ".ds-card { font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; display: grid; gap: 4px; width: 190px; padding: 8px 8px 12px; border: 1px solid #e3e0da; border-radius: 10px; background: #fff; text-align: left; color: #1f1d1a; } .ds-card.on { border-color: #1f1d1a; box-shadow: inset 0 0 0 1px #1f1d1a; } .ds-card .sw { height: 64px; margin-bottom: 6px; border-radius: 5px; background: linear-gradient(125deg, #ff0000, #ff8a00, #ffe600, #2bd94a, #00b3ff, #3a3aff, #b040ff, #ff0060); } .ds-card b { padding: 0 4px; font-size: 13px; } .ds-card small { padding: 0 4px; color: #6b655d; font-size: 12px; }"
     }
   ],
   "narrative": {
-    "northStar": "The Dark Desk",
-    "overview": "uncoil sits next to a desk full of RGB, so the app stays dark, quiet and out of the way, and lets the devices' real light be the only colour that matters. Where the app shows colour, it is the actual colour your keyboard, mouse and mat are showing right now, drawn on a to-scale picture of your desk.\n\nEverything else is plain: sentence-case words, standard controls with small radii, and one red accent for \"selected\" or \"on\". There are no codes, numbers or labels for decoration. A first-time user should know what every control does by reading it.",
+    "northStar": "The Swatch Book",
+    "overview": "uncoil files every change like a lighting-gel swatch book. The pages are warm and quiet: warm white in light mode, warm graphite in dark mode, following Windows. There is no brand accent. Colour appears in two places only: as a named gel swatch that says what kind of change something is, and as the real colour your devices are showing.\n\nThe app is organised like a peripheral configurator. Along the top are the Desk and one tab per device. The left rail lists what that tab can do. The device is drawn large in the centre, and a details panel on the right holds the selected thing and its Save action. Everything is Segoe UI in sentence case, with standard controls.",
     "keyCharacteristics": [
-      "Near-black ground with raised dark cards and four grey text steps",
-      "The desk drawn to scale and lit with the live effect (Lighting, Devices)",
-      "Keyboards drawn as solid keycaps with real legends (Keys)",
-      "Red is the only accent: selected nav icon, toggle on, the dial's tip, Fn actions on keycaps",
-      "Archivo throughout; width axis slightly widened for titles",
-      "One expo-out ease; nothing bounces except the direction dial's needle"
+      "Warm neutral pages in light and dark, with no brand accent colour",
+      "Four gels, each with one job: your change (green), media and macros (amber), lighting (magenta), system (blue)",
+      "Device-first shell: Desk and device tabs on top, feature rail on the left, device centre stage, details panel on the right",
+      "Keyboards drawn as flat keycaps from real geometry, with a gel tab on each key that does something different",
+      "Saves to a device always report what the device read back"
     ],
     "rules": [
       {
-        "name": "The Real Light Rule",
-        "body": "Colour in the content area is either the accent or the devices' actual LED colours. Never decorate with colour.",
+        "name": "The Gel Rule",
+        "body": "A colour in the interface is either a gel with its name next to it somewhere on the screen, or a device's real LED colour. Never decoration, never a brand accent.",
         "section": "colors"
       },
       {
-        "name": "The One Accent Rule",
-        "body": "Red marks selection or \"on\", once per control. Green and yellow are reserved for status.",
+        "name": "The No Red Accent Rule",
+        "body": "Red appears only when a device is showing red. The interface never uses red for selection, emphasis or status.",
         "section": "colors"
       },
       {
         "name": "The Plain Words Rule",
-        "body": "Every label says what the control does, in sentence case. No codes, catalog numbers, section numbers or kickers above headings.",
+        "body": "Labels say what things do, in sentence case. No codes, catalog numbers or section numbers. Raw device codes are translated: \"Low power mode\", not \"Razer key 11\".",
         "section": "typography"
       }
     ],
     "dos": [
-      "Do name things plainly and describe what will happen before it happens.",
-      "Do show the devices' real colours on a to-scale desk when colour helps.",
-      "Do keep red for selection and \"on\"; use green and yellow only for status.",
-      "Do route JS transition durations through `ms()` in `src/lib/motion.ts` so reduced motion turns them off."
+      "Do name every gel on screen wherever its colour appears in a list.",
+      "Do draw the device large in the centre of its own screens.",
+      "Do report what the device read back after every save.",
+      "Do follow Windows for light and dark, and design both.",
+      "Do route JS transition durations through `ms()` in `src/lib/motion.ts`."
     ],
     "donts": [
-      "Don't add codes, catalog numbers, section numbers or kicker labels.",
-      "Don't use gradient text, glass, or decorative colour.",
-      "Don't draw outline-only or line-art versions of physical things people need to read (keyboards, buttons).",
-      "Don't animate width, height, padding or margin; use transform and opacity.",
-      "Don't name SVG classes after Tailwind utilities (`outline`, `border`, `ring`).",
+      "Don't add a brand accent colour, glow, gradients on chrome, or a width-stretched display face.",
+      "Don't add catalog numbers, section numbers or kicker labels.",
+      "Don't show raw protocol codes to users.",
+      "Don't animate width, height, padding or margin.",
       "Don't imitate Razer's branding, green or product imagery."
     ]
   }

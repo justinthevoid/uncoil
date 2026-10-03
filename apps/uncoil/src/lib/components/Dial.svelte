@@ -155,7 +155,7 @@
 		stroke-linecap: round;
 	}
 	.tip {
-		fill: var(--color-fac-red);
+		fill: var(--color-ink);
 	}
 	.hub {
 		fill: var(--color-ink-2);

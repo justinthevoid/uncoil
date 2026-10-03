@@ -93,9 +93,31 @@ async fn daemon(
     .map_err(|e| e.to_string())?
 }
 
+/// Size the window to the monitor it opens on: about 56% x 65% of it (1440x900 on a 2560x1440 screen),
+/// never below the minimum and never past 1600x1000, then centre and show it. The window starts hidden so
+/// it never flashes at the config's fallback size.
+fn size_to_monitor(window: &tauri::WebviewWindow) {
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let scale = monitor.scale_factor();
+        let screen = monitor.size().to_logical::<f64>(scale);
+        let width = (screen.width * 0.5625).clamp(1024.0, 1600.0).min(screen.width);
+        let height = (screen.height * 0.625).clamp(680.0, 1000.0).min(screen.height - 48.0);
+        let _ = window.set_size(tauri::LogicalSize::new(width.round(), height.round()));
+        let _ = window.center();
+    }
+    let _ = window.show();
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                size_to_monitor(&window);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![get_config, save_config, get_desk, preview_frame, get_status, daemon])
         .run(tauri::generate_context!())
         .expect("error while running uncoil");

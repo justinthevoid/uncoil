@@ -1,5 +1,5 @@
 ---
-version: 2
+version: 1
 slug: "apps-uncoil"
 primary_target: "apps/uncoil"
 related_targets: ["site"]
@@ -7,38 +7,42 @@ related_targets: ["site"]
 
 # Surface brief: uncoil desktop app (apps/uncoil)
 
-Scope: the Tauri desktop app (Lighting, Keys, Dial & screen, Devices, Settings, About). Mode: **Operate**.
-The site (Persuade) and docs (Read) share the palette and type.
+Scope: the Tauri desktop app. Mode: **Operate**. The site and docs share palette and type later.
 
-Audience and job: Razer owners on Windows, enthusiasts first, opening the app occasionally to set the
-effect, remap a key, check that devices are connected, and close it again. Proof on hand: measured engine
-footprint; live device state; the real effect colours.
-Constraints: standard controls and navigation; plain words; readable state without colour; reduced motion.
+Audience and job: Razer owners on Windows, enthusiasts first, opening the app occasionally to set the desk
+effect, remap a key, change the dial or screen, check devices are connected, and close it again. Proof on
+hand: measured engine footprint; live device state; real effect colours; real Fn-layer data.
+Constraints: device-first layout (Wooting / G Hub) with Linear/Raycast cleanliness; light and dark follow
+Windows; no wide display face; no red accent; default window sized to the monitor (1440x900 on a 1440p
+screen, min 1024x680); standard controls; readable state without colour; reduced motion.
 
 ## History
 
-Version 1 used a "Factory Catalog Sleeve" direction (Peter Saville / Factory Records: catalog numbers on
-everything, hairline line plots, engraved caps). Justin chose it on 2026-10-02 from comps, then rejected it
-in use on 2026-10-03: the FAC numbers meant nothing to users, and the outline keyboard was hard to read.
-He chose "keep dark, drop gimmicks" and "solid keycaps, big legends". Don't bring the catalog devices back.
+v1 "Factory Catalog Sleeve" (Saville, FAC numbers) rejected in use 2026-10-03. v2 "Dark Desk" (near-black,
+red accent, wide Archivo, glow) rejected the same day as futuristic. v3 chosen from a decision round of
+code-rendered Keys screens: the Swatch Book.
 
 ## Direction contract
 
-THESIS: a dark, quiet control panel next to a desk full of light. The only colour that matters is the
-devices' real colour, shown on a to-scale picture of the desk; everything else is plain and readable.
+THESIS: uncoil files every change like a lighting-gel swatch book: each kind of change carries a named colour
+tab, on the device and in the list, so you can read what you changed at a glance. It refuses the gamer
+dashboard (neon on black) and the grey settings panel with one accent.
 
-OWN-WORLD: near-black ground #0b0b0b with raised dark cards, four grey text steps, one red accent #e2372c
-for selection and "on", green and yellow for status only. Archivo, sentence case, small radii (4/6/10px),
-lucide icons. Solid keycaps and lit LEDs are the only places with physical depth.
+OWN-WORLD: swatch-book pages: warm graphite (dark) or warm-white (light) grounds, warm grey ink, no brand
+accent; colour appears only as named gel swatches with jobs (your change green, media and macros amber,
+lighting magenta, system blue) and as the devices' real LED colour. Segoe UI Variable, sentence case, 8px
+radii, hairline borders, flat surfaces.
 
-STORY: open the app, see your desk lit exactly as it is, change the effect with ordinary controls, click a
-key to change what it does, save it to the device with one confirmation, close the app.
+STORY: open the app, pick the desk or a device along the top, see it large in the centre, change one thing
+in the panel beside it, save it with one confirmation, and read back what the device now holds.
 
-FIRST VIEWPORT: icon sidebar (Lighting, Keys, Dial & screen, Devices, Settings, About; engine status at the
-foot). Lighting: page title and one-line description, the desk preview lit live, connected-device chips,
-then a card with the effect picker, its settings, and brightness/saturation.
+FIRST VIEWPORT: top bar with Desk plus one tab per device (status dot), engine status and settings at the
+right; left rail with the selected tab's features; centre stage with the device drawn large (Desk: the
+lit desk and the effect chosen from swatch cards; Keys: keycaps with gel tabs and a compact "What Fn
+changes" list); right panel for the selected thing and its Save action.
 
-Signature move: the desk drawn to scale and lit with the live effect; on Keys, the real keyboard as solid
-keycaps with Fn actions written on them.
+FORM: lighting-gel swatch book (Rosco/Lee), fourth on the ordered list of seven; assigned by the roll,
+seed key 3f404d4d. Raised by the Japanese high-density challenger (compact Fn list) and the ticket wallet
+(saves stamp the device's read-back).
 
-FINISH: reviewed against DESIGN.md (rewritten 2026-10-03), detector clean, screenshots in .impeccable/review/.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

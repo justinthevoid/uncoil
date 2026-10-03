@@ -14,12 +14,11 @@
     "windows": [
       {
         "title": "uncoil",
-        "width": 1100,
-        "height": 720,
-        "minWidth": 900,
-        "minHeight": 600,
-        "backgroundColor": "#16171a",
-        "theme": "Dark"
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 680,
+        "visible": false
       }
     ],
     "security": {

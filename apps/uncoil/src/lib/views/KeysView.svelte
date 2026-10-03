@@ -1,21 +1,22 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
-	import { expoOut } from 'svelte/easing';
+	import { fade } from 'svelte/transition';
 	import { Search } from '@lucide/svelte';
+	import Workspace from '#lib/components/Workspace.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import WriteButton from '#lib/components/WriteButton.svelte';
+	import PipeUnavailable from '#lib/components/PipeUnavailable.svelte';
 	import Keyboard, { legendFor, type Cap } from '#lib/components/Keyboard.svelte';
+	import MouseDiagram from '#lib/components/MouseDiagram.svelte';
 	import { daemon, getDesk } from '#lib/api.ts';
-	import { pipe, loadDevices, withFeature, errorText } from '#lib/daemon.svelte.ts';
-	import { KEY_GROUPS, MODIFIERS, MOUSE_BUTTONS, keyTitle, parseSpec, shortLabel, toSpec, describeFunction, type Mapping } from '#lib/keys.ts';
+	import { pipe, loadDevices, errorText } from '#lib/daemon.svelte.ts';
+	import { GEL_NAMES, KEY_GROUPS, actionName, MODIFIERS, MOUSE_BUTTONS, describeFunction, gelFor, keyTitle, parseSpec, shortLabel, toSpec, type Gel, type Mapping } from '#lib/keys.ts';
 	import { ms } from '#lib/motion.ts';
 	import type { Capabilities, Config, DeskDevice, KeyMapping, Layer, WriteResult } from '#lib/types.ts';
 
-	let { config }: { config: Config } = $props();
+	let { config, deviceId }: { config: Config; deviceId: string } = $props();
 
 	let desk = $state<DeskDevice[]>([]);
-	let deviceId = $state<string | null>(null);
 	let layer = $state<Layer>('hypershift');
 	let caps = $state<Capabilities | null>(null);
 	let rows = $state<KeyMapping[]>([]);
@@ -29,13 +30,9 @@
 		if (!pipe.loaded) await loadDevices();
 	});
 
-	const devices = $derived(withFeature('keymap'));
-	$effect(() => {
-		if (!deviceId && devices.length) deviceId = devices[0].id;
-	});
-	const device = $derived(devices.find((d) => d.id === deviceId) ?? null);
+	const device = $derived(pipe.devices.find((d) => d.id === deviceId) ?? null);
 	const isMouse = $derived(device?.kind === 'mouse');
-	const deviceWord = $derived(isMouse ? 'mouse' : 'keyboard');
+	const word = $derived(isMouse ? 'mouse' : 'keyboard');
 
 	async function load(id: string, l: Layer) {
 		loading = true;
@@ -46,7 +43,7 @@
 				daemon<KeyMapping[]>('keymap.dump', id, { layer: l }),
 				l === 'normal' ? Promise.resolve(null) : daemon<KeyMapping[]>('keymap.dump', id, { layer: 'normal' })
 			]);
-			if (id !== deviceId || l !== layer) return;
+			if (l !== layer) return;
 			caps = c;
 			rows = r;
 			normal = n ?? r;
@@ -58,17 +55,20 @@
 		}
 	}
 	$effect(() => {
-		if (deviceId) load(deviceId, layer);
+		if (device) load(deviceId, layer);
 	});
 
 	const selected = $derived(rows.find((k) => k.key === selectedId) ?? null);
 	const normalById = $derived(new Map(normal.map((k) => [k.key, k.function])));
-	/** On the Fn layer: the key does something other than its normal job. */
-	const differs = (k: KeyMapping) => layer !== 'normal' && normalById.get(k.key) !== k.function;
+	/** Does this key do something other than its normal job on the layer shown? */
+	const changed = (k: KeyMapping) => (layer === 'normal' ? /^(razer|media|macro|off|power|profile|dpi|lighting|shortcut)\b/.test(k.function) : normalById.get(k.key) !== k.function);
+	const gelOf = (k: KeyMapping): Gel | null => gelFor(k.function, changed(k));
+	const changes = $derived(rows.filter((k) => gelOf(k)));
 
-	// Keycaps for the drawing: keyed by the layout's shape names (the keymap's LED names).
+	// Keycaps for the drawing, keyed by the layout's shape names (the keymap's LED names).
 	const board = $derived(desk.find((d) => d.id === deviceId && d.kind === 'keyboard') ?? null);
 	const keyByLed = $derived(new Map((caps?.keys ?? []).filter((k) => k.led).map((k) => [k.led!, k.id])));
+	const ledById = $derived(new Map((caps?.keys ?? []).filter((k) => k.led).map((k) => [k.id, k.led!])));
 	const capMap = $derived.by(() => {
 		const m = new Map<string, Cap>();
 		const byId = new Map(rows.map((k) => [k.key, k]));
@@ -80,16 +80,19 @@
 				m.set(s.name, { fixed: true });
 				continue;
 			}
-			const d = differs(k);
-			m.set(s.name, { sub: d ? shortLabel(k.function) : undefined, accent: d, label: `${legendFor(s.name) || 'Space'}: ${k.description}` });
+			const gel = gelOf(k);
+			m.set(s.name, { sub: gel ? shortLabel(k.function) : undefined, gel: gel ?? undefined, label: `${legendFor(s.name) || 'Space'}: ${k.description}` });
 		}
 		return m;
 	});
-	const selectedLed = $derived((caps?.keys ?? []).find((k) => k.id === selectedId)?.led ?? null);
-	function selectLed(led: string) {
-		const id = keyByLed.get(led);
-		if (id !== undefined) selectedId = id;
-	}
+	// Mouse: every button as a region on the drawing.
+	const mouseRegions = $derived(new Map(rows.map((k) => [k.name, { name: k.name, label: `${keyTitle(k.name)}: ${actionName(k.function, k.description)}`, gel: gelOf(k), selected: k.key === selectedId }])));
+	const unit = $derived(isMouse ? ['button', 'buttons'] : ['key', 'keys']);
+
+	const keyName = (k: KeyMapping) => {
+		const led = ledById.get(k.key);
+		return led ? legendFor(led) || 'Space' : keyTitle(k.name);
+	};
 
 	// ---- editor -------------------------------------------------------------------------------------
 	let draft = $state<Mapping>({ type: 'off' });
@@ -117,7 +120,6 @@
 		for (const o of list) groups.set(o.group, [...(groups.get(o.group) ?? []), o]);
 		return [...groups];
 	});
-	/** The chosen base action, ignoring modifiers. */
 	const draftBase = $derived(draft.type === 'key' ? `key ${draft.key}` : toSpec(draft));
 	function choose(spec: string) {
 		const m = parseSpec(spec);
@@ -138,7 +140,7 @@
 	});
 
 	async function write(cmd: 'keymap.set' | 'keymap.reset') {
-		if (!selected || !deviceId) return;
+		if (!selected) return;
 		busy = true;
 		outcome = null;
 		try {
@@ -150,8 +152,8 @@
 			outcome = r.unchanged
 				? { ok: true, text: 'It was already set that way.' }
 				: r.verified
-					? { ok: true, text: `Saved. It now sends ${r.after.description}.` }
-					: { ok: false, text: `Saved, but the ${deviceWord} reports ${r.after.description}.` };
+					? { ok: true, text: `Saved. The ${word} reads back: ${actionName(r.after.function, r.after.description)}.` }
+					: { ok: false, text: `Saved, but the ${word} reads back: ${actionName(r.after.function, r.after.description)}.` };
 		} catch (e) {
 			outcome = { ok: false, text: errorText(e) };
 		} finally {
@@ -163,259 +165,176 @@
 		{ value: 'normal' as const, label: 'Normal' },
 		{ value: 'hypershift' as const, label: 'With Fn held' }
 	];
-	const keyName = (k: KeyMapping) => {
-		const led = (caps?.keys ?? []).find((x) => x.id === k.key)?.led;
-		return led ? legendFor(led) || 'Space' : keyTitle(k.name);
-	};
 </script>
 
-<section class="keys" aria-labelledby="keys-title">
-	<header class="head">
-		<h1 id="keys-title" class="page-title">Keys</h1>
-		<p class="lede">Change what keys and buttons do. Changes are saved in the device itself, so they keep working without uncoil.</p>
-	</header>
+{#if !pipe.loaded}
+	<p class="loading">Connecting to the engine…</p>
+{:else if pipe.unreachable || !device}
+	<PipeUnavailable what={isMouse ? 'Button remapping' : 'Key remapping'} unreachable={pipe.unreachable} />
+{:else}
+	<Workspace title={isMouse ? 'Buttons' : 'Keys'} subtitle="Changes are saved in the {word} itself, so they keep working without uncoil." panelLabel="Selected key">
+		{#snippet tools()}
+			<div class="layer"><Segmented label="Layer" options={layerOptions} value={layer} onchange={(v) => (layer = v)} /></div>
+		{/snippet}
 
-	{#if !pipe.loaded}
-		<p class="state">Connecting to the engine…</p>
-	{:else if pipe.unreachable}
-		<div class="state panel" in:fade={{ duration: ms(260) }}>
-			<p class="section-title">The engine isn't answering</p>
-			<p>Key remapping needs the latest uncoild running. Install it with <code>scripts\install-task.ps1</code>, then try again.</p>
-			<button type="button" class="btn-quiet" onclick={loadDevices}>Try again</button>
-		</div>
-	{:else if !devices.length}
-		<p class="state">No connected device supports remapping.</p>
-	{:else}
-		<div class="bar">
-			<div class="seg-device">
-				<Segmented
-					label="Device"
-					options={devices.map((d) => ({ value: d.id, label: d.kind === 'keyboard' ? 'Keyboard' : d.kind === 'mouse' ? 'Mouse' : d.name }))}
-					value={deviceId ?? ''}
-					onchange={(v) => (deviceId = v)}
-				/>
-			</div>
-			<div class="seg-layer">
-				<Segmented label="Layer" options={layerOptions} value={layer} onchange={(v) => (layer = v)} />
-			</div>
-			{#if layer === 'hypershift' && !isMouse}
-				<p class="hint"><span class="swatch" aria-hidden="true"></span>Tinted keys do something different while Fn is held</p>
+		<div class="map" aria-busy={loading}>
+			{#if loadError}
+				<p class="outcome bad" role="alert">{loadError}</p>
+			{:else if board && caps}
+				<Keyboard device={board} caps={capMap} selected={selectedId !== null ? (ledById.get(selectedId) ?? null) : null} onselect={(led) => keyByLed.has(led) && (selectedId = keyByLed.get(led)!)} />
+			{:else}
+				<div class="mouse-stage">
+				<MouseDiagram regions={mouseRegions} onselect={(name) => (selectedId = rows.find((k) => k.name === name)?.key ?? selectedId)} />
+				<div class="buttons" role="listbox" aria-label="Mouse buttons">
+					{#each rows as k (k.key)}
+						{@const gel = gelOf(k)}
+						<button type="button" role="option" aria-selected={k.key === selectedId} onclick={() => (selectedId = k.key)}>
+							<span class="bname">{keyTitle(k.name)}</span>
+							<span class="bdesc">{actionName(k.function, k.description)}</span>
+							{#if gel}<span class="gel" style:background="var(--color-gel-{gel})" title={GEL_NAMES[gel]}></span>{/if}
+						</button>
+					{/each}
+				</div>
+				</div>
 			{/if}
 		</div>
 
-		<div class="body">
-			<div class="map" aria-busy={loading}>
-				{#if loadError}
-					<p class="outcome bad" role="alert">{loadError}</p>
-				{:else if board && caps}
-					<div class="kb"><Keyboard device={board} caps={capMap} selected={selectedLed} onselect={selectLed} /></div>
-				{:else}
-					<div class="buttons" role="listbox" aria-label="Mouse buttons">
-						{#each rows as k (k.key)}
-							<button type="button" role="option" aria-selected={k.key === selectedId} class:accent={differs(k)} onclick={() => (selectedId = k.key)}>
-								<span class="bname">{keyTitle(k.name)}</span>
-								<span class="bdesc">{k.description}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
+		<section class="changes" aria-labelledby="changes-title">
+			<h2 id="changes-title" class="section-title">
+				{layer === 'hypershift' ? 'What Fn changes' : 'Keys doing something special'}
+				<span class="count">{changes.length} {changes.length === 1 ? unit[0] : unit[1]}{board ? ' · Win and Fn can’t be changed' : ''}</span>
+			</h2>
+			{#if changes.length}
+				<div class="rows">
+					{#each changes as k (k.key)}
+						{@const gel = gelOf(k)!}
+						<button type="button" class="row" aria-pressed={k.key === selectedId} onclick={() => (selectedId = k.key)}>
+							<span class="mk">{keyName(k)}</span>
+							<span class="what">{actionName(k.function, k.description)}</span>
+							<span class="kind"><span class="gel" style:background="var(--color-gel-{gel})"></span>{GEL_NAMES[gel]}</span>
+						</button>
+					{/each}
+				</div>
+			{:else}
+				<p class="empty">{isMouse ? 'Every button does its usual job on this layer.' : 'Every key sends its own key on this layer.'}</p>
+			{/if}
+		</section>
 
-			<aside class="inspector" aria-label="Selected key">
-				{#if selected}
-					{#key `${selected.key}-${layer}`}
-						<div class="insp" in:fly={{ x: 8, duration: ms(280), easing: expoOut }}>
-							<div class="col-info">
-							<h2 class="kname">{layer === 'hypershift' ? 'Fn + ' : ''}{keyName(selected)}</h2>
-							<p class="now"><span class="label">Currently</span>{selected.description}</p>
-							{#if dirty}
-								<p class="will" in:fade={{ duration: ms(160) }}><span class="label">Will send</span>{describeFunction(draftSpec)}</p>
-							{/if}
-							</div>
+		{#snippet panel()}
+			{#if selected}
+				{#key `${selected.key}-${layer}`}
+					<div class="insp" in:fade={{ duration: ms(140) }}>
+						<h2 class="kname">{layer === 'hypershift' ? 'Fn + ' : ''}{keyName(selected)}</h2>
+						<p class="now"><span class="label">Does now</span>{actionName(selected.function, selected.description)}</p>
 
-							<div class="picker">
-								<label class="label" for="key-search">Change to</label>
-								<div class="search">
-									<Search size={14} />
-									<input id="key-search" class="input" type="search" placeholder="Search keys and actions" autocomplete="off" bind:value={query} />
-								</div>
-								<div class="options" role="listbox" aria-label="Actions">
-									{#each filtered as [group, opts] (group)}
-										<p class="group">{group}</p>
-										{#each opts as o (o.spec)}
-											<button type="button" role="option" aria-selected={o.spec === draftBase} onclick={() => choose(o.spec)}>{o.label}</button>
-										{/each}
-									{:else}
-										<p class="empty">Nothing matches “{query}”.</p>
-									{/each}
-								</div>
-							</div>
+						<div class="search">
+							<Search size={14} />
+							<input class="input" type="search" placeholder="Search keys and actions" aria-label="Search keys and actions" autocomplete="off" bind:value={query} />
+						</div>
+						<div class="options" role="listbox" aria-label="Change to">
+							{#each filtered as [group, opts] (group)}
+								<p class="group">{group}</p>
+								{#each opts as o (o.spec)}
+									<button type="button" role="option" aria-selected={o.spec === draftBase} onclick={() => choose(o.spec)}>
+										{o.label}{#if o.spec === selected.function}<span class="cur">current</span>{/if}
+									</button>
+								{/each}
+							{:else}
+								<p class="empty">Nothing matches “{query}”.</p>
+							{/each}
+						</div>
 
-							<div class="col-act">
-							{#if draft.type === 'key'}
+						{#if draft.type === 'key'}
+							<div class="mods-wrap">
 								<p class="label">Hold together with</p>
 								<div class="mods" role="group" aria-label="Hold together with">
 									{#each MODIFIERS as m (m.spec)}
 										<button type="button" class="mod" aria-pressed={draft.mods.includes(m.spec)} onclick={() => toggleMod(m.spec)}>{m.label}</button>
 									{/each}
 								</div>
-							{:else if draft.type === 'other'}
-								<p class="note">This key uses a kind of action uncoil can't edit yet (macro, DPI, profile or a Synapse-only key). Pick something above to replace it.</p>
-							{/if}
+							</div>
+						{:else if draft.type === 'other'}
+							<p class="note">This key uses a kind of action uncoil can't edit yet (macro, DPI, profile or a Synapse-only key). Pick something above to replace it.</p>
+						{/if}
 
-							<div class="actions">
-								<WriteButton
-									label="Save to {deviceWord}"
-									warning="This is saved in the {deviceWord}'s own memory, so it works even without uncoil. Restore original puts back what was there before."
-									disabled={!dirty}
-									{busy}
-									onconfirm={() => write('keymap.set')}
-								/>
-								<WriteButton
-									quiet
-									label="Restore original"
-									warning="Puts back what this key did before uncoil changed it (or the factory setting)."
-									{busy}
-									onconfirm={() => write('keymap.reset')}
-								/>
-							</div>
-							{#if outcome}
-								<p class="outcome" class:bad={!outcome.ok} role="status" in:fade={{ duration: ms(200) }}>{outcome.text}</p>
-							{/if}
-							</div>
+						{#if dirty}
+							<p class="now" in:fade={{ duration: ms(140) }}><span class="label">Will do</span>{actionName(draftSpec, describeFunction(draftSpec))}</p>
+						{/if}
+
+						<div class="actions">
+							<WriteButton
+								label="Save to {word}"
+								warning="This is saved in the {word}'s own memory, so it works even without uncoil. Restore original puts back what was there before."
+								disabled={!dirty}
+								{busy}
+								onconfirm={() => write('keymap.set')}
+							/>
+							<WriteButton quiet label="Restore original" warning="Puts back what this key did before uncoil changed it (or the factory setting)." {busy} onconfirm={() => write('keymap.reset')} />
 						</div>
-					{/key}
-				{:else}
-					<p class="note">Pick a key to change it.</p>
-				{/if}
-			</aside>
-		</div>
-	{/if}
-</section>
+						{#if outcome}
+							<p class="outcome" class:bad={!outcome.ok} role="status" in:fade={{ duration: ms(160) }}>{outcome.text}</p>
+						{/if}
+					</div>
+				{/key}
+			{:else}
+				<p class="note">Pick a key to change it.</p>
+			{/if}
+		{/snippet}
+	</Workspace>
+{/if}
 
 <style>
-	.keys {
-		display: grid;
-		grid-template-rows: auto auto auto;
-		gap: 16px;
-		align-content: start;
-	}
-	.lede {
-		margin: 6px 0 0;
+	.loading {
+		margin: 24px 28px;
 		color: var(--color-ink-3);
-		font-size: 13px;
-		max-width: 70ch;
 	}
-	.state {
-		margin: 0;
-		color: var(--color-ink-3);
-		font-size: 13px;
-	}
-	.panel {
-		display: grid;
-		gap: 10px;
-		justify-items: start;
-		padding: 20px;
-		border-radius: var(--radius-lg);
-		background: var(--color-raised);
-		border: 1px solid var(--color-seam);
-	}
-	.panel p {
-		margin: 0;
-		max-width: 60ch;
-		color: var(--color-ink-2);
-	}
-	code {
-		font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-		font-size: 12px;
-		color: var(--color-ink);
-	}
-	.bar {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		flex-wrap: wrap;
-	}
-	.seg-device {
-		width: 220px;
-	}
-	.seg-layer {
-		width: 260px;
-	}
-	.hint {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin: 0 0 0 auto;
-		color: var(--color-ink-3);
-		font-size: 12px;
-	}
-	.swatch {
-		width: 12px;
-		height: 12px;
-		border-radius: 3px;
-		background: #2a1a19;
-		box-shadow: inset 0 0 0 1px #4a2a28;
-	}
-	.body {
-		display: grid;
-		grid-template-rows: auto auto;
-		gap: 16px;
-		min-height: 0;
+	.layer {
+		width: 250px;
 	}
 	.map {
 		display: grid;
 		justify-items: center;
-		align-content: center;
-		min-height: 0;
-		padding: 16px 24px;
-		border-radius: var(--radius-lg);
-		background: radial-gradient(ellipse at 50% 40%, #151515, #0d0d0d 75%);
-		border: 1px solid var(--color-seam);
-		overflow: auto;
 		transition: opacity var(--t-mid) var(--ease);
 	}
 	.map[aria-busy='true'] {
 		opacity: 0.6;
 	}
-	.kb {
+	.map :global(.board) {
+		max-width: 900px;
+	}
+	.mouse-stage {
+		display: grid;
+		grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+		gap: 32px;
+		align-items: center;
 		width: 100%;
-		max-width: 780px;
 	}
 	.buttons {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 6px;
 		width: 100%;
-		align-self: start;
 	}
 	.buttons button {
 		display: grid;
-		grid-template-columns: 160px 1fr;
+		grid-template-columns: 140px 1fr auto;
 		align-items: center;
 		gap: 12px;
-		height: 42px;
-		padding: 0 14px;
-		border: 0;
+		height: 40px;
+		padding: 0 12px;
+		border: var(--hair);
 		border-radius: var(--radius);
 		background: var(--color-surface);
-		color: var(--color-ink);
 		text-align: left;
-		font-size: 13px;
-		transition: background-color var(--t-mid) var(--ease);
 	}
 	.buttons button:hover {
-		background: var(--color-surface-2);
+		border-color: var(--color-seam-2);
 	}
 	.buttons button[aria-selected='true'] {
-		background: var(--color-surface-3);
-		box-shadow: inset 0 0 0 2px var(--color-ink);
-	}
-	.buttons button.accent .bdesc {
-		color: var(--color-fac-red);
+		border-color: var(--color-select);
+		box-shadow: inset 0 0 0 1px var(--color-select);
 	}
 	.bname {
-		font-weight: 500;
+		font-weight: 600;
 	}
 	.bdesc {
 		color: var(--color-ink-3);
@@ -423,43 +342,95 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.inspector {
-		min-height: 0;
-		min-width: 0;
-		padding: 18px;
-		border-radius: var(--radius-lg);
-		background: var(--color-raised);
-		border: 1px solid var(--color-seam);
-		overflow: hidden auto;
+	.changes {
+		display: grid;
+		gap: 10px;
+		container-type: inline-size;
+	}
+	@container (max-width: 600px) {
+		.changes .rows {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+	.count {
+		margin-left: 6px;
+		color: var(--color-ink-3);
+		font-family: var(--font-sans);
+		font-size: 12px;
+		font-weight: 400;
+	}
+	.rows {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 6px 16px;
+	}
+	.row {
+		display: grid;
+		grid-template-columns: 52px minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 12px;
+		height: 38px;
+		padding: 0 10px 0 6px;
+		border: 1px solid transparent;
+		border-radius: var(--radius);
+		background: var(--color-surface);
+		text-align: left;
+	}
+	.row:hover {
+		border-color: var(--color-seam-2);
+	}
+	.row[aria-pressed='true'] {
+		border-color: var(--color-select);
+	}
+	.mk {
+		display: grid;
+		place-items: center;
+		height: 26px;
+		border-radius: var(--radius-sm);
+		background: var(--cap);
+		box-shadow: inset 0 -2px 0 var(--cap-edge), 0 0 0 1px var(--cap-edge);
+		font-size: 11.5px;
+		font-weight: 600;
+	}
+	.what {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.kind {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: var(--color-ink-3);
+		font-size: 12px;
+		white-space: nowrap;
+	}
+	.empty,
+	.note {
+		margin: 0;
+		color: var(--color-ink-3);
+		font-size: 12px;
+		line-height: 1.5;
 	}
 	.insp {
 		display: grid;
-		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 0.9fr);
-		gap: 24px;
-		align-items: start;
-	}
-	.col-info,
-	.col-act {
-		display: grid;
-		gap: 12px;
-		align-content: start;
+		gap: 14px;
 	}
 	.kname {
 		margin: 0;
+		font-family: var(--font-display);
 		font-size: 22px;
 		font-weight: 600;
-		font-stretch: 112%;
 	}
-	.now,
-	.will {
+	.now {
 		display: grid;
 		gap: 2px;
 		margin: 0;
 		font-size: 14px;
+		font-weight: 600;
 	}
-	.picker {
-		display: grid;
-		gap: 8px;
+	.now .label {
+		font-weight: 500;
 	}
 	.search {
 		position: relative;
@@ -469,54 +440,63 @@
 	}
 	.search :global(svg) {
 		position: absolute;
-		left: 11px;
+		left: 10px;
 		pointer-events: none;
 	}
 	.search input {
-		padding-left: 32px;
 		width: 100%;
+		padding-left: 30px;
 	}
 	.options {
 		display: grid;
-		max-height: 170px;
+		max-height: 240px;
 		overflow: auto;
 		padding: 4px;
+		border: var(--hair);
 		border-radius: var(--radius);
-		background: var(--color-ground);
-		border: 1px solid var(--color-seam);
+		background: var(--color-surface);
 	}
 	.group {
-		margin: 8px 8px 4px;
-		color: var(--color-ink-4);
-		font-size: 11px;
-		font-weight: 600;
+		margin: 8px 8px 3px;
+		color: var(--color-ink-3);
+		font-size: 11.5px;
+		font-weight: 500;
 	}
 	.group:first-child {
 		margin-top: 4px;
 	}
 	.options button {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		height: 30px;
-		padding: 0 10px;
+		padding: 0 8px;
 		border: 0;
 		border-radius: var(--radius-sm);
 		background: none;
 		color: var(--color-ink-2);
 		text-align: left;
-		font-size: 13px;
 	}
 	.options button:hover {
 		background: var(--color-surface-2);
 		color: var(--color-ink);
 	}
 	.options button[aria-selected='true'] {
-		background: var(--color-surface-3);
+		background: var(--color-surface-2);
 		color: var(--color-ink);
-		font-weight: 500;
+		font-weight: 600;
 	}
-	.empty {
-		margin: 8px;
+	.cur {
 		color: var(--color-ink-3);
-		font-size: 13px;
+		font-size: 11px;
+		font-weight: 400;
+	}
+	.mods-wrap {
+		display: grid;
+		gap: 6px;
+	}
+	.mods-wrap .label {
+		margin: 0;
 	}
 	.mods {
 		display: grid;
@@ -525,16 +505,14 @@
 	}
 	.mod {
 		height: 30px;
-		border: 1px solid var(--color-seam-2);
+		border: var(--hair-strong);
 		border-radius: var(--radius);
 		background: none;
-		color: var(--color-ink-3);
-		font-size: 12px;
+		color: var(--color-ink-2);
 		font-weight: 500;
 		transition:
-			color var(--t-mid) var(--ease),
 			background-color var(--t-mid) var(--ease),
-			border-color var(--t-mid) var(--ease);
+			color var(--t-mid) var(--ease);
 	}
 	.mod:hover {
 		color: var(--color-ink);
@@ -552,21 +530,9 @@
 	.actions :global(.write:has(.confirm)) {
 		flex-basis: 100%;
 	}
-	.note {
-		margin: 0;
-		color: var(--color-ink-3);
-		font-size: 12px;
-		line-height: 1.5;
-	}
-	@container view (max-width: 820px) {
-		.insp {
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		}
-		.col-act {
-			grid-column: 1 / -1;
-		}
-		.hint {
-			margin-left: 0;
+	@container view (max-width: 640px) {
+		.mouse-stage {
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 </style>

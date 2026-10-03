@@ -75,7 +75,7 @@
 	.ends {
 		display: flex;
 		justify-content: space-between;
-		color: var(--color-ink-4);
+		color: var(--color-ink-3);
 		font-size: 11px;
 	}
 	.hint {

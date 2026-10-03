@@ -61,10 +61,10 @@ const RAZER_KEYS: Record<number, string> = {
 const RAZER_CAPS: Record<number, string> = {
 	1: 'Fn',
 	3: 'Game',
-	4: 'Rec',
-	8: 'Lit+',
-	9: 'Lit−',
-	11: 'LowPw',
+	4: 'Macro',
+	8: 'Lit +',
+	9: 'Lit −',
+	11: 'Eco',
 	76: 'Sleep',
 	82: 'Dial',
 	83: 'Next',
@@ -105,7 +105,9 @@ const SHORT: Record<string, string> = {
 	DOWN: '↓︎'
 };
 
-const title = (s: string) => s.toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+const ACRONYMS = /\b(dpi|oled|usb|led|kp)\b/g;
+const title = (s: string) =>
+	s.toLowerCase().replace(/_/g, ' ').replace(ACRONYMS, (m) => m.toUpperCase()).replace(/^\w/, (c) => c.toUpperCase());
 
 /** A parsed spec, as the editor's form holds it. */
 export type Mapping =
@@ -197,3 +199,59 @@ export const DIAL_MODES: Record<string, string> = {
 
 /** Key names as the keymap reports them, made readable ("OPEN_SQUARE_BRACKET" → "Open square bracket"). */
 export const keyTitle = (name: string) => (name.length <= 3 ? name : title(name));
+
+/** The swatch book's gels: one job each. */
+export type Gel = 'yours' | 'media' | 'light' | 'system';
+export const GEL_NAMES: Record<Gel, string> = {
+	yours: 'Your change',
+	media: 'Media & macros',
+	light: 'Lighting',
+	system: 'System'
+};
+
+const RAZER_GEL: Record<number, Gel> = { 1: 'system', 3: 'media', 4: 'media', 8: 'light', 9: 'light', 11: 'system', 76: 'system', 82: 'media', 83: 'media', 84: 'media', 85: 'media', 96: 'media' };
+const MEDIA_KEYS = new Set(['MUTE', 'VOLUME_UP', 'VOLUME_DOWN']);
+
+/**
+ * Which gel a mapping carries, or null for a key doing its ordinary job. `changed` says the mapping differs
+ * from what the key does normally (on the Fn layer: differs from the normal layer).
+ */
+export function gelFor(spec: string, changed: boolean): Gel | null {
+	if (!changed) return null;
+	const [head, n] = spec.trim().split(/\s+/);
+	if (head === 'razer') return RAZER_GEL[Number(n)] ?? 'system';
+	if (head === 'power' || head === 'profile' || head === 'dpi') return 'system';
+	if (head === 'lighting') return 'light';
+	if (head === 'media' || head === 'macro') return 'media';
+	const m = parseSpec(spec);
+	if (m.type === 'key' && MEDIA_KEYS.has(m.key) && !m.mods.length) return 'media';
+	return 'yours';
+}
+
+/** A short, human name for what a mapping does (lists and the details panel). */
+export function actionName(spec: string, description: string): string {
+	const [head, ...rest] = spec.trim().split(/\s+/);
+	const n = Number(rest[0]);
+	switch (head) {
+		case 'razer': {
+			const name = RAZER_KEYS[n];
+			return name ? name[0].toUpperCase() + name.slice(1) : `Synapse-only key ${n}`;
+		}
+		case 'button':
+		case 'mouse':
+			return MOUSE_BUTTONS.find((b) => b.value === n)?.label ?? `Mouse button ${n}`;
+		case 'dpi':
+			return n === 5 ? 'DPI clutch (hold for slow aim)' : n === 6 ? 'Next DPI stage' : n === 7 ? 'Previous DPI stage' : 'DPI change';
+		case 'profile':
+			return n === 4 ? 'Next profile' : 'Profile switch';
+		case 'shortcut':
+			return 'Scroll wheel mode';
+		case 'off':
+			return 'Does nothing';
+		default: {
+			const m = parseSpec(spec);
+			if (m.type === 'key' && m.key === 'NONE' && !m.mods.length) return 'Does nothing';
+			return description.replace(/ \(.*\)$/, '');
+		}
+	}
+}

@@ -1,190 +1,116 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { flip } from 'svelte/animate';
-	import DeskPreview from '#lib/components/DeskPreview.svelte';
-	import { getDesk, previewFrame } from '#lib/api.ts';
+	import { ChevronRight } from '@lucide/svelte';
+	import Workspace from '#lib/components/Workspace.svelte';
+	import { getDesk } from '#lib/api.ts';
 	import { app } from '#lib/state.svelte.ts';
-	import { ms } from '#lib/motion.ts';
 	import type { Config, DeskDevice } from '#lib/types.ts';
 
-	let { config }: { config: Config } = $props();
+	let { config, onopen }: { config: Config; onopen: (id: string) => void } = $props();
 
 	let desk = $state<DeskDevice[]>([]);
-	let colors = $state<string[][]>([]);
-	onMount(() => {
-		let alive = true;
-		const t0 = performance.now();
-		getDesk($state.snapshot(config) as Config).then((d) => alive && (desk = d));
-		const id = setInterval(async () => {
-			if (!desk.length || (document.hidden && colors.length)) return;
-			const f = await previewFrame($state.snapshot(config) as Config, 6 + (performance.now() - t0) / 1000);
-			if (alive) colors = f;
-		}, 80);
-		return () => {
-			alive = false;
-			clearInterval(id);
-		};
+	onMount(async () => {
+		desk = await getDesk($state.snapshot(config) as Config);
 	});
 
-	const kindLabel: Record<string, string> = { keyboard: 'Keyboard', mouse: 'Mouse', mousemat: 'Mouse mat', headset: 'Headset', other: 'Device' };
-
-	// Every known device, joined with what the engine reports. Connected first.
-	const rows = $derived.by(() => {
-		const status = app.status;
-		return desk
-			.map((d) => {
-				const s = status?.devices.find((x) => x.id === d.id);
-				return {
-					id: d.id,
-					name: d.name.replace(/^Razer /, ''),
-					kind: kindLabel[d.kind] ?? 'Device',
-					leds: d.kind === 'mousemat' ? 1 : d.shapes.length,
-					live: !!s,
-					connection: s?.connection ? s.connection[0].toUpperCase() + s.connection.slice(1) : '—',
-					fps: s ? s.fps.toFixed(0) : '—',
-					errors: s ? s.errors : 0
-				};
-			})
-			.sort((a, b) => Number(b.live) - Number(a.live));
-	});
-	const away = $derived(new Set(app.status ? rows.filter((r) => !r.live).map((r) => r.id) : []));
+	const kind: Record<string, string> = { keyboard: 'Keyboard', mouse: 'Mouse', mousemat: 'Mouse mat', headset: 'Headset', other: 'Device' };
+	const rows = $derived(
+		desk.map((d) => {
+			const s = app.status?.devices.find((x) => x.id === d.id);
+			return {
+				id: d.id,
+				name: d.name.replace(/^Razer /, ''),
+				kind: kind[d.kind] ?? 'Device',
+				live: !!s,
+				errors: s?.errors ?? 0,
+				link: s?.connection ? s.connection[0].toUpperCase() + s.connection.slice(1) : '—',
+				leds: d.kind === 'mousemat' ? 1 : d.shapes.length
+			};
+		})
+	);
+	const connected = $derived(rows.filter((r) => r.live).length);
 </script>
 
-<section class="devices" aria-labelledby="devices-title">
-	<header class="head">
-		<h1 id="devices-title" class="page-title">Devices</h1>
-		<p class="lede">
-			{app.status ? `${app.status.devices.length} of ${desk.length} connected.` : 'The engine isn’t running, so this shows your desk as configured.'}
-			Unplugged devices are picked up again within a few seconds of coming back.
-		</p>
-	</header>
-
-	<div class="card">
-		<table>
-			<thead>
-				<tr>
-					<th scope="col">Device</th>
-					<th scope="col">Status</th>
-					<th scope="col">Connection</th>
-					<th scope="col" class="r">LEDs</th>
-					<th scope="col" class="r">Updates / s</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each rows as r (r.id)}
-					<tr animate:flip={{ duration: ms(420) }} class:away={!r.live && !!app.status}>
-						<td><span class="dname">{r.name}</span><span class="dkind">{r.kind}</span></td>
-						<td>
-							<span class="status" class:live={r.live} class:warn={r.errors > 0}>
-								<span class="lamp" aria-hidden="true"></span>
-								{!app.status ? 'Engine off' : !r.live ? 'Not connected' : r.errors > 0 ? `${r.errors} error${r.errors === 1 ? '' : 's'}` : 'Connected'}
-							</span>
-						</td>
-						<td>{r.connection}</td>
-						<td class="num r">{r.leds}</td>
-						<td class="num r">{r.fps}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
+<Workspace
+	title="Devices"
+	subtitle={app.status ? `${connected} of ${rows.length} connected. Unplugged devices are picked up again within a few seconds.` : 'The engine isn’t running, so connection status is unknown.'}
+>
+	<div class="table" role="table" aria-label="Devices">
+		<div class="tr th" role="row">
+			<span role="columnheader">Device</span><span role="columnheader">Status</span><span role="columnheader">Link</span><span role="columnheader" class="r">LEDs</span><span></span>
+		</div>
+		{#each rows as r (r.id)}
+			<button type="button" class="tr" role="row" onclick={() => onopen(r.id)}>
+				<span role="cell"><b>{r.name}</b><small>{r.kind}</small></span>
+				<span role="cell" class="status"><span class="dot" class:on={r.live} class:warn={r.errors > 0}></span>{!app.status ? 'Unknown' : !r.live ? 'Not connected' : r.errors ? `${r.errors} error${r.errors === 1 ? '' : 's'}` : 'Connected'}</span>
+				<span role="cell">{r.link}</span>
+				<span role="cell" class="r num">{r.leds}</span>
+				<span class="go" aria-hidden="true"><ChevronRight size={16} /></span>
+			</button>
+		{/each}
 	</div>
-
-	<div class="stage">
-		<DeskPreview {desk} {colors} {away} />
-	</div>
-</section>
+</Workspace>
 
 <style>
-	.devices {
+	.table {
 		display: grid;
-		grid-template-rows: auto auto minmax(200px, 1fr);
-		gap: 16px;
-		height: 100%;
-		min-height: 0;
-	}
-	.lede {
-		margin: 6px 0 0;
-		color: var(--color-ink-3);
-		font-size: 13px;
-		max-width: 75ch;
-	}
-	.card {
-		padding: 6px 20px;
+		max-width: 900px;
+		border: var(--hair);
 		border-radius: var(--radius-lg);
-		background: var(--color-raised);
-		border: 1px solid var(--color-seam);
+		background: var(--color-surface);
+		overflow: hidden;
 	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-	th {
+	.tr {
+		display: grid;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1fr) 60px 28px;
+		align-items: center;
+		gap: 12px;
+		min-height: 56px;
+		padding: 0 14px 0 18px;
+		border: 0;
+		border-top: var(--hair);
+		background: none;
 		text-align: left;
+	}
+	.th {
+		min-height: 38px;
+		border-top: 0;
 		color: var(--color-ink-3);
 		font-size: 12px;
 		font-weight: 500;
-		padding: 12px 12px 10px 0;
-		border-bottom: 1px solid var(--color-seam-2);
 	}
-	td {
-		padding: 12px 12px 12px 0;
-		border-bottom: 1px solid var(--color-seam);
-		font-size: 13px;
-		vertical-align: middle;
+	button.tr:hover {
+		background: var(--color-surface-2);
 	}
-	tbody tr:last-child td {
-		border-bottom: 0;
-	}
-	.r {
-		text-align: right;
-	}
-	.dname {
+	b {
 		display: block;
-		font-size: 14px;
-		font-weight: 500;
+		font-weight: 600;
 	}
-	.dkind {
+	small {
 		color: var(--color-ink-3);
 		font-size: 12px;
 	}
 	.status {
-		display: inline-flex;
+		display: flex;
 		align-items: center;
 		gap: 8px;
-		color: var(--color-ink-3);
 	}
-	.lamp {
-		width: 8px;
-		height: 8px;
+	.dot {
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
 		background: var(--color-ink-4);
 	}
-	.status.live {
-		color: var(--color-ink);
+	.dot.on {
+		background: var(--color-ok);
 	}
-	.status.live .lamp {
-		background: #3fb950;
+	.dot.warn {
+		background: var(--color-warn);
 	}
-	.status.warn .lamp {
-		background: var(--color-fac-yellow);
+	.r {
+		text-align: right;
 	}
-	tr {
-		transition: opacity var(--t-slow) var(--ease);
-	}
-	tr.away {
-		opacity: 0.55;
-	}
-	.stage {
-		min-height: 0;
-		padding: 18px;
-		border-radius: var(--radius-lg);
-		background: radial-gradient(ellipse at 50% 40%, #151515, #0d0d0d 70%);
-		border: 1px solid var(--color-seam);
-	}
-	@container view (max-width: 820px) {
-		.devices {
-			grid-template-rows: auto auto 240px;
-			height: auto;
-		}
+	.go {
+		color: var(--color-ink-4);
 	}
 </style>

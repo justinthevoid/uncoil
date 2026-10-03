@@ -1,78 +1,94 @@
 ---
 name: uncoil
-description: Dark, quiet, friendly controls; your desk's real light is the colour.
+description: The Swatch Book. Warm, quiet pages; colour only as named gels with jobs and as your devices' real light.
 colors:
-  ground: "#0b0b0b"
-  raised: "#111111"
-  surface: "#161616"
-  surface-2: "#1e1e1e"
-  surface-3: "#282828"
-  ink: "#f2f2f2"
-  ink-2: "#b4b4b4"
-  ink-3: "#8a8a8a"
-  ink-4: "#5c5c5c"
-  seam: "#262626"
-  seam-2: "#3d3d3d"
-  accent: "#e2372c"
-  ok: "#3fb950"
-  warn: "#e9c31b"
+  ground: "#f7f6f3"
+  raised: "#f1efeb"
+  surface: "#ffffff"
+  surface-2: "#ebe8e3"
+  surface-3: "#e2ded7"
+  ink: "#1f1d1a"
+  ink-2: "#514c45"
+  ink-3: "#6b655d"
+  ink-4: "#a39d94"
+  seam: "#e3e0da"
+  seam-2: "#cfcac2"
+  gel-yours: "#2f8a4c"
+  gel-media: "#b97a12"
+  gel-light: "#b13a80"
+  gel-system: "#3a63c4"
+  ok: "#1f8f3f"
+  warn: "#b45309"
+  ground-dark: "#161514"
+  raised-dark: "#1b1a18"
+  surface-dark: "#22201e"
+  surface-2-dark: "#2b2825"
+  ink-dark: "#eeeae4"
+  ink-2-dark: "#c2bbb1"
+  ink-3-dark: "#948d83"
+  seam-dark: "#2e2b28"
+  gel-yours-dark: "#58b06c"
+  gel-media-dark: "#e0a33e"
+  gel-light-dark: "#cf5aa0"
+  gel-system-dark: "#5b84e0"
 typography:
   page-title:
-    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "26px"
-    fontWeight: 500
-    lineHeight: 1.1
+    fontFamily: "Segoe UI Variable Display, Segoe UI, system-ui, sans-serif"
+    fontSize: "20px"
+    fontWeight: 600
+    lineHeight: 1.2
     letterSpacing: "-0.01em"
   section-title:
-    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "15px"
+    fontFamily: "Segoe UI Variable Display, Segoe UI, system-ui, sans-serif"
+    fontSize: "14px"
     fontWeight: 600
-  label:
-    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "13px"
-    fontWeight: 500
   body:
-    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
     fontSize: "13px"
     fontWeight: 400
-    lineHeight: 1.5
-  keycap:
-    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "clamp(9px, 1.75cqw, 15px)"
+    lineHeight: 1.45
+  label:
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
+    fontSize: "12px"
     fontWeight: 500
+  keycap:
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
+    fontSize: "clamp(10px, 1.6cqw, 15px)"
+    fontWeight: 600
 rounded:
-  sm: "4px"
-  md: "6px"
+  sm: "5px"
+  md: "8px"
   lg: "10px"
 spacing:
   xs: "6px"
   sm: "10px"
   md: "16px"
-  lg: "24px"
+  lg: "22px"
+  xl: "28px"
 components:
   button-primary:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.ground}"
     rounded: "{rounded.md}"
-    height: "36px"
-    padding: "0 16px"
+    height: "34px"
+    padding: "0 14px"
   button-quiet:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
     rounded: "{rounded.md}"
-    height: "36px"
-    padding: "0 16px"
-  card:
-    backgroundColor: "{colors.raised}"
-    rounded: "{rounded.lg}"
-    padding: "18px 20px"
-  nav-item-active:
-    backgroundColor: "{colors.surface-3}"
+    height: "34px"
+    padding: "0 14px"
+  tab-active:
+    backgroundColor: "{colors.surface-2}"
     textColor: "{colors.ink}"
     rounded: "{rounded.md}"
-    height: "38px"
+    height: "34px"
+  card:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.lg}"
+    padding: "18px"
   keycap:
-    backgroundColor: "{colors.surface-2}"
+    backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     rounded: "{rounded.sm}"
 ---
@@ -81,104 +97,105 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Dark Desk"**
+**Creative North Star: "The Swatch Book"**
 
-uncoil sits next to a desk full of RGB, so the app stays dark, quiet and out of the way, and lets the devices' real light be the only colour that matters. Where the app shows colour, it is the actual colour your keyboard, mouse and mat are showing right now, drawn on a to-scale picture of your desk.
+uncoil files every change like a lighting-gel swatch book. The pages are warm and quiet: warm white in light mode, warm graphite in dark mode, following Windows. There is no brand accent. Colour appears in two places only: as a named gel swatch that says what kind of change something is, and as the real colour your devices are showing.
 
-Everything else is plain: sentence-case words, standard controls with small radii, and one red accent for "selected" or "on". There are no codes, numbers or labels for decoration. A first-time user should know what every control does by reading it.
+The app is organised like a peripheral configurator. Along the top are the Desk and one tab per device. The left rail lists what that tab can do. The device is drawn large in the centre, and a details panel on the right holds the selected thing and its Save action. Everything is Segoe UI in sentence case, with standard controls.
 
 **Key Characteristics:**
-- Near-black ground with raised dark cards and four grey text steps
-- The desk drawn to scale and lit with the live effect (Lighting, Devices)
-- Keyboards drawn as solid keycaps with real legends (Keys)
-- Red is the only accent: selected nav icon, toggle on, the dial's tip, Fn actions on keycaps
-- Archivo throughout; width axis slightly widened for titles
-- One expo-out ease; nothing bounces except the direction dial's needle
+- Warm neutral pages in light and dark, with no brand accent colour
+- Four gels, each with one job: your change (green), media and macros (amber), lighting (magenta), system (blue)
+- Device-first shell: Desk and device tabs on top, feature rail on the left, device centre stage, details panel on the right
+- Keyboards drawn as flat keycaps from real geometry, with a gel tab on each key that does something different
+- Saves to a device always report what the device read back
 
 ## Colors
 
 ### Primary
-- **Accent red** (accent): selection and "on". The active nav icon, the toggle track when on, the dial tip, the radio dot, and the second legend on a keycap that does something different with Fn held.
+There is no brand primary. Selection uses the ink colour itself: outlines, the chosen radio, the active segment. The primary button is filled ink.
 
 ### Secondary
-- **OK green** (ok): status lamps for a running engine and connected devices.
-- **Warning yellow** (warn): device errors, the engine being stopped, and failed results.
+- **Gel: your change** (gel-yours): keys and buttons the user remapped.
+- **Gel: media & macros** (gel-media): media keys, macro record, game mode, dial actions.
+- **Gel: lighting** (gel-light): backlight brighter and dimmer.
+- **Gel: system** (gel-system): sleep, low power, profile and DPI actions.
+- **OK** (ok) and **Warn** (warn): status dots and result lines only.
 
 ### Neutral
-- **Ground** (ground): the window background.
-- **Raised** (raised): cards and the navigation sidebar.
-- **Surface 1-3**: control tracks, keycaps, hover and selected fills, in that order.
-- **Ink 1-4**: primary text, secondary text, hints, disabled/placeholder.
-- **Seam / Seam 2**: card borders and dividers; control outlines.
+Ground, raised (top bar, rail, details panel), surface (cards, keycaps), surface-2 and surface-3 (hover, selected, segment track), four ink steps, and two seam greys for hairlines. Every neutral is warm-tinted. Dark-mode values are the `-dark` tokens.
 
 ### Named Rules
-**The Real Light Rule.** Colour in the content area is either the accent or the devices' actual LED colours. Never decorate with colour.
+**The Gel Rule.** A colour in the interface is either a gel with its name next to it somewhere on the screen, or a device's real LED colour. Never decoration, never a brand accent.
 
-**The One Accent Rule.** Red marks selection or "on", once per control. Green and yellow are reserved for status.
+**The No Red Accent Rule.** Red appears only when a device is showing red. The interface never uses red for selection, emphasis or status.
 
 ## Typography
 
-**Font:** Archivo Variable (self-hosted), falling back to Segoe UI.
+**Font:** Segoe UI Variable (Display for titles, Text for everything else), the Windows system face. No downloaded display face and no width-stretched type.
 
 ### Hierarchy
-- **Page title** (500, 26px, width 112%): one per screen, plain words ("Lighting", "Keys").
-- **Section title** (600, 15px): card headings.
-- **Label** (500, 13px, ink-2): field labels, sentence case.
-- **Body** (400, 13px): descriptions and hints; hints in ink-3 at 12px, at most ~60ch.
-- **Small caps** (500, 11px, tracked 0.08em): only for tiny status words where space is tight. Not for labels.
+- **Page title** (Display, 600, 20px): one per screen.
+- **Section title** (Display, 600, 14px): card and list headings.
+- **Body** (Text, 400, 13px): controls, lists and prose; hints at 12px in ink-3.
+- **Label** (Text, 500, 12px, ink-3): field labels and small headings, sentence case.
 
 ### Named Rules
-**The Plain Words Rule.** Every label says what the control does, in sentence case. No codes, catalog numbers, section numbers or kickers above headings.
+**The Plain Words Rule.** Labels say what things do, in sentence case. No codes, catalog numbers or section numbers. Raw device codes are translated: "Low power mode", not "Razer key 11".
 
 ## Layout
 
-A 200px sidebar (icon plus label per section, engine status at the foot) and a content area with 20-24px padding. Each screen is a page title with a one-line description, then stacked cards. The Keys screen puts the keyboard full width with the editor in a three-column card beneath it. Below 820px of content width (a container query), grids collapse to one column and the screen scrolls. The window's minimum is 900 × 600.
+The shell is a grid: a 52px top bar (brand, Desk and device tabs with connection dots, engine status, settings), a 208px rail, and the main area. Every feature screen uses the Workspace frame: a title row with its tools, a stage, and an optional details panel of 290-340px on the right. The window opens at about 56% × 62.5% of its monitor (1440 × 900 on 2560 × 1440), clamped between 1024 × 680 and 1600 × 1000. Below 720px of view width the panel stacks under the stage. Lists collapse to one column when their own container is under 600px. Keycap second lines hide on boards under 640px, where the gel tab and the list below still carry the meaning.
 
 ## Elevation & Depth
 
-Mostly flat. Cards are raised by a lighter fill and a 1px seam border, not shadows. Real depth is used only where it explains something physical: keycaps have an inset bottom edge, the keyboard and mouse cast a soft shadow onto the desk, and lit LEDs glow.
+Flat. Regions are separated by hairlines and slightly different warm fills. Keycaps get a 1px edge and a small inset bottom edge so they read as keys. The segmented control's pill has a hairline and a faint shadow. There is no glow anywhere.
 
 ## Shapes
 
-Small radii: 4px for keycaps and list items, 6px for buttons and inputs, 10px for cards, full pills for toggles and status chips. The mouse is drawn as a rounded body.
+5px radius for keycaps and small chips, 8px for buttons, inputs, tabs and list rows, 10px for cards. Status dots are circles. Gel swatches are small upright rectangles, like gel chips.
 
 ## Components
 
 ### Buttons
-- **Primary** (filled ink, dark text, 36px): the main action of a card, such as "Save to keyboard".
-- **Quiet** (outline, 36px): secondary actions such as "Restore original" or "Pause preview".
+- **Primary** (filled ink, ground-coloured text, 34px): the main action, such as "Save to keyboard".
+- **Quiet** (hairline outline): secondary actions such as "Restore original" or "Play preview".
+- **Onboard write:** saving to a device opens a confirm panel saying what will be saved and how to undo it. The result line has a status dot and quotes the device's read-back.
 
 ### Inputs / Fields
-- **Segmented control:** equal segments on a dark track; a raised pill slides to the choice.
-- **Slider:** rounded 4px track filled in ink up to a round thumb; label and value above.
-- **Toggle:** pill switch; turns red when on.
-- **Option list:** radio rows with a ring that fills red when chosen; "On device" tags what the hardware holds now.
-- **Search + list:** the Keys editor's "Change to" picker, grouped and filterable.
+- **Segmented control:** equal segments on a surface-2 track; a white (or surface) pill slides to the choice.
+- **Slider:** ink fill on a rounded track with a round ink thumb; label and value above, end words below in ink-3.
+- **Toggle:** pill switch, filled ink when on.
+- **Option list:** radio rows; the chosen ring fills with ink; "On device" tags what the hardware holds now.
+- **Search and list:** the "Change to" picker in the Keys panel, grouped and filterable.
 
 ### Navigation
-Sidebar entries are an icon (lucide, 1.75 stroke) and a label. A filled highlight slides between entries; the active icon turns red. Ctrl+1-6 switch sections.
+Top tabs pick the Desk or a device; each device tab shows a connection dot, and "Not connected" when away. The rail lists the selected tab's features. Ctrl+1-9 switch tabs and Ctrl+, opens settings.
 
 ### Keyboard (signature)
-The keyboard drawn from its real geometry as solid keycaps with their legends. On the Fn layer, keys that do something different get a tinted cap and their Fn action in red under the legend. Keys that can't be remapped (Win, Fn) are dimmed. In colour mode the caps and underglow take the live LED colours.
+Flat keycaps from the device's real geometry. Keys that do something different on the shown layer carry a gel tab across the top and their action in small ink-3 text under the legend. Win and Fn are dimmed. Under the board, a compact "What Fn changes" list repeats each change with its key, its action and its named gel.
+
+### Mouse
+The mouse seen from above, with every remappable button as a clickable region (main buttons, wheel and tilt, scroll mode, side buttons, clutch), plus the two underside buttons as chips. Changed buttons get a gel outline.
 
 ### Desk preview
-The desk to scale: the mat's edge glows its colour, the keyboard lights up per key, the mouse's LEDs shine. Devices that aren't connected are dimmed.
+The desk to scale, lit with the live effect: the mat's edge ring takes its LED colour, keycaps and underglow light up, and the mouse's LEDs show. Devices that aren't connected are dimmed.
 
-### Onboard write
-Saving to a device's memory takes a second click: the button opens a confirm panel saying what will be saved and how to undo it. The result is reported with a status lamp and the device's read-back.
+### Effect swatch cards
+The effects (Wave, Spectrum, Static, Off) as cards, each with a swatch showing what it does. Static colours are offered as named gel chips (Warm white, Straw, Amber, Primary red, Steel blue and others) plus a custom picker.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** name things plainly and describe what will happen before it happens.
-- **Do** show the devices' real colours on a to-scale desk when colour helps.
-- **Do** keep red for selection and "on"; use green and yellow only for status.
-- **Do** route JS transition durations through `ms()` in `src/lib/motion.ts` so reduced motion turns them off.
+- **Do** name every gel on screen wherever its colour appears in a list.
+- **Do** draw the device large in the centre of its own screens.
+- **Do** report what the device read back after every save.
+- **Do** follow Windows for light and dark, and design both.
+- **Do** route JS transition durations through `ms()` in `src/lib/motion.ts`.
 
 ### Don't:
-- **Don't** add codes, catalog numbers, section numbers or kicker labels.
-- **Don't** use gradient text, glass, or decorative colour.
-- **Don't** draw outline-only or line-art versions of physical things people need to read (keyboards, buttons).
-- **Don't** animate width, height, padding or margin; use transform and opacity.
-- **Don't** name SVG classes after Tailwind utilities (`outline`, `border`, `ring`).
+- **Don't** add a brand accent colour, glow, gradients on chrome, or a width-stretched display face.
+- **Don't** add catalog numbers, section numbers or kicker labels.
+- **Don't** show raw protocol codes to users.
+- **Don't** animate width, height, padding or margin.
 - **Don't** imitate Razer's branding, green or product imagery.

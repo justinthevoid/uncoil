@@ -83,7 +83,7 @@
 			border-width var(--t-mid) var(--ease);
 	}
 	button[aria-checked='true'] .dot {
-		border: 4.5px solid var(--color-fac-red);
+		border: 4.5px solid var(--color-select);
 	}
 	.tag {
 		font-size: 11px;

@@ -23,11 +23,14 @@
 	};
 	export const legendFor = (name: string) => LEGEND[name] ?? name;
 
+	/** The swatch book's four gels, each with one job. */
+	export type Gel = 'yours' | 'media' | 'light' | 'system';
+
 	export interface Cap {
 		/** Small second line under the legend, e.g. what the key does with Fn. */
 		sub?: string;
-		/** Tint the cap: this key does something different on the layer being shown. */
-		accent?: boolean;
+		/** Gel tab across the top of the cap: what kind of change this key carries. */
+		gel?: Gel;
 		/** Can't be selected (not remappable). */
 		fixed?: boolean;
 		/** Accessible description. */
@@ -71,13 +74,14 @@
 			<button
 				type="button"
 				class="key"
-				class:accent={cap.accent}
+				style:--gel={cap.gel ? `var(--color-gel-${cap.gel})` : undefined}
 				class:sel={selected === s.name}
 				style={pos(s.x, s.y, s.w - 0.1, s.h - 0.1)}
 				aria-pressed={selected === s.name}
 				aria-label={cap.label ?? s.name}
 				onclick={() => onselect?.(s.name)}
 			>
+				{#if cap.gel}<span class="tab" aria-hidden="true"></span>{/if}
 				<span class="legend">{legend}</span>
 				{#if cap.sub}<span class="sub">{cap.sub}</span>{/if}
 			</button>
@@ -94,71 +98,67 @@
 		position: relative;
 		width: 100%;
 		container-type: inline-size;
-		border-radius: 1.2cqw;
-		background: #0e0e0e;
-		box-shadow:
-			inset 0 0 0 1px var(--color-seam),
-			0 12px 32px rgb(0 0 0 / 0.45);
+		border-radius: 1.4cqw;
+		background: var(--case);
+		box-shadow: inset 0 0 0 1px var(--color-seam);
 	}
 	.key {
 		position: absolute;
 		display: grid;
 		align-content: center;
 		justify-items: center;
-		gap: 0.25cqw;
+		gap: 0.3cqw;
 		padding: 0 0.4cqw;
 		border: 0;
-		border-radius: 0.7cqw;
-		background: var(--color-surface-2);
+		border-radius: 0.75cqw;
+		background: var(--cap);
 		box-shadow:
-			inset 0 -0.35cqw 0 rgb(0 0 0 / 0.45),
-			inset 0 1px 0 rgb(255 255 255 / 0.04);
+			inset 0 -0.3cqw 0 var(--cap-edge),
+			0 0 0 1px var(--cap-edge);
 		color: var(--color-ink);
 		overflow: hidden;
 		transition:
 			background-color var(--t-mid) var(--ease),
-			box-shadow var(--t-mid) var(--ease),
-			transform var(--t-fast) var(--ease);
+			box-shadow var(--t-mid) var(--ease);
 	}
 	button.key:hover {
-		background: var(--color-surface-3);
+		background: var(--color-surface-2);
 	}
-	button.key:active {
-		transform: translateY(1px);
+	.tab {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: max(3px, 0.45cqw);
+		background: var(--gel);
 	}
 	.legend {
-		font-size: clamp(9px, 1.75cqw, 15px);
-		font-weight: 500;
+		font-size: clamp(10px, 1.6cqw, 15px);
+		font-weight: 600;
 		line-height: 1;
 		white-space: nowrap;
 	}
 	.sub {
 		max-width: 100%;
-		font-size: clamp(8px, 1.3cqw, 12px);
+		font-size: clamp(8.5px, 1.15cqw, 12px);
 		font-weight: 500;
 		line-height: 1.1;
-		color: var(--color-fac-red);
+		color: var(--color-ink-3);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.key.accent {
-		background: #2a1a19;
-	}
-	button.key.accent:hover {
-		background: #362120;
-	}
 	.key.sel {
 		box-shadow:
-			inset 0 0 0 2px var(--color-ink),
-			inset 0 -0.35cqw 0 rgb(0 0 0 / 0.45);
+			inset 0 0 0 2px var(--color-select),
+			inset 0 -0.3cqw 0 var(--cap-edge);
 	}
 	.key.fixed {
-		background: #141414;
 		color: var(--color-ink-4);
+		opacity: 0.7;
 	}
 	button.key:focus-visible {
-		outline: 2px solid var(--color-ink);
+		outline: 2px solid var(--color-select);
 		outline-offset: 1px;
 		z-index: 1;
 	}
@@ -168,14 +168,20 @@
 		background: var(--color-seam-2);
 	}
 
-	/* Colour mode: caps take the live LED colour, with the cap's depth kept. */
+	/* Too narrow for a second line: the gel tab alone marks the key; the list below names it. */
+	@container (max-width: 640px) {
+		.sub {
+			display: none;
+		}
+	}
+
+	/* Colour mode: caps take the live LED colour. */
 	.lit .key {
-		background: var(--c, var(--color-surface-2));
+		background: var(--c, var(--cap));
 		transition: background-color 120ms linear;
 	}
 	.lit .led {
 		background: var(--c, var(--color-seam-2));
-		box-shadow: 0 0 1.2cqw var(--c, transparent);
 		transition: background-color 120ms linear;
 	}
 </style>

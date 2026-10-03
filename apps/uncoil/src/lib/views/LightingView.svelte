@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fly, fade } from 'svelte/transition';
-	import { expoOut } from 'svelte/easing';
+	import { fade } from 'svelte/transition';
 	import { Pause, Play } from '@lucide/svelte';
 	import { ms, reducedMotion } from '#lib/motion.ts';
+	import Workspace from '#lib/components/Workspace.svelte';
 	import DeskPreview from '#lib/components/DeskPreview.svelte';
 	import Dial from '#lib/components/Dial.svelte';
-	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
 	import { getDesk, previewFrame } from '#lib/api.ts';
@@ -15,27 +14,61 @@
 
 	let { config }: { config: Config } = $props();
 
-	const kinds: { value: EffectKind; label: string }[] = [
-		{ value: 'wave', label: 'Wave' },
-		{ value: 'spectrum', label: 'Spectrum' },
-		{ value: 'static', label: 'Static' },
-		{ value: 'off', label: 'Off' }
+	const toHex = ([r, g, b]: Rgb) => '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
+	const fromHex = (h: string): Rgb => {
+		const n = parseInt(h.slice(1), 16);
+		return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+	};
+
+	// The effects as swatch cards. Each card's swatch shows what the effect does to the desk.
+	const kinds: { value: EffectKind; label: string; note: string }[] = [
+		{ value: 'wave', label: 'Wave', note: 'A rainbow that moves across the whole desk' },
+		{ value: 'spectrum', label: 'Spectrum', note: 'Every light fades through the rainbow together' },
+		{ value: 'static', label: 'Static', note: 'One colour everywhere' },
+		{ value: 'off', label: 'Off', note: 'Lights stay dark' }
 	];
+	const RAINBOW = '#ff0000, #ff8a00, #ffe600, #2bd94a, #00b3ff, #3a3aff, #b040ff, #ff0060';
+	const swatchFor = (k: EffectKind) =>
+		k === 'wave'
+			? `linear-gradient(${config.effect.kind === 'wave' ? 90 + config.effect.angle_deg : 125}deg, ${RAINBOW})`
+			: k === 'spectrum'
+				? `linear-gradient(180deg, #ff0060 0 16%, #ff8a00 16% 33%, #ffe600 33% 50%, #2bd94a 50% 66%, #00b3ff 66% 83%, #b040ff 83%)`
+				: k === 'static'
+					? config.effect.kind === 'static'
+						? toHex(config.effect.color)
+						: toHex(remembered.static.kind === 'static' ? remembered.static.color : [226, 160, 62])
+					: 'var(--case)';
 
 	// Remember each effect's settings while you flip between them; seeded with the engine's defaults.
-	const remembered: Record<EffectKind, Effect> = {
+	const remembered: Record<EffectKind, Effect> = $state({
 		wave: { kind: 'wave', angle_deg: 35, period_s: 14, wavelength: 26, reverse: false },
 		spectrum: { kind: 'spectrum', period_s: 14 },
-		static: { kind: 'static', color: [226, 55, 44] },
+		static: { kind: 'static', color: [224, 163, 62] },
 		off: { kind: 'off' }
-	};
+	});
 	function setKind(kind: EffectKind) {
 		if (kind === config.effect.kind) return;
 		remembered[config.effect.kind] = $state.snapshot(config.effect) as Effect;
-		const next = structuredClone(remembered[kind]);
+		const next = structuredClone($state.snapshot(remembered[kind]) as Effect);
 		if ('period_s' in next && 'period_s' in config.effect) next.period_s = config.effect.period_s;
 		config.effect = next;
 	}
+
+	// Named colours for Static, like a gel book's swatches.
+	const GELS: { name: string; hex: string }[] = [
+		{ name: 'Warm white', hex: '#ffd9a8' },
+		{ name: 'Cool white', hex: '#e6efff' },
+		{ name: 'Straw', hex: '#f3d36b' },
+		{ name: 'Amber', hex: '#e0a33e' },
+		{ name: 'Primary red', hex: '#d7262e' },
+		{ name: 'Rose pink', hex: '#e0559a' },
+		{ name: 'Lavender', hex: '#9a7ce0' },
+		{ name: 'Congo blue', hex: '#3a2fa0' },
+		{ name: 'Steel blue', hex: '#4d7fb8' },
+		{ name: 'Cyan', hex: '#26c6da' },
+		{ name: 'Teal', hex: '#2a9d8f' },
+		{ name: 'Moss green', hex: '#6aa84f' }
+	];
 
 	// Speed on a log scale: reads evenly from a slow drift (60 s per cycle) to a quick cycle (2 s).
 	const SLOW = 60;
@@ -44,11 +77,6 @@
 	const toPeriod = (pos: number) => Math.round(SLOW * Math.pow(FAST / SLOW, pos / 100) * 10) / 10;
 	const fmtPeriod = (p: number) => `${p < 10 ? p.toFixed(1) : Math.round(p)} s`;
 	const pct = (v: number) => `${Math.round(v)}%`;
-	const toHex = ([r, g, b]: Rgb) => '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
-	const fromHex = (h: string): Rgb => {
-		const n = parseInt(h.slice(1), 16);
-		return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-	};
 	const colorId = $props.id();
 
 	// One effect clock for the preview. Reduced motion starts paused.
@@ -62,7 +90,6 @@
 		return clock;
 	};
 
-	// Desk geometry once; live LED colours from the real engine code, ~25 times a second.
 	let desk = $state<DeskDevice[]>([]);
 	let colors = $state<string[][]>([]);
 	onMount(() => {
@@ -90,215 +117,206 @@
 	});
 
 	const liveIds = $derived(new Set(app.status?.devices.map((d) => d.id) ?? []));
-	const engineUp = $derived(!!app.status);
-	const away = $derived(new Set(engineUp ? desk.filter((d) => !liveIds.has(d.id)).map((d) => d.id) : []));
+	const away = $derived(new Set(app.status ? desk.filter((d) => !liveIds.has(d.id)).map((d) => d.id) : []));
+	const current = $derived(kinds.find((k) => k.value === config.effect.kind)!);
 </script>
 
-<section class="lighting" aria-labelledby="lighting-title">
-	<header class="head">
-		<div>
-			<h1 id="lighting-title" class="page-title">Lighting</h1>
-			<p class="lede">One effect across your whole desk. Changes apply as you make them.</p>
-		</div>
+<Workspace title="Lighting" subtitle="One effect across your whole desk. Changes apply as you make them." panelLabel="Effect settings">
+	{#snippet tools()}
 		<button class="btn-quiet" type="button" aria-pressed={paused} onclick={() => (paused = !paused)}>
 			{#if paused}<Play size={14} />Play preview{:else}<Pause size={14} />Pause preview{/if}
 		</button>
-	</header>
+	{/snippet}
 
-	<div class="stage">
+	<div class="stage-desk">
 		<DeskPreview {desk} {colors} {away} />
 	</div>
 
-	<ul class="chips" aria-label="Devices">
-		{#each desk as d (d.id)}
-			{@const state = !engineUp ? 'Preview only' : liveIds.has(d.id) ? 'Live' : 'Not connected'}
-			<li class:live={engineUp && liveIds.has(d.id)} class:off={engineUp && !liveIds.has(d.id)}>
-				<span class="lamp" aria-hidden="true"></span>{d.name.replace(/^Razer /, '')}<span class="state">{state}</span>
-			</li>
-		{/each}
-	</ul>
+	<section aria-labelledby="effect-title">
+		<h2 id="effect-title" class="section-title">Effect</h2>
+		<div class="cards" role="radiogroup" aria-labelledby="effect-title">
+			{#each kinds as k (k.value)}
+				<button type="button" class="card" role="radio" aria-checked={config.effect.kind === k.value} onclick={() => setKind(k.value)}>
+					<span class="swatch" style:background={swatchFor(k.value)}></span>
+					<span class="name">{k.label}</span>
+					<span class="note">{k.note}</span>
+				</button>
+			{/each}
+		</div>
+	</section>
 
-	<div class="controls">
-		<div class="effect">
-			<Segmented label="Effect" options={kinds} value={config.effect.kind} onchange={setKind} />
-			{#key config.effect.kind}
-				<div class="params" in:fly={{ y: 8, duration: ms(320), easing: expoOut }} out:fade={{ duration: ms(100) }}>
-					{#if config.effect.kind === 'wave'}
-						{@const wave = config.effect}
-						<Dial label="Direction" bind:value={wave.angle_deg} />
-						<div class="col">
-							<Slider label="Speed" min={0} max={100} step={0.5} bind:value={() => toPos(wave.period_s), (v) => (wave.period_s = toPeriod(v))} format={(v) => `${fmtPeriod(toPeriod(v))} per cycle`} ends={['Slower', 'Faster']} />
-							<Slider label="Band width" min={6} max={60} bind:value={wave.wavelength} format={(v) => `${v} keys`} ends={['Tight', 'Broad']} />
-							<Toggle label="Reverse direction" bind:checked={wave.reverse} />
-						</div>
-					{:else if config.effect.kind === 'spectrum'}
-						{@const spectrum = config.effect}
-						<div class="col wide">
-							<Slider label="Speed" min={0} max={100} step={0.5} bind:value={() => toPos(spectrum.period_s), (v) => (spectrum.period_s = toPeriod(v))} format={(v) => `${fmtPeriod(toPeriod(v))} per cycle`} ends={['Slower', 'Faster']} hint="Every LED shows the same colour and moves through the rainbow together." />
-						</div>
-					{:else if config.effect.kind === 'static'}
-						{@const stat = config.effect}
-						<div class="col wide">
-							<label class="label" for={colorId}>Colour</label>
-							<div class="swatch-row">
-								<input id={colorId} type="color" value={toHex(stat.color)} oninput={(e) => (stat.color = fromHex(e.currentTarget.value))} />
-								<output class="num" for={colorId}>{toHex(stat.color).toUpperCase()}</output>
-							</div>
-						</div>
-					{:else}
-						<p class="off-note">Lighting is off. Your devices stay dark until you choose another effect.</p>
+	{#snippet panel()}
+		{#key config.effect.kind}
+			<div class="settings" in:fade={{ duration: ms(160) }}>
+				<h2 class="section-title">{current.label}</h2>
+				{#if config.effect.kind === 'wave'}
+					{@const wave = config.effect}
+					<Dial label="Direction" bind:value={wave.angle_deg} />
+					<Slider label="Speed" min={0} max={100} step={0.5} bind:value={() => toPos(wave.period_s), (v) => (wave.period_s = toPeriod(v))} format={(v) => `${fmtPeriod(toPeriod(v))} per cycle`} ends={['Slower', 'Faster']} />
+					<Slider label="Band width" min={6} max={60} bind:value={wave.wavelength} format={(v) => `${v} keys`} ends={['Tight', 'Broad']} />
+					<Toggle label="Reverse direction" bind:checked={wave.reverse} />
+				{:else if config.effect.kind === 'spectrum'}
+					{@const spectrum = config.effect}
+					<Slider label="Speed" min={0} max={100} step={0.5} bind:value={() => toPos(spectrum.period_s), (v) => (spectrum.period_s = toPeriod(v))} format={(v) => `${fmtPeriod(toPeriod(v))} per cycle`} ends={['Slower', 'Faster']} />
+				{:else if config.effect.kind === 'static'}
+					{@const stat = config.effect}
+					<div class="gels" role="radiogroup" aria-label="Colour">
+						{#each GELS as g (g.hex)}
+							<button type="button" class="gelchip" role="radio" aria-checked={toHex(stat.color) === g.hex} onclick={() => (stat.color = fromHex(g.hex))}>
+								<span class="chip" style:background={g.hex}></span>{g.name}
+							</button>
+						{/each}
+					</div>
+					<div class="custom">
+						<label class="label" for={colorId}>Or any colour</label>
+						<input id={colorId} type="color" value={toHex(stat.color)} oninput={(e) => (stat.color = fromHex(e.currentTarget.value))} />
+						<output class="num" for={colorId}>{toHex(stat.color).toUpperCase()}</output>
+					</div>
+				{:else}
+					<p class="off-note">Your devices stay dark until you pick another effect.</p>
+				{/if}
+
+				{#if config.effect.kind !== 'off'}
+					<div class="divider"></div>
+					<Slider label="Brightness" min={0} max={100} bind:value={() => Math.round(config.brightness * 100), (v) => (config.brightness = v / 100)} format={pct} />
+					{#if config.effect.kind !== 'static'}
+						<Slider label="Saturation" min={0} max={100} bind:value={() => Math.round(config.saturation * 100), (v) => (config.saturation = v / 100)} format={pct} ends={['White', 'Vivid']} />
 					{/if}
-				</div>
-			{/key}
-		</div>
-		<div class="output">
-			<Slider label="Brightness" min={0} max={100} bind:value={() => Math.round(config.brightness * 100), (v) => (config.brightness = v / 100)} format={pct} disabled={config.effect.kind === 'off'} />
-			<Slider label="Saturation" min={0} max={100} bind:value={() => Math.round(config.saturation * 100), (v) => (config.saturation = v / 100)} format={pct} ends={['White', 'Vivid']} disabled={config.effect.kind === 'off' || config.effect.kind === 'static'} />
-		</div>
-	</div>
-</section>
+				{/if}
+			</div>
+		{/key}
+	{/snippet}
+</Workspace>
 
 <style>
-	.lighting {
+	/* The desk's own proportions (mat plus margin), so there is no empty band above or below it. */
+	.stage-desk {
+		width: 100%;
+		aspect-ratio: 2.56;
+		max-height: 44vh;
+	}
+	section {
 		display: grid;
-		grid-template-rows: auto minmax(180px, 1fr) auto auto;
-		gap: 14px;
-		height: 100%;
-		min-height: 0;
+		gap: 10px;
 	}
-	.head {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 24px;
-	}
-	.lede {
-		margin: 6px 0 0;
-		color: var(--color-ink-3);
-		font-size: 13px;
-	}
-	.stage {
-		min-height: 0;
-		padding: 18px;
-		border-radius: var(--radius-lg);
-		background: radial-gradient(ellipse at 50% 40%, #151515, #0d0d0d 70%);
-		border: 1px solid var(--color-seam);
-	}
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-	.chips li {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		height: 30px;
-		padding: 0 12px;
-		border-radius: 15px;
-		background: var(--color-surface);
-		font-size: 12px;
-		font-weight: 500;
-	}
-	.state {
-		color: var(--color-ink-3);
-		font-weight: 400;
-	}
-	.lamp {
-		width: 7px;
-		height: 7px;
-		border-radius: 50%;
-		background: var(--color-ink-4);
-	}
-	.chips li.live .lamp {
-		background: #3fb950;
-	}
-	.chips li.off {
-		color: var(--color-ink-3);
-	}
-	.controls {
+	.cards {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
-		gap: 28px;
-		padding: 18px 20px;
-		border-radius: var(--radius-lg);
-		background: var(--color-raised);
-		border: 1px solid var(--color-seam);
-	}
-	.effect {
-		display: grid;
-		gap: 18px;
-		align-content: start;
-		min-width: 0;
-	}
-	.params {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		gap: 28px;
-		align-items: start;
-	}
-	.col {
-		display: grid;
-		gap: 14px;
-		min-width: 0;
-	}
-	.col.wide {
-		grid-column: 1 / -1;
-		gap: 8px;
-	}
-	.output {
-		display: grid;
-		gap: 18px;
-		align-content: start;
-		padding-left: 28px;
-		border-left: 1px solid var(--color-seam);
-	}
-	.off-note {
-		grid-column: 1 / -1;
-		margin: 0;
-		color: var(--color-ink-3);
-		font-size: 13px;
-	}
-	.swatch-row {
-		display: flex;
-		align-items: center;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 		gap: 12px;
 	}
-	.swatch-row output {
+	.card {
+		display: grid;
+		gap: 4px;
+		padding: 8px 8px 12px;
+		border: 1px solid var(--color-seam);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		text-align: left;
+		transition:
+			border-color var(--t-mid) var(--ease),
+			box-shadow var(--t-mid) var(--ease);
+	}
+	.card:hover {
+		border-color: var(--color-seam-2);
+	}
+	.card[aria-checked='true'] {
+		border-color: var(--color-select);
+		box-shadow: inset 0 0 0 1px var(--color-select);
+	}
+	.swatch {
+		height: 64px;
+		margin-bottom: 6px;
+		border-radius: var(--radius-sm);
+		box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+	}
+	.name {
+		padding: 0 4px;
+		font-weight: 600;
 		font-size: 13px;
+	}
+	.note {
+		padding: 0 4px;
+		color: var(--color-ink-3);
+		font-size: 12px;
+		line-height: 1.35;
+	}
+	.settings {
+		display: grid;
+		gap: 18px;
+	}
+	.divider {
+		height: 1px;
+		background: var(--color-seam);
+	}
+	.gels {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4px;
+	}
+	.gelchip {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		height: 32px;
+		padding: 0 8px 0 4px;
+		border: 1px solid transparent;
+		border-radius: var(--radius);
+		background: none;
 		color: var(--color-ink-2);
+		font-size: 12px;
+		text-align: left;
+	}
+	.gelchip:hover {
+		background: var(--color-surface-2);
+	}
+	.gelchip[aria-checked='true'] {
+		border-color: var(--color-select);
+		color: var(--color-ink);
+		font-weight: 600;
+	}
+	.chip {
+		width: 16px;
+		height: 22px;
+		border-radius: 3px;
+		box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+		flex: none;
+	}
+	.custom {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.custom label {
+		margin-right: auto;
+	}
+	.custom output {
+		color: var(--color-ink-3);
+		font-size: 12px;
 	}
 	input[type='color'] {
 		appearance: none;
-		width: 56px;
-		height: 32px;
+		width: 44px;
+		height: 28px;
 		padding: 0;
-		border: 1px solid var(--color-seam-2);
-		border-radius: var(--radius);
+		border: var(--hair-strong);
+		border-radius: var(--radius-sm);
 		background: none;
 		overflow: hidden;
 	}
 	input[type='color']::-webkit-color-swatch-wrapper {
-		padding: 3px;
+		padding: 2px;
 	}
 	input[type='color']::-webkit-color-swatch {
 		border: 0;
-		border-radius: var(--radius-sm);
+		border-radius: 3px;
 	}
-	@container view (max-width: 820px) {
-		.lighting {
-			grid-template-rows: auto 240px auto auto;
-			height: auto;
-		}
-		.controls {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		.output {
-			padding-left: 0;
-			border-left: 0;
+	.off-note {
+		margin: 0;
+		color: var(--color-ink-3);
+	}
+	@container view (max-width: 640px) {
+		.cards {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 </style>

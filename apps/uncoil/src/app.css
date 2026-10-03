@@ -1,47 +1,82 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/archivo/wdth.css';
 
 /*
- * uncoil design tokens. Matte black ground, near-white ink, quiet greys, one red accent for "active"
- * and "live". Live LED colour only appears where it shows what the devices are actually doing.
- * Small radii and solid surfaces for controls; hairlines separate regions.
+ * uncoil design tokens: the Swatch Book. Warm graphite (dark) or warm-white (light) pages, warm grey ink,
+ * no brand accent. Colour appears only as named gel swatches with jobs (your change, media & macros,
+ * lighting, system) and as the devices' real LED colour. Light and dark follow Windows.
  * The canonical copy of these values lives in DESIGN.md / .impeccable/design.json.
  */
-@theme {
-	--font-sans: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif;
+@theme static {
+	--font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+	--font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
 
-	--color-ground: #0b0b0b;
-	--color-raised: #111111;
-	--color-surface: #161616;
-	--color-surface-2: #1e1e1e;
-	--color-surface-3: #282828;
-	--color-ink: #f2f2f2;
-	--color-ink-2: #b4b4b4;
-	--color-ink-3: #8a8a8a;
-	--color-ink-4: #5c5c5c;
-	--color-seam: #262626;
-	--color-seam-2: #3d3d3d;
+	/* light pages */
+	--color-ground: #f7f6f3;
+	--color-raised: #f1efeb;
+	--color-surface: #ffffff;
+	--color-surface-2: #ebe8e3;
+	--color-surface-3: #e2ded7;
+	--color-ink: #1f1d1a;
+	--color-ink-2: #514c45;
+	--color-ink-3: #6b655d;
+	--color-ink-4: #a39d94;
+	--color-seam: #e3e0da;
+	--color-seam-2: #cfcac2;
 
-	--color-fac-grey: #6b6b6b;
-	--color-fac-blue: #2f63e8;
-	--color-fac-yellow: #e9c31b;
-	--color-fac-red: #e2372c;
-	--color-fac-white: #f2f2f2;
+	/* gel swatches: each colour has one job */
+	--color-gel-yours: #2f8a4c;
+	--color-gel-media: #b97a12;
+	--color-gel-light: #b13a80;
+	--color-gel-system: #3a63c4;
+
+	--color-ok: #1f8f3f;
+	--color-warn: #b45309;
+	--color-select: #1f1d1a;
 }
 
 :root {
-	color-scheme: dark;
+	color-scheme: light dark;
 	--ease: cubic-bezier(0.16, 1, 0.3, 1);
-	--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-	--t-fast: 160ms;
-	--t-mid: 260ms;
-	--t-slow: 420ms;
-	--radius-sm: 4px;
-	--radius: 6px;
+	--t-fast: 140ms;
+	--t-mid: 220ms;
+	--t-slow: 360ms;
+	--radius-sm: 5px;
+	--radius: 8px;
 	--radius-lg: 10px;
 	--hair: 1px solid var(--color-seam);
 	--hair-strong: 1px solid var(--color-seam-2);
-	--hair-ink: 1px solid var(--color-ink);
+	/* keycaps and the keyboard case */
+	--cap: #ffffff;
+	--cap-edge: rgb(31 29 26 / 0.12);
+	--case: #e9e6e0;
+	--shadow-pop: 0 8px 24px rgb(31 29 26 / 0.12), 0 1px 2px rgb(31 29 26 / 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-ground: #161514;
+		--color-raised: #1b1a18;
+		--color-surface: #22201e;
+		--color-surface-2: #2b2825;
+		--color-surface-3: #34302c;
+		--color-ink: #eeeae4;
+		--color-ink-2: #c2bbb1;
+		--color-ink-3: #948d83;
+		--color-ink-4: #615b54;
+		--color-seam: #2e2b28;
+		--color-seam-2: #45413c;
+		--color-gel-yours: #58b06c;
+		--color-gel-media: #e0a33e;
+		--color-gel-light: #cf5aa0;
+		--color-gel-system: #5b84e0;
+		--color-ok: #58b06c;
+		--color-warn: #e3b341;
+		--color-select: #eeeae4;
+		--cap: #2a2724;
+		--cap-edge: rgb(0 0 0 / 0.35);
+		--case: #1e1c1a;
+		--shadow-pop: 0 10px 28px rgb(0 0 0 / 0.45), 0 1px 2px rgb(0 0 0 / 0.4);
+	}
 }
 
 @layer base {
@@ -51,11 +86,9 @@
 		background: var(--color-ground);
 		color: var(--color-ink);
 		font-family: var(--font-sans);
-		font-size: 14px;
-		line-height: 1.5;
-		font-stretch: 100%;
+		font-size: 13px;
+		line-height: 1.45;
 		-webkit-font-smoothing: antialiased;
-		text-rendering: optimizeLegibility;
 		user-select: none;
 		overflow: hidden;
 	}
@@ -73,11 +106,11 @@
 	* {
 		scrollbar-width: thin;
 		scrollbar-color: var(--color-seam-2) transparent;
-		caret-color: var(--color-fac-red);
+		caret-color: var(--color-ink);
 	}
 
 	:focus-visible {
-		outline: 2px solid var(--color-ink);
+		outline: 2px solid var(--color-select);
 		outline-offset: 2px;
 	}
 
@@ -97,46 +130,34 @@
 }
 
 @layer components {
-	/* Small uppercase labels, used sparingly: table headers and tiny status words. */
-	.caps,
-	.caps-sm {
-		font-size: 11px;
-		font-weight: 500;
-		font-stretch: 108%;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-	/* Field and section labels: sentence case, quiet. */
 	.label {
-		font-size: 13px;
+		font-size: 12px;
 		font-weight: 500;
-		color: var(--color-ink-2);
+		color: var(--color-ink-3);
 	}
-	/* Page titles. */
 	.page-title {
 		margin: 0;
-		font-size: 26px;
-		font-weight: 500;
-		font-stretch: 112%;
+		font-family: var(--font-display);
+		font-size: 20px;
+		font-weight: 600;
 		letter-spacing: -0.01em;
-		line-height: 1.1;
+		line-height: 1.2;
 	}
 	.section-title {
 		margin: 0;
-		font-size: 15px;
+		font-family: var(--font-display);
+		font-size: 14px;
 		font-weight: 600;
-		font-stretch: 105%;
 	}
 
-	/* Buttons. Primary is filled ink; quiet is an outline. */
 	.btn,
 	.btn-quiet {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		gap: 8px;
-		height: 36px;
-		padding: 0 16px;
+		height: 34px;
+		padding: 0 14px;
 		border-radius: var(--radius);
 		font-size: 13px;
 		font-weight: 600;
@@ -144,7 +165,6 @@
 		transition:
 			background-color var(--t-mid) var(--ease),
 			border-color var(--t-mid) var(--ease),
-			color var(--t-mid) var(--ease),
 			opacity var(--t-mid) var(--ease);
 	}
 	.btn {
@@ -153,7 +173,7 @@
 		color: var(--color-ground);
 	}
 	.btn:hover:not(:disabled) {
-		background: #ffffff;
+		opacity: 0.88;
 	}
 	.btn-quiet {
 		border: 1px solid var(--color-seam-2);
@@ -161,64 +181,65 @@
 		color: var(--color-ink);
 	}
 	.btn-quiet:hover:not(:disabled) {
-		border-color: var(--color-ink-3);
-		background: var(--color-surface);
+		background: var(--color-surface-2);
 	}
 	.btn:disabled,
 	.btn-quiet:disabled {
-		opacity: 0.35;
+		opacity: 0.38;
 	}
 
-	/* Text inputs and selects. */
 	.input {
-		height: 36px;
-		padding: 0 12px;
-		border: 1px solid var(--color-seam-2);
+		height: 34px;
+		padding: 0 10px;
+		border: 1px solid var(--color-seam);
 		border-radius: var(--radius);
 		background: var(--color-surface);
 		color: var(--color-ink);
 		font: inherit;
-		font-size: 13px;
 		transition: border-color var(--t-mid) var(--ease);
 	}
+	.input::placeholder {
+		color: var(--color-ink-3);
+	}
 	.input:hover {
-		border-color: var(--color-ink-4);
+		border-color: var(--color-seam-2);
 	}
 	.input:focus-visible {
 		outline: none;
-		border-color: var(--color-ink-2);
+		border-color: var(--color-ink-3);
 	}
 
-	/* A result line under an action: a small lamp, grey when fine, yellow on trouble. */
+	/* A result line under an action: a status dot and what the device read back. */
 	.outcome {
 		display: grid;
-		grid-template-columns: 8px 1fr;
-		gap: 10px;
+		grid-template-columns: 7px 1fr;
+		gap: 9px;
 		align-items: baseline;
 		margin: 0;
-		font-size: 13px;
+		font-size: 12px;
 		line-height: 1.5;
 		color: var(--color-ink-2);
 	}
 	.outcome::before {
 		content: '';
-		width: 8px;
-		height: 8px;
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
-		background: #3fb950;
+		background: var(--color-ok);
 	}
 	.outcome.bad {
-		color: var(--color-fac-yellow);
+		color: var(--color-warn);
 	}
 	.outcome.bad::before {
-		background: var(--color-fac-yellow);
+		background: var(--color-warn);
 	}
 
-	.display {
-		font-weight: 400;
-		font-stretch: 118%;
-		letter-spacing: -0.02em;
-		line-height: 1;
-		font-variant-numeric: tabular-nums;
+	/* A gel swatch chip: colour plus its name. */
+	.gel {
+		display: inline-block;
+		width: 10px;
+		height: 14px;
+		border-radius: 2px;
+		flex: none;
 	}
 }

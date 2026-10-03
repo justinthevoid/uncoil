@@ -46,13 +46,13 @@
 		grid-template-columns: repeat(var(--n), minmax(0, 1fr));
 		padding: 3px;
 		border-radius: calc(var(--radius) + 3px);
-		background: var(--color-surface);
+		background: var(--color-surface-2);
 		border: 1px solid var(--color-seam);
 	}
 	button {
 		position: relative;
 		z-index: 1;
-		height: 32px;
+		height: 28px;
 		padding: 0 10px;
 		border: 0;
 		border-radius: var(--radius);
@@ -82,8 +82,8 @@
 		width: calc((100% - 6px) / var(--n));
 		transform: translateX(calc(100% * var(--i)));
 		border-radius: var(--radius);
-		background: var(--color-surface-3);
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+		background: var(--color-surface);
+		box-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 0 0 1px var(--color-seam);
 		transition: transform var(--t-slow) var(--ease);
 		pointer-events: none;
 	}
