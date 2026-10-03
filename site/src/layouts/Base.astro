@@ -1,7 +1,6 @@
 ---
 import '../styles/site.css';
 import Mark from '../components/Mark.astro';
-import CodeStrip from '../components/CodeStrip.astro';
 import { url, REPO } from '../lib/url';
 
 interface Props {
@@ -38,7 +37,6 @@ const year = new Date().getFullYear();
 				<Mark size={22} />
 				<span class="word" translate="no">uncoil</span>
 			</a>
-			<CodeStrip class="top-strip" cell={14} />
 			<nav aria-label="Site">
 				<a class="caps" href={url('docs/')}>Docs</a>
 				<a class="caps hide-sm" href={url('docs/protocol/')}>Protocol</a>
@@ -69,7 +67,7 @@ const year = new Date().getFullYear();
 				“Razer”, “Synapse” and “Chroma” are trademarks of Razer Inc., used here only to say which hardware and software
 				uncoil works with. Protocol facts and some device data derive from OpenRazer and OpenRGB (GPL-2.0).
 			</p>
-			<p class="legal caps-sm">FAC 000 · uncoil site · {year}</p>
+			<p class="legal">© {year} uncoil contributors</p>
 		</footer>
 	</body>
 </html>

@@ -1,7 +1,6 @@
 ---
 title: Configuration
 description: Every key in %APPDATA%\uncoil\config.json, its default, and what the daemon does with it.
-fac: FAC 202
 ---
 
 uncoil reads one JSON file: `%APPDATA%\uncoil\config.json`. The desktop app writes it; you can edit it by

@@ -1,7 +1,6 @@
 ---
 title: uncoil documentation
 description: How to install, configure and extend uncoil, the small open-source lighting daemon for Razer peripherals on Windows.
-fac: FAC 200
 tableOfContents: false
 ---
 

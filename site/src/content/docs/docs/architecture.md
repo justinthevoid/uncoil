@@ -1,7 +1,6 @@
 ---
 title: Architecture
 description: The daemon, the desktop app, the files between them, and the pieces still in progress.
-fac: FAC 205
 ---
 
 uncoil is split so that the part that runs all day is as small as it can be, and the part with a UI only

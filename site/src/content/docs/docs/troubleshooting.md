@@ -1,7 +1,6 @@
 ---
 title: Troubleshooting
 description: Frozen keyboard lighting, a dial that scrolls instead of changing volume, conflicts with iCUE or OpenRGB, and lighting around display sleep.
-fac: FAC 206
 ---
 
 Start with the log. `%LOCALAPPDATA%\uncoil\uncoild.log` records every device opened or lost, display state

@@ -1,7 +1,6 @@
 ---
 title: Protocol
 description: How uncoil talks to Razer devices, how that was learned from Synapse's own logs, and the hardware quirks that cost the most time.
-fac: FAC 204
 ---
 
 :::note[Source]

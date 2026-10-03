@@ -9,16 +9,6 @@ import appShot from '../assets/app-lighting.png';
 import { devices, totalLeds } from '../lib/devices';
 import { url, REPO, RELEASES, blob } from '../lib/url';
 
-const sections = [
-	{ id: 'top', n: '01', label: 'uncoil' },
-	{ id: 'does', n: '02', label: 'What it does' },
-	{ id: 'app', n: '03', label: 'The app' },
-	{ id: 'devices', n: '04', label: 'Devices' },
-	{ id: 'built', n: '05', label: 'How it was built' },
-	{ id: 'install', n: '06', label: 'Install' },
-	{ id: 'faq', n: '07', label: 'FAQ' },
-];
-
 // Measured on the maintainer's PC (README.md, PRODUCT.md). The only numbers on this site.
 const ledger = [
 	{ k: 'Processes', synapse: '17', uncoil: '1', unit: '' },
@@ -95,22 +85,7 @@ const faq = [
 	title="uncoil: a 651 KB replacement for Razer Synapse"
 	description="uncoil runs the lighting on Razer keyboards, mice and mats from one small background process on Windows. Open source, GPL-3.0. Measured: ~3 MB RAM, under 1% of one core."
 >
-	<nav class="rail" slot="rail" aria-label="Sections">
-		<ol>
-			{
-				sections.map((s) => (
-					<li>
-						<a href={`#${s.id}`} data-rail={s.id}>
-							<span class="num">{s.n}</span>
-							<span class="rail-label">{s.label}</span>
-						</a>
-					</li>
-				))
-			}
-		</ol>
-	</nav>
 
-	<!-- FAC 01: first viewport. Product and the lightness claim, with the measured numbers. -->
 	<section id="top" class="hero" aria-labelledby="hero-title">
 		<div class="hero-copy">
 			<h1 id="hero-title">
@@ -165,7 +140,7 @@ const faq = [
 				<PulsePlot client:load />
 			</div>
 			<dl class="tx">
-				<div><dt class="caps-sm">Effect</dt><dd>FAC 101 wave</dd></div>
+				<div><dt class="caps-sm">Effect</dt><dd>Wave</dd></div>
 				<div><dt class="caps-sm">Angle</dt><dd class="num">35°</dd></div>
 				<div><dt class="caps-sm">Cycle</dt><dd class="num">14 s</dd></div>
 				<div><dt class="caps-sm">Band</dt><dd class="num">26 keys</dd></div>
@@ -178,16 +153,14 @@ const faq = [
 		</div>
 	</section>
 
-	<!-- FAC 02 -->
 	<section id="does" class="sec" aria-labelledby="does-title">
-		<SectionHead id="does-title" fac="FAC 02" title="What it does" />
+		<SectionHead id="does-title" title="What it does" />
 		<div class="does-grid">
 			<ol class="features">
 				{
 					features.map((f) => (
 						<li>
-							<span class="caps-sm feat-n">FAC {f.n}</span>
-							<div>
+														<div>
 								<h3>{f.title}</h3>
 								<p>{f.body}</p>
 							</div>
@@ -205,9 +178,8 @@ const faq = [
 		</p>
 	</section>
 
-	<!-- FAC 03 -->
 	<section id="app" class="sec" aria-labelledby="app-title">
-		<SectionHead id="app-title" fac="FAC 03" title="The app" />
+		<SectionHead id="app-title" title="The app" />
 		<div class="app-grid">
 			<div class="prose-ink">
 				<p>
@@ -238,9 +210,8 @@ const faq = [
 		</div>
 	</section>
 
-	<!-- FAC 04 -->
 	<section id="devices" class="sec" aria-labelledby="devices-title">
-		<SectionHead id="devices-title" fac="FAC 04" title="Supported devices" />
+		<SectionHead id="devices-title" title="Supported devices" />
 		<div class="table-wrap">
 			<table class="devices">
 				<thead>
@@ -285,9 +256,8 @@ const faq = [
 		</p>
 	</section>
 
-	<!-- FAC 05 -->
 	<section id="built" class="sec" aria-labelledby="built-title">
-		<SectionHead id="built-title" fac="FAC 05" title="How it was built" />
+		<SectionHead id="built-title" title="How it was built" />
 		<div class="built-grid">
 			<div class="prose-ink">
 				<p>
@@ -313,7 +283,7 @@ const faq = [
 			<div class="built-figure">
 				<ReportStrip />
 				<div class="fnp">
-					<p class="caps-sm">FAC 503 · Fn+P, written to the keyboard</p>
+					<p class="caps-sm">Fn+P, written to the keyboard</p>
 					<pre><code>02/0D  [1, 26, 1, 2, 2, 0, 0x46]
        profile 1 · key P · Fn layer · key code · Print Screen</code></pre>
 					<p class="fine">
@@ -325,12 +295,11 @@ const faq = [
 		</div>
 	</section>
 
-	<!-- FAC 06 -->
 	<section id="install" class="sec" aria-labelledby="install-title">
-		<SectionHead id="install-title" fac="FAC 06" title="Install" />
+		<SectionHead id="install-title" title="Install" />
 		<ol class="steps">
 			<li>
-				<span class="caps-sm step-n">FAC 601</span>
+				<span class="caps-sm step-n">Step 1</span>
 				<div>
 					<h3>Download</h3>
 					<p class="prose-ink">
@@ -340,7 +309,7 @@ const faq = [
 				</div>
 			</li>
 			<li>
-				<span class="caps-sm step-n">FAC 602</span>
+				<span class="caps-sm step-n">Step 2</span>
 				<div>
 					<h3>Retire Synapse</h3>
 					<p class="prose-ink">
@@ -351,7 +320,7 @@ const faq = [
 				</div>
 			</li>
 			<li>
-				<span class="caps-sm step-n">FAC 603</span>
+				<span class="caps-sm step-n">Step 3</span>
 				<div>
 					<h3>Run it at logon</h3>
 					<pre><code>powershell -ExecutionPolicy Bypass -File install-task.ps1 -Exe .\uncoild.exe</code></pre>
@@ -368,16 +337,14 @@ const faq = [
 		</p>
 	</section>
 
-	<!-- FAC 07 -->
 	<section id="faq" class="sec" aria-labelledby="faq-title">
-		<SectionHead id="faq-title" fac="FAC 07" title="Questions" />
+		<SectionHead id="faq-title" title="Questions" />
 		<div class="faq">
 			{
 				faq.map((f, i) => (
 					<details>
 						<summary>
-							<span class="caps-sm faq-n">FAC {701 + i}</span>
-							<span class="q">{f.q}</span>
+														<span class="q">{f.q}</span>
 							<span class="tick" aria-hidden="true" />
 						</summary>
 						<p class="prose-ink" set:html={f.a} />
@@ -388,106 +355,8 @@ const faq = [
 	</section>
 </Base>
 
-<script>
-	// Section rail: box the section in view, red number (the app's active catalog item).
-	const links = new Map<string, HTMLAnchorElement>();
-	document.querySelectorAll<HTMLAnchorElement>('[data-rail]').forEach((a) => links.set(a.dataset.rail!, a));
-	const io = new IntersectionObserver(
-		(entries) => {
-			for (const e of entries) {
-				if (!e.isIntersecting) continue;
-				links.forEach((a, id) => a.toggleAttribute('aria-current', id === e.target.id));
-			}
-		},
-		{ rootMargin: '-45% 0px -50% 0px' },
-	);
-	links.forEach((_, id) => {
-		const el = document.getElementById(id);
-		if (el) io.observe(el);
-	});
-</script>
 
 <style>
-	/* ── Rail ─────────────────────────────────────────────────────────────── */
-	.rail {
-		display: none;
-	}
-	@media (min-width: 1100px) {
-		.rail {
-			display: block;
-			position: fixed;
-			top: 0;
-			left: 0;
-			bottom: 0;
-			width: var(--rail);
-			border-right: var(--hair);
-			background: var(--color-ground);
-			z-index: 25;
-		}
-		.rail ol {
-			list-style: none;
-			margin: 0;
-			padding: calc(var(--header) + 40px) 0 0;
-			display: grid;
-			gap: 10px;
-			justify-items: center;
-		}
-		.rail a {
-			position: relative;
-			display: grid;
-			place-items: center;
-			width: 44px;
-			height: 40px;
-			text-decoration: none;
-			color: var(--color-ink-2);
-			border: 1px solid transparent;
-			font-size: 13px;
-			font-stretch: 115%;
-			letter-spacing: 0.16em;
-			transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
-		}
-		.rail a:hover {
-			color: var(--color-ink);
-			border-color: var(--color-seam-2);
-		}
-		.rail a[aria-current] {
-			color: var(--color-fac-red);
-			border-color: var(--color-fac-red);
-		}
-		.rail-label {
-			position: absolute;
-			left: calc(100% + 12px);
-			white-space: nowrap;
-			font-size: 10px;
-			font-weight: 500;
-			letter-spacing: 0.2em;
-			text-transform: uppercase;
-			color: var(--color-ink);
-			background: var(--color-ground);
-			border: var(--hair-strong);
-			padding: 4px 8px;
-			opacity: 0;
-			pointer-events: none;
-			transition: opacity var(--t-fast) var(--ease);
-		}
-		.rail a:hover .rail-label,
-		.rail a:focus-visible .rail-label {
-			opacity: 1;
-		}
-		.rail .rail-label {
-			clip-path: none;
-		}
-	}
-	@media (max-width: 1099px) {
-		.rail-label {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-		}
-	}
-
 	/* ── Hero ─────────────────────────────────────────────────────────────── */
 	.hero {
 		display: grid;

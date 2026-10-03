@@ -51,7 +51,7 @@
 	}
 	/* Pages with a section rail reserve room for it. */
 	body:has(nav.rail) {
-		--rail: 72px;
+		--rail: 0px;
 	}
 }
 

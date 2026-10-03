@@ -1,7 +1,6 @@
 ---
 title: FAQ
 description: Who makes uncoil, the licence, what still needs Synapse, and what uncoil deliberately leaves out.
-fac: FAC 208
 ---
 
 ## Is uncoil made by Razer?

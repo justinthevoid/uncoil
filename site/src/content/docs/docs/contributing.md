@@ -1,7 +1,6 @@
 ---
 title: Contributing
 description: Where help is most useful (device files, captures, protocol facts) and where the contribution guide lives.
-fac: FAC 207
 ---
 
 The full guide, including how to build, test and format, lives in

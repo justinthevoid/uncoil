@@ -1,7 +1,6 @@
 ---
 title: Getting started
 description: Install uncoild as a logon task, retire Synapse without leaving devices in driver mode, check it is running, and remove it again.
-fac: FAC 201
 ---
 
 uncoil has no installer yet. Installing it means putting one executable somewhere and asking Windows to
