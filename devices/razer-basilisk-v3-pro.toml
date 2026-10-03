@@ -1,0 +1,45 @@
+# Razer Basilisk V3 Pro. LED order (OpenRGB): 0 scroll wheel, 1 logo, 2..12 underglow strip.
+
+id = "razer-basilisk-v3-pro"
+name = "Razer Basilisk V3 Pro"
+kind = "mouse"
+vendor_id = 0x1532
+
+[[usb]]
+product_id = 0x00AA
+connection = "wired"
+interface = 0
+usage_page = 0x01
+usage = 0x02
+transaction_id = 0x1F
+
+[[usb]]
+product_id = 0x00AB
+connection = "dongle"   # answers status 0x04 (timeout) while the mouse is on its cable
+interface = 0
+usage_page = 0x01
+usage = 0x02
+transaction_id = 0x1F
+
+[quirks]
+ack_every_report = false
+custom_mode_once = true
+
+[matrix]
+rows = 1
+cols = 13
+names = [["Scroll Wheel", "Logo", "Strip 1", "Strip 2", "Strip 3", "Strip 4", "Strip 5", "Strip 6", "Strip 7", "Strip 8", "Strip 9", "Strip 10", "Strip 11"]]
+
+[layout]
+type = "points"
+# footprint ~130 x 75 mm; lit body drawn as an ellipse
+width = 2.8
+depth = 6.4
+# (x, y) relative to the mouse centre, in key units. Strip runs down the left side, around the back,
+# and up the right side (order verified visually 2026-10-03).
+points = [
+  [0.0, -2.2], [0.0, 1.8],
+  [-1.4, -2.6], [-1.4, -1.25], [-1.4, 0.1], [-1.4, 1.45], [-1.4, 3.0],
+  [0.0, 3.0],
+  [1.4, 2.8], [1.4, 1.45], [1.4, 0.1], [1.4, -1.25], [1.4, -2.6],
+]

@@ -1,0 +1,78 @@
+# Razer BlackWidow V4 Pro 75% (ANSI, US)
+#
+# Matrix: OpenRGB's razer_blackwidow_v4_pro_75_layout + a dump of the live device's LED names.
+# The 18 underglow LEDs are packed into spare matrix slots: LU1/LU5/LU8 sit at top-row cols 14-16,
+# RU1/RU5/RU8 around the spacebar in the bottom row. Treating the matrix as a plain grid lights
+# the sides with colours from the wrong place.
+
+id = "razer-blackwidow-v4-pro-75"
+name = "Razer BlackWidow V4 Pro 75%"
+kind = "keyboard"
+vendor_id = 0x1532
+
+[[usb]]
+product_id = 0x02B3
+connection = "wired"
+interface = 3
+usage_page = 0x0C
+usage = 0x01
+transaction_id = 0x1F
+
+# Wireless (HyperSpeed dongle) variant is known to OpenRGB as 0x02B4 / interface 2, page 0x01, usage 0x02.
+# Untested here, so not listed yet.
+
+[quirks]
+# Firmware stops applying custom frames unless every report's reply is read back.
+ack_every_report = true
+# Re-sending the custom-frame effect each frame freezes the keyboard on the first frame.
+custom_mode_once = true
+
+[matrix]
+rows = 6
+cols = 18
+# Name of the LED at each (row, col). "" = no LED. LUn/RUn = left/right underglow, n = back(0)..front(8).
+names = [
+  ["LU0", "Escape", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "LU1", "LU5", "LU8", "RU0"],
+  ["LU2", "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "", "Backspace", "Delete", "RU2"],
+  ["LU3", "Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\", "", "Page Up", "RU3"],
+  ["LU4", "Caps Lock", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "", "Enter", "", "Page Down", "RU4"],
+  ["LU6", "Left Shift", "", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "", "Right Shift", "Up Arrow", "Insert", "RU6"],
+  ["LU7", "Left Control", "Left Windows", "Left Alt", "", "RU1", "RU5", "Space", "RU8", "", "", "Right Alt", "Right Fn", "Right Control", "Left Arrow", "Down Arrow", "Right Arrow", "RU7"],
+]
+
+[layout]
+type = "keyboard"
+width = 16.25
+depth = 6.25
+
+# Physical rows, left to right from x = 0, in key units (1u = 19.05 mm). "name:width"; "gap:w" = empty space.
+[[layout.rows]]
+y = 0.0
+keys = ["Escape:1", "gap:0.25", "F1:1", "F2:1", "F3:1", "F4:1", "gap:0.25", "F5:1", "F6:1", "F7:1", "F8:1", "gap:0.25", "F9:1", "F10:1", "F11:1", "F12:1"]
+
+[[layout.rows]]
+y = 1.25
+keys = ["`:1", "1:1", "2:1", "3:1", "4:1", "5:1", "6:1", "7:1", "8:1", "9:1", "0:1", "-:1", "=:1", "Backspace:2", "gap:0.25", "Delete:1"]
+
+[[layout.rows]]
+y = 2.25
+keys = ["Tab:1.5", "Q:1", "W:1", "E:1", "R:1", "T:1", "Y:1", "U:1", "I:1", "O:1", "P:1", "[:1", "]:1", "\\:1.5", "gap:0.25", "Page Up:1"]
+
+[[layout.rows]]
+y = 3.25
+keys = ["Caps Lock:1.75", "A:1", "S:1", "D:1", "F:1", "G:1", "H:1", "J:1", "K:1", "L:1", ";:1", "':1", "Enter:2.25", "gap:0.25", "Page Down:1"]
+
+[[layout.rows]]
+y = 4.25
+keys = ["Left Shift:2.25", "Z:1", "X:1", "C:1", "V:1", "B:1", "N:1", "M:1", ",:1", ".:1", "/:1", "Right Shift:1.75", "gap:0.25", "Up Arrow:1", "Insert:1"]
+
+[[layout.rows]]
+y = 5.25
+keys = ["Left Control:1.25", "Left Windows:1.25", "Left Alt:1.25", "Space:6.25", "Right Alt:1", "Right Fn:1", "Right Control:1", "gap:0.25", "Left Arrow:1", "Down Arrow:1", "Right Arrow:1"]
+
+# 9 LEDs per side running just outside the case, back to front
+[layout.underglow]
+left = { prefix = "LU", x = -0.55, count = 9 }
+right = { prefix = "RU", x = 16.8, count = 9 }
+y_start = 0.2
+y_end = 6.05
