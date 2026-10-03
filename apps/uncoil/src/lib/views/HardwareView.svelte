@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import Segmented from '#lib/components/Segmented.svelte';
-	import CatalogList from '#lib/components/CatalogList.svelte';
+	import OptionList from '#lib/components/OptionList.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import WriteButton from '#lib/components/WriteButton.svelte';
 	import { daemon } from '#lib/api.ts';
@@ -74,7 +74,7 @@
 				: await daemon<EffectState>('effect.hw', fxId, { effect: fxSpec });
 			pipe.devices = pipe.devices.map((d) => (d.id === fxId ? { ...d, hw_effect: r.effect } : d));
 			const fx = r.effect ? (FX_LABEL[r.effect.split(' ')[0]] ?? r.effect).toLowerCase() : null;
-			fxNote = { ok: true, text: fx ? `The ${kindLabel(fxDevice!.kind).toLowerCase()} is running its own ${fx} effect.` : 'Back on uncoil’s desk-wide effect.' };
+			fxNote = { ok: true, text: fx ? `The ${kindLabel(fxDevice!.kind).toLowerCase()} is running its built-in ${fx} effect.` : 'Back on uncoil’s effect.' };
 		} catch (e) {
 			fxNote = { ok: false, text: errorText(e) };
 		} finally {
@@ -163,74 +163,32 @@
 
 <section class="hw" aria-labelledby="hw-title">
 	<header class="head">
-		<h1 id="hw-title" class="title"><span class="display fac">FAC 300</span><span class="caps name">Hardware</span></h1>
-		<p class="lede">What the devices can do on their own: firmware effects, the command dial, the screen.</p>
+		<h1 id="hw-title" class="page-title">Dial &amp; screen</h1>
+		<p class="lede">Settings stored in the devices themselves: the keyboard's dial and screen, effects the devices can run on their own, and onboard profiles.</p>
 	</header>
 
 	{#if !pipe.loaded}
-		<p class="state">Asking uncoild…</p>
+		<p class="state">Connecting to the engine…</p>
 	{:else if pipe.unreachable}
-		<div class="state" in:fade={{ duration: ms(260) }}>
-			<p class="caps">uncoild isn't answering on its control pipe</p>
-			<p>These controls need uncoild 0.2 or later running. Install it with <code>scripts\install-task.ps1</code>, then try again.</p>
-			<button type="button" class="ghost caps" onclick={loadDevices}>Try again</button>
+		<div class="state panel" in:fade={{ duration: ms(260) }}>
+			<p class="section-title">The engine isn't answering</p>
+			<p>These settings need the latest uncoild running. Install it with <code>scripts\install-task.ps1</code>, then try again.</p>
+			<button type="button" class="btn-quiet" onclick={loadDevices}>Try again</button>
 		</div>
 	{:else}
 		<div class="grid">
-			{#if fxDevices.length}
-				<section class="block fx" aria-labelledby="fx-title">
-					<h2 id="fx-title" class="sub"><span class="num code">310</span><span class="caps">Firmware effect</span></h2>
-					<Segmented label="Device" options={fxDevices.map((d, i) => ({ value: d.id, label: kindLabel(d.kind), code: `31${i + 1}` }))} value={fxId ?? ''} onchange={(v) => (fxId = v)} />
-					<div class="fx-body">
-						<CatalogList
-							label="Effect"
-							options={(fxCaps?.hw_effects ?? []).map((e, i) => ({ value: e, label: FX_LABEL[e] ?? e, code: String(i + 1).padStart(2, '0') }))}
-							value={fxName}
-							onchange={(v) => (fxName = v)}
-						/>
-						<div class="fx-params">
-							{#if fxName === 'static' || fxName === 'reactive' || fxName === 'breathing' || fxName === 'starlight'}
-								<div class="colors">
-									<label class="swatch"><span class="caps-sm">Colour</span><input type="color" bind:value={fxColor} /></label>
-									{#if fxName === 'breathing' || fxName === 'starlight'}
-										<label class="swatch" class:off={!fxTwo}>
-											<span class="caps-sm"><input type="checkbox" bind:checked={fxTwo} /> Second</span>
-											<input type="color" bind:value={fxColor2} disabled={!fxTwo} />
-										</label>
-									{/if}
-								</div>
-							{:else if fxName === 'wave' || fxName === 'wheel'}
-								<Segmented label="Direction" options={[{ value: 'left' as const, label: 'Left' }, { value: 'right' as const, label: 'Right' }]} value={fxDir} onchange={(v) => (fxDir = v)} />
-								<Slider label="Speed" min={10} max={120} bind:value={fxSpeed} ends={['Fast', 'Slow']} format={(v) => String(Math.round(v))} hint="40 is the firmware's default." />
-							{:else}
-								<p class="note">No settings for this effect.</p>
-							{/if}
-							<p class="note">Runs on the device itself until you switch back or unplug it; nothing is saved. It can't span the desk the way uncoil's effect does.</p>
-							<div class="row">
-								<button type="button" class="btn" disabled={fxBusy || !fxCaps} onclick={() => runEffect(false)}>
-									<span class="caps">Run on {fxDevice ? kindLabel(fxDevice.kind).toLowerCase() : 'device'}</span><span class="edge" aria-hidden="true"></span>
-								</button>
-								{#if fxDevice?.hw_effect}
-									<button type="button" class="ghost caps" disabled={fxBusy} onclick={() => runEffect(true)} in:fade={{ duration: ms(200) }}>Back to uncoil</button>
-								{/if}
-							</div>
-							{#if fxNote}<p class="outcome" class:bad={!fxNote.ok} role="status">{fxNote.text}</p>{/if}
-						</div>
-					</div>
-				</section>
-			{/if}
-
 			{#if dialDevice}
-				<section class="block" aria-labelledby="dial-title">
-					<h2 id="dial-title" class="sub"><span class="num code">320</span><span class="caps">Command dial</span></h2>
-					<CatalogList
+				<section class="card" aria-labelledby="dial-title">
+					<h2 id="dial-title" class="section-title">Dial</h2>
+					<p class="note">What turning the keyboard's dial does.</p>
+					<OptionList
 						label="Dial mode"
-						options={dialModes.map((m, i) => ({ value: m, label: DIAL_MODES[m] ?? m, code: String(i + 1).padStart(2, '0'), note: m === 'VOLUME' ? 'Tested' : undefined }))}
+						options={dialModes.map((m) => ({ value: m, label: DIAL_MODES[m] ?? m, note: m === 'VOLUME' ? 'Tested' : undefined }))}
 						value={dialChoice}
 						current={dial?.mode ?? null}
 						onchange={(v) => (dialChoice = v)}
 					/>
-					<p class="note">Volume is tested on hardware. The other modes are written exactly as Synapse writes them, but whether the keyboard acts on them without Synapse running hasn't been checked yet.</p>
+					<p class="note">Volume is tested. The others are sent exactly as Synapse sends them, but whether the keyboard acts on them without Synapse hasn't been checked yet.</p>
 					<WriteButton
 						label="Save to keyboard"
 						warning="Saves the dial mode in the keyboard's memory. Pick Volume and save again to undo."
@@ -243,8 +201,9 @@
 			{/if}
 
 			{#if oledDevice}
-				<section class="block" aria-labelledby="oled-title">
-					<h2 id="oled-title" class="sub"><span class="num code">330</span><span class="caps">Screen</span></h2>
+				<section class="card" aria-labelledby="oled-title">
+					<h2 id="oled-title" class="section-title">Screen</h2>
+					<p class="note">The keyboard's small display.</p>
 					<Slider label="Brightness" min={0} max={100} bind:value={oledBright} format={(v) => `${Math.round(v)}%`} />
 					<WriteButton
 						label="Save brightness"
@@ -256,21 +215,59 @@
 					{#if oledNote}<p class="outcome" class:bad={!oledNote.ok} role="status">{oledNote.text}</p>{/if}
 					{#if oled}
 						<dl class="readout">
-							<div><dt class="caps-sm">Dims after</dt><dd class="num">{oled.time_to_dim_minutes ?? '—'} min</dd></div>
-							<div><dt class="caps-sm">Home screen</dt><dd>{oled.home_screen ? oled.home_screen.toLowerCase() : '—'}</dd></div>
-							<div><dt class="caps-sm">Shows</dt><dd>{oled.active_item ? oled.active_item.toLowerCase().replace(/_/g, ' ') : '—'}</dd></div>
-							<div><dt class="caps-sm">Low power</dt><dd>{oled.low_power_mode == null ? '—' : oled.low_power_mode ? 'on' : 'off'}</dd></div>
+							<div><dt>Dims after</dt><dd class="num">{oled.time_to_dim_minutes ?? '—'} min</dd></div>
+							<div><dt>Home screen</dt><dd>{oled.home_screen ? oled.home_screen.toLowerCase() : '—'}</dd></div>
+							<div><dt>Shows</dt><dd>{oled.active_item ? oled.active_item.toLowerCase().replace(/_/g, ' ') : '—'}</dd></div>
+							<div><dt>Low power mode</dt><dd>{oled.low_power_mode == null ? '—' : oled.low_power_mode ? 'on' : 'off'}</dd></div>
 						</dl>
-						<p class="note">Only brightness can be changed so far; the rest is read from the keyboard.</p>
+						<p class="note">Only brightness can be changed so far.</p>
 					{/if}
 				</section>
 			{/if}
 
+			{#if fxDevices.length}
+				<section class="card wide" aria-labelledby="fx-title">
+					<h2 id="fx-title" class="section-title">Onboard effects</h2>
+					<p class="note">Let a device run one of its built-in effects by itself: no CPU at all, but it won't flow across the desk like uncoil's effect. Nothing is saved; unplugging or switching back ends it.</p>
+					<div class="seg"><Segmented label="Device" options={fxDevices.map((d) => ({ value: d.id, label: kindLabel(d.kind) }))} value={fxId ?? ''} onchange={(v) => (fxId = v)} /></div>
+					<div class="fx-body">
+						<OptionList label="Effect" options={(fxCaps?.hw_effects ?? []).map((e) => ({ value: e, label: FX_LABEL[e] ?? e }))} value={fxName} onchange={(v) => (fxName = v)} />
+						<div class="fx-params">
+							{#if fxName === 'static' || fxName === 'reactive' || fxName === 'breathing' || fxName === 'starlight'}
+								<div class="colors">
+									<label class="swatch"><span class="label">Colour</span><input type="color" bind:value={fxColor} /></label>
+									{#if fxName === 'breathing' || fxName === 'starlight'}
+										<label class="swatch" class:off={!fxTwo}>
+											<span class="label"><input type="checkbox" bind:checked={fxTwo} /> Second colour</span>
+											<input type="color" bind:value={fxColor2} disabled={!fxTwo} />
+										</label>
+									{/if}
+								</div>
+							{:else if fxName === 'wave' || fxName === 'wheel'}
+								<Segmented label="Direction" options={[{ value: 'left' as const, label: 'Left' }, { value: 'right' as const, label: 'Right' }]} value={fxDir} onchange={(v) => (fxDir = v)} />
+								<Slider label="Speed" min={10} max={120} bind:value={fxSpeed} ends={['Fast', 'Slow']} format={(v) => String(Math.round(v))} hint="40 is the device's default." />
+							{:else}
+								<p class="note">This effect has no settings.</p>
+							{/if}
+							<div class="row">
+								<button type="button" class="btn" disabled={fxBusy || !fxCaps} onclick={() => runEffect(false)}>
+									Run on {fxDevice ? kindLabel(fxDevice.kind).toLowerCase() : 'device'}
+								</button>
+								{#if fxDevice?.hw_effect}
+									<button type="button" class="btn-quiet" disabled={fxBusy} onclick={() => runEffect(true)} in:fade={{ duration: ms(200) }}>Back to uncoil's effect</button>
+								{/if}
+							</div>
+							{#if fxNote}<p class="outcome" class:bad={!fxNote.ok} role="status">{fxNote.text}</p>{/if}
+						</div>
+					</div>
+				</section>
+			{/if}
+
 			{#if profiles.length}
-				<section class="block" aria-labelledby="prof-title">
-					<h2 id="prof-title" class="sub"><span class="num code">340</span><span class="caps">Onboard profiles</span></h2>
+				<section class="card wide" aria-labelledby="prof-title">
+					<h2 id="prof-title" class="section-title">Onboard profiles</h2>
 					<table>
-						<thead><tr class="caps-sm"><th scope="col">Device</th><th scope="col" class="r">In use</th><th scope="col" class="r">Slots</th><th scope="col" class="r">Active</th></tr></thead>
+						<thead><tr><th scope="col">Device</th><th scope="col" class="r">Profiles in use</th><th scope="col" class="r">Slots</th><th scope="col" class="r">Active</th></tr></thead>
 						<tbody>
 							{#each profiles as p (p.name)}
 								<tr>
@@ -284,7 +281,7 @@
 							{/each}
 						</tbody>
 					</table>
-					<p class="note">Switching profiles from here isn't possible yet: the command for it hasn't been found. Key mappings are edited in profile 1.</p>
+					<p class="note">Switching profiles from here isn't possible yet. Key changes apply to profile 1.</p>
 				</section>
 			{/if}
 		</div>
@@ -295,57 +292,37 @@
 	.hw {
 		display: grid;
 		grid-template-rows: auto 1fr;
-		height: 100%;
+		gap: 16px;
 		min-height: 0;
-		border: var(--hair);
-	}
-	.head {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: 24px;
-		padding: 22px 24px 18px;
-		border-bottom: var(--hair);
-	}
-	.title {
-		display: flex;
-		align-items: baseline;
-		gap: 18px;
-		margin: 0;
-		font-weight: inherit;
-	}
-	.fac {
-		font-size: 44px;
-		white-space: nowrap;
-	}
-	.name {
-		color: var(--color-ink-2);
-		letter-spacing: 0.32em;
 	}
 	.lede {
-		margin: 0;
-		color: var(--color-ink-2);
+		margin: 6px 0 0;
+		color: var(--color-ink-3);
 		font-size: 13px;
-		text-align: right;
-		max-width: 46ch;
+		max-width: 75ch;
 	}
 	.state {
-		display: grid;
-		gap: 12px;
-		align-content: start;
-		justify-items: start;
-		padding: 24px;
 		margin: 0;
 		color: var(--color-ink-3);
 		font-size: 13px;
 	}
-	.state p {
+	.panel,
+	.card {
+		display: grid;
+		gap: 12px;
+		align-content: start;
+		padding: 18px 20px;
+		border-radius: var(--radius-lg);
+		background: var(--color-raised);
+		border: 1px solid var(--color-seam);
+	}
+	.panel {
+		justify-items: start;
+	}
+	.panel p {
 		margin: 0;
 		max-width: 60ch;
 		color: var(--color-ink-2);
-	}
-	.state .caps {
-		color: var(--color-ink);
 	}
 	code {
 		font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
@@ -355,51 +332,31 @@
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		align-content: start;
-		min-height: 0;
-		overflow: auto;
-	}
-	.block {
-		display: grid;
 		gap: 16px;
 		align-content: start;
-		padding: 22px 24px;
-		border-bottom: var(--hair);
 	}
-	.block:nth-child(odd):not(.fx) {
-		border-right: var(--hair);
-	}
-	.fx {
+	.wide {
 		grid-column: 1 / -1;
 	}
-	.fx ~ .block:nth-child(even) {
-		border-right: var(--hair);
-	}
-	.fx ~ .block:nth-child(odd) {
-		border-right: 0;
-	}
-	.sub {
-		display: flex;
-		align-items: baseline;
-		gap: 12px;
+	.note {
 		margin: 0;
-		font-weight: 500;
-		color: var(--color-ink-2);
-	}
-	.code {
+		color: var(--color-ink-3);
 		font-size: 12px;
-		letter-spacing: 0.06em;
-		color: var(--color-fac-red);
+		line-height: 1.5;
+		max-width: 70ch;
+	}
+	.seg {
+		max-width: 340px;
 	}
 	.fx-body {
 		display: grid;
-		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
-		gap: 28px;
+		grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+		gap: 24px;
 		align-items: start;
 	}
 	.fx-params {
 		display: grid;
-		gap: 16px;
+		gap: 14px;
 	}
 	.colors {
 		display: flex;
@@ -408,13 +365,12 @@
 	.swatch {
 		display: grid;
 		gap: 8px;
-		color: var(--color-ink-3);
 		transition: opacity var(--t-mid) var(--ease);
 	}
 	.swatch.off {
 		opacity: 0.6;
 	}
-	.swatch .caps-sm {
+	.swatch .label {
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -425,115 +381,48 @@
 	}
 	input[type='color'] {
 		appearance: none;
-		width: 64px;
-		height: 30px;
+		width: 56px;
+		height: 32px;
 		padding: 0;
-		border: var(--hair-strong);
+		border: 1px solid var(--color-seam-2);
+		border-radius: var(--radius);
 		background: none;
+		overflow: hidden;
 	}
 	input[type='color']::-webkit-color-swatch-wrapper {
 		padding: 3px;
 	}
 	input[type='color']::-webkit-color-swatch {
 		border: 0;
-		border-radius: 0;
+		border-radius: var(--radius-sm);
 	}
 	.row {
 		display: flex;
-		gap: 10px;
-		align-items: center;
-	}
-	.btn {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		height: 38px;
-		padding: 0 40px 0 16px;
-		border: var(--hair-ink);
-		background: none;
-		color: var(--color-ink);
-		overflow: hidden;
-	}
-	.btn:disabled {
-		border-color: var(--color-seam-2);
-		color: var(--color-ink-4);
-	}
-	.edge {
-		position: absolute;
-		right: 0;
-		top: 0;
-		bottom: 0;
-		width: 26px;
-		background: var(--color-fac-red);
-		transform: scaleX(0.6923);
-		transform-origin: right;
-		transition: transform var(--t-mid) var(--ease);
-	}
-	.btn:hover:not(:disabled) .edge {
-		transform: none;
-	}
-	.ghost {
-		height: 38px;
-		padding: 0 16px;
-		border: var(--hair-strong);
-		background: none;
-		color: var(--color-ink-2);
-		transition:
-			color var(--t-mid) var(--ease),
-			border-color var(--t-mid) var(--ease);
-	}
-	.ghost:hover {
-		color: var(--color-ink);
-		border-color: var(--color-ink-3);
-	}
-	.note {
-		margin: 0;
-		color: var(--color-ink-3);
-		font-size: 12px;
-		line-height: 1.5;
-		max-width: 60ch;
-	}
-	.outcome {
-		display: grid;
-		grid-template-columns: 7px 1fr;
-		gap: 10px;
-		align-items: baseline;
-		margin: 0;
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--color-ink-2);
-	}
-	.outcome::before {
-		content: '';
-		width: 7px;
-		height: 7px;
-		background: var(--color-ink-3);
-	}
-	.outcome.bad {
-		color: var(--color-fac-yellow);
-	}
-	.outcome.bad::before {
-		background: var(--color-fac-yellow);
+		gap: 8px;
+		flex-wrap: wrap;
 	}
 	.readout {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 12px 18px;
-		margin: 0;
+		margin: 4px 0 0;
 		padding-top: 14px;
-		border-top: var(--hair);
+		border-top: 1px solid var(--color-seam);
 	}
 	.readout div {
 		display: grid;
-		gap: 3px;
+		gap: 2px;
 	}
 	dt {
 		color: var(--color-ink-3);
+		font-size: 12px;
 	}
 	dd {
 		margin: 0;
 		font-size: 13px;
-		text-transform: capitalize;
+	}
+	dd::first-letter {
+		text-transform: uppercase;
 	}
 	table {
 		width: 100%;
@@ -542,13 +431,14 @@
 	th {
 		text-align: left;
 		color: var(--color-ink-3);
+		font-size: 12px;
 		font-weight: 500;
-		padding: 0 10px 10px 0;
-		border-bottom: var(--hair-strong);
+		padding: 0 10px 8px 0;
+		border-bottom: 1px solid var(--color-seam-2);
 	}
 	td {
-		padding: 12px 10px 12px 0;
-		border-bottom: var(--hair);
+		padding: 10px 10px 10px 0;
+		border-bottom: 1px solid var(--color-seam);
 		font-size: 13px;
 	}
 	.r {
@@ -558,12 +448,7 @@
 		color: var(--color-fac-yellow);
 	}
 	@container view (max-width: 820px) {
-		.grid {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		.block {
-			border-right: 0 !important;
-		}
+		.grid,
 		.fx-body {
 			grid-template-columns: minmax(0, 1fr);
 		}

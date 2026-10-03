@@ -1,24 +1,25 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { expoOut } from 'svelte/easing';
+	import { Cpu, Info, Keyboard, Lightbulb, Settings, Usb } from '@lucide/svelte';
 	import { app, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
 	import { ms } from '#lib/motion.ts';
 	import LightingView from '#lib/views/LightingView.svelte';
 	import KeysView from '#lib/views/KeysView.svelte';
 	import HardwareView from '#lib/views/HardwareView.svelte';
 	import DevicesView from '#lib/views/DevicesView.svelte';
-	import DisplayView from '#lib/views/DisplayView.svelte';
+	import SettingsView from '#lib/views/SettingsView.svelte';
 	import AboutView from '#lib/views/AboutView.svelte';
 
-	type View = 'lighting' | 'keys' | 'hardware' | 'devices' | 'display' | 'about';
-	const nav: { id: View; label: string; code: string }[] = [
-		{ id: 'lighting', label: 'Lighting', code: '01' },
-		{ id: 'keys', label: 'Keys', code: '02' },
-		{ id: 'hardware', label: 'Hardware', code: '03' },
-		{ id: 'devices', label: 'Devices', code: '04' },
-		{ id: 'display', label: 'Display', code: '05' },
-		{ id: 'about', label: 'About', code: '06' }
+	type View = 'lighting' | 'keys' | 'hardware' | 'devices' | 'settings' | 'about';
+	const nav: { id: View; label: string; icon: Component<{ size?: number; strokeWidth?: number }> }[] = [
+		{ id: 'lighting', label: 'Lighting', icon: Lightbulb },
+		{ id: 'keys', label: 'Keys', icon: Keyboard },
+		{ id: 'hardware', label: 'Dial & screen', icon: Cpu },
+		{ id: 'devices', label: 'Devices', icon: Usb },
+		{ id: 'settings', label: 'Settings', icon: Settings },
+		{ id: 'about', label: 'About', icon: Info }
 	];
 	let view = $state<View>('lighting');
 	const index = $derived(nav.findIndex((n) => n.id === view));
@@ -43,21 +44,16 @@
 	});
 
 	const mb = (b: number) => `${(b / 1048576).toFixed(1)} MB`;
-	const kb = (b: number) => `${Math.round(b / 1024)} KB`;
 	const engine = $derived.by(() => {
-		if (!app.statusKnown) return { state: 'checking', rows: [] as [string, string][] };
+		if (!app.statusKnown) return { state: 'checking', text: 'Checking…' };
 		const s = app.status;
-		if (!s) return { state: 'stopped', rows: [] as [string, string][] };
-		const rows: [string, string][] = [];
-		if (s.memory_bytes) rows.push(['Memory', mb(s.memory_bytes)]);
-		if (s.memory_bytes) rows.push(['CPU', `${s.cpu_percent.toFixed(1)} %`]);
-		if (s.exe_bytes) rows.push(['Size', kb(s.exe_bytes)]);
-		rows.push(['Devices', `${s.devices.length} live`]);
-		rows.push(['Display', s.display]);
-		return { state: 'running', rows };
+		if (!s) return { state: 'stopped', text: 'Engine not running' };
+		const parts = [`${s.devices.length} device${s.devices.length === 1 ? '' : 's'}`];
+		if (s.memory_bytes) parts.push(mb(s.memory_bytes), `${s.cpu_percent.toFixed(1)}% CPU`);
+		return { state: 'running', text: parts.join(' · ') };
 	});
 
-	// one keyboard shortcut per section: Ctrl+1..6
+	// One keyboard shortcut per section: Ctrl+1..6
 	function onkeydown(e: KeyboardEvent) {
 		if (!e.ctrlKey || e.altKey || e.metaKey) return;
 		const n = Number(e.key);
@@ -79,29 +75,26 @@
 
 		<ul style:--i={index}>
 			<span class="marker" aria-hidden="true"></span>
-			{#each nav as item (item.id)}
+			{#each nav as item, i (item.id)}
+				{@const Icon = item.icon}
 				<li>
-					<button type="button" aria-current={view === item.id ? 'page' : undefined} aria-keyshortcuts="Control+{item.code.slice(1)}" onclick={() => (view = item.id)}>
-						<span class="code num">{item.code}</span>
-						<span class="caps label">{item.label}</span>
+					<button type="button" aria-current={view === item.id ? 'page' : undefined} aria-keyshortcuts="Control+{i + 1}" title="Ctrl+{i + 1}" onclick={() => (view = item.id)}>
+						<Icon size={17} strokeWidth={1.75} />
+						<span>{item.label}</span>
 					</button>
 				</li>
 			{/each}
 		</ul>
 
 		<section class="engine" aria-live="polite" aria-label="Engine">
-			<h2 class="caps-sm">
-				<span class="lamp" class:on={engine.state === 'running'} aria-hidden="true"></span>
-				uncoild {engine.state === 'running' ? 'running' : engine.state === 'stopped' ? 'not running' : '…'}
-			</h2>
+			<p class="engine-state">
+				<span class="lamp" class:on={engine.state === 'running'} class:off={engine.state === 'stopped'} aria-hidden="true"></span>
+				{engine.state === 'running' ? 'Engine running' : engine.text}
+			</p>
 			{#if engine.state === 'running'}
-				<dl>
-					{#each engine.rows as [k, v] (k)}
-						<div><dt class="caps-sm">{k}</dt><dd class="num">{v}</dd></div>
-					{/each}
-				</dl>
+				<p class="engine-meta num">{engine.text}</p>
 			{:else if engine.state === 'stopped'}
-				<p class="stopped">Settings are saved and apply when the engine starts.</p>
+				<p class="engine-meta">Changes are saved and apply when it starts.</p>
 			{/if}
 		</section>
 		{#if app.saveError}
@@ -116,7 +109,7 @@
 			<p class="note">Loading settings…</p>
 		{:else}
 			{#key view}
-				<div class="view" in:fly={{ y: 10, duration: ms(420), easing: expoOut }}>
+				<div class="view" in:fly={{ y: 8, duration: ms(360), easing: expoOut }}>
 					{#if view === 'lighting'}
 						<LightingView config={app.config} />
 					{:else if view === 'keys'}
@@ -125,8 +118,8 @@
 						<HardwareView />
 					{:else if view === 'devices'}
 						<DevicesView config={app.config} />
-					{:else if view === 'display'}
-						<DisplayView config={app.config} />
+					{:else if view === 'settings'}
+						<SettingsView config={app.config} />
 					{:else}
 						<AboutView />
 					{/if}
@@ -139,15 +132,16 @@
 <style>
 	.app {
 		display: grid;
-		grid-template-columns: 196px 1fr;
+		grid-template-columns: 200px 1fr;
 		height: 100vh;
 	}
 	nav {
 		display: flex;
 		flex-direction: column;
-		gap: 28px;
-		padding: 22px 0 18px;
-		border-right: var(--hair);
+		gap: 22px;
+		padding: 20px 0 16px;
+		background: var(--color-raised);
+		border-right: 1px solid var(--color-seam);
 	}
 	.brand {
 		display: flex;
@@ -158,127 +152,110 @@
 	.brand svg {
 		fill: none;
 		stroke: var(--color-ink);
-		stroke-width: 1.4;
+		stroke-width: 1.6;
 	}
 	.wordmark {
-		font-size: 13px;
-		font-weight: 500;
-		font-stretch: 125%;
-		letter-spacing: 0.3em;
-		text-transform: lowercase;
+		font-size: 15px;
+		font-weight: 600;
+		font-stretch: 118%;
+		letter-spacing: 0.02em;
 	}
 	ul {
 		position: relative;
 		list-style: none;
 		margin: 0;
-		padding: 0 12px;
+		padding: 0 10px;
 		display: grid;
-		gap: 4px;
+		gap: 2px;
 	}
-	/* The active entry is boxed like a catalog index; the box slides between entries. */
+	/* The active entry's highlight slides between entries. */
 	.marker {
 		position: absolute;
-		left: 12px;
-		right: 12px;
+		left: 10px;
+		right: 10px;
 		top: 0;
-		height: 40px;
-		border: var(--hair-ink);
-		transform: translateY(calc(var(--i) * 44px));
+		height: 38px;
+		border-radius: var(--radius);
+		background: var(--color-surface-3);
+		transform: translateY(calc(var(--i) * 40px));
 		transition: transform var(--t-slow) var(--ease);
 		pointer-events: none;
 	}
 	li {
-		height: 40px;
+		height: 38px;
 	}
 	ul button {
+		position: relative;
 		display: flex;
 		align-items: center;
-		gap: 14px;
+		gap: 12px;
 		width: 100%;
 		height: 100%;
 		padding: 0 12px;
 		border: 0;
+		border-radius: var(--radius);
 		background: none;
 		color: var(--color-ink-3);
+		font-size: 14px;
+		font-weight: 500;
 		text-align: left;
 		transition: color var(--t-mid) var(--ease);
 	}
 	ul button:hover {
-		color: var(--color-ink-2);
+		color: var(--color-ink);
 	}
 	ul button[aria-current='page'] {
 		color: var(--color-ink);
 	}
-	.code {
-		font-size: 12px;
-		font-stretch: 112%;
-		letter-spacing: 0.08em;
-		transition: color var(--t-mid) var(--ease);
-	}
-	ul button[aria-current='page'] .code {
+	ul button[aria-current='page'] :global(svg) {
 		color: var(--color-fac-red);
 	}
 	ul button:focus-visible {
-		outline-offset: -3px;
+		outline-offset: -2px;
 	}
 
 	.engine {
-		margin: auto 12px 0;
-		padding: 14px 12px 12px;
-		border-top: var(--hair);
+		margin: auto 10px 0;
+		padding: 12px;
+		border-radius: var(--radius);
+		background: var(--color-surface);
 	}
-	.engine h2 {
+	.engine-state {
 		display: flex;
 		align-items: center;
-		gap: 9px;
-		margin: 0 0 12px;
-		color: var(--color-ink);
+		gap: 8px;
+		margin: 0;
+		font-size: 13px;
 		font-weight: 500;
 	}
-	.lamp {
-		width: 7px;
-		height: 7px;
-		background: var(--color-seam-2);
-		transition: background-color var(--t-mid) var(--ease);
-	}
-	.lamp.on {
-		background: var(--color-fac-red);
-	}
-	dl {
-		margin: 0;
-		display: grid;
-		gap: 7px;
-	}
-	dl div {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-	}
-	dt {
-		color: var(--color-ink-3);
-	}
-	dd {
-		margin: 0;
-		font-size: 12px;
-		font-stretch: 108%;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-	.stopped {
+	.engine-meta {
+		margin: 4px 0 0;
 		color: var(--color-ink-3);
 		font-size: 12px;
 		line-height: 1.45;
-		margin: 0;
+	}
+	.lamp {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--color-ink-4);
+		transition: background-color var(--t-mid) var(--ease);
+	}
+	.lamp.on {
+		background: #3fb950;
+	}
+	.lamp.off {
+		background: var(--color-fac-yellow);
 	}
 	.save-error {
-		margin: 0 22px;
+		margin: 0 20px;
 		color: var(--color-fac-red);
 		font-size: 12px;
 	}
 	main {
 		min-width: 0;
 		min-height: 0;
-		padding: 18px;
+		padding: 20px 24px;
 		overflow: hidden;
 	}
 	.view {

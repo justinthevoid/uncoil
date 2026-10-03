@@ -99,10 +99,10 @@ const SHORT: Record<string, string> = {
 	EQUAL: '=',
 	SPACE: 'Space',
 	ENTER: 'Enter',
-	RIGHT: '→',
-	LEFT: '←',
-	UP: '↑',
-	DOWN: '↓'
+	RIGHT: '→︎',
+	LEFT: '←︎',
+	UP: '↑︎',
+	DOWN: '↓︎'
 };
 
 const title = (s: string) => s.toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());

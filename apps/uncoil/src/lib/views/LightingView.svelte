@@ -2,9 +2,9 @@
 	import { onMount } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { expoOut } from 'svelte/easing';
+	import { Pause, Play } from '@lucide/svelte';
 	import { ms, reducedMotion } from '#lib/motion.ts';
-	import PulsePlot from '#lib/components/PulsePlot.svelte';
-	import CodeStrip from '#lib/components/CodeStrip.svelte';
+	import DeskPreview from '#lib/components/DeskPreview.svelte';
 	import Dial from '#lib/components/Dial.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
@@ -15,13 +15,12 @@
 
 	let { config }: { config: Config } = $props();
 
-	const kinds: { value: EffectKind; label: string; code: string }[] = [
-		{ value: 'wave', label: 'Wave', code: '101' },
-		{ value: 'spectrum', label: 'Spectrum', code: '102' },
-		{ value: 'static', label: 'Static', code: '103' },
-		{ value: 'off', label: 'Off', code: '104' }
+	const kinds: { value: EffectKind; label: string }[] = [
+		{ value: 'wave', label: 'Wave' },
+		{ value: 'spectrum', label: 'Spectrum' },
+		{ value: 'static', label: 'Static' },
+		{ value: 'off', label: 'Off' }
 	];
-	const current = $derived(kinds.find((k) => k.value === config.effect.kind)!);
 
 	// Remember each effect's settings while you flip between them; seeded with the engine's defaults.
 	const remembered: Record<EffectKind, Effect> = {
@@ -52,10 +51,9 @@
 	};
 	const colorId = $props.id();
 
-	// One effect clock for the plot and the strips. Reduced motion starts paused.
-	const reduce = reducedMotion();
-	let paused = $state(reduce);
-	let clock = 0;
+	// One effect clock for the preview. Reduced motion starts paused.
+	let paused = $state(reducedMotion());
+	let clock = 6;
 	let lastNow = performance.now();
 	const time = () => {
 		const now = performance.now();
@@ -64,88 +62,67 @@
 		return clock;
 	};
 
-	// Desk geometry once; live LED colours from the real engine a few times a second for the strips.
+	// Desk geometry once; live LED colours from the real engine code, ~25 times a second.
 	let desk = $state<DeskDevice[]>([]);
 	let colors = $state<string[][]>([]);
 	onMount(() => {
 		let alive = true;
-		getDesk($state.snapshot(config) as Config).then((d) => alive && (desk = d));
+		let busy = false;
+		getDesk($state.snapshot(config) as Config).then(async (d) => {
+			if (!alive) return;
+			desk = d;
+			colors = await previewFrame($state.snapshot(config) as Config, time());
+		});
 		const id = setInterval(async () => {
-			if (!desk.length) return;
-			const f = await previewFrame($state.snapshot(config) as Config, time());
-			if (alive) colors = f;
-		}, 120);
+			if (!desk.length || busy || (document.hidden && colors.length)) return;
+			busy = true;
+			try {
+				const f = await previewFrame($state.snapshot(config) as Config, time());
+				if (alive) colors = f;
+			} finally {
+				busy = false;
+			}
+		}, 40);
 		return () => {
 			alive = false;
 			clearInterval(id);
 		};
 	});
 
-	const ledCount = $derived(desk.filter((d) => d.kind !== 'mousemat').reduce((n, d) => n + d.shapes.length, 0) + desk.filter((d) => d.kind === 'mousemat').length);
 	const liveIds = $derived(new Set(app.status?.devices.map((d) => d.id) ?? []));
 	const engineUp = $derived(!!app.status);
-
-	/** Up to 12 evenly spaced live colours per device, for its code strip. */
-	function stripFor(i: number): string[] {
-		const c = colors[i];
-		if (!c?.length) return [];
-		const n = Math.min(12, c.length);
-		return Array.from({ length: n }, (_, k) => c[Math.floor(((k + 0.5) / n) * c.length)]);
-	}
-
-	const data = $derived.by(() => {
-		const e = config.effect;
-		const rows: [string, string][] = [['Effect', current.label]];
-		if (e.kind === 'wave') rows.push(['Angle', `${e.angle_deg}°`], ['Cycle', fmtPeriod(e.period_s)], ['Band', `${e.wavelength} keys`], ['Travel', e.reverse ? 'Reversed' : 'Forward']);
-		if (e.kind === 'spectrum') rows.push(['Cycle', fmtPeriod(e.period_s)]);
-		if (e.kind === 'static') rows.push(['Colour', toHex(e.color).toUpperCase()]);
-		rows.push(['Brightness', pct(config.brightness * 100)], ['Saturation', pct(config.saturation * 100)], ['Frame rate', `${config.fps} fps`], ['LEDs', String(ledCount || '—')]);
-		return rows;
-	});
+	const away = $derived(new Set(engineUp ? desk.filter((d) => !liveIds.has(d.id)).map((d) => d.id) : []));
 </script>
 
 <section class="lighting" aria-labelledby="lighting-title">
-	<div class="stage">
-		<header class="stage-head">
-			<h1 id="lighting-title" class="title">
-				<span class="display fac">FAC {current.code}</span>
-				<span class="caps name">{current.label}</span>
-			</h1>
-			<button class="ghost" type="button" aria-pressed={paused} onclick={() => (paused = !paused)}>
-				<span class="caps-sm">{paused ? 'Play preview' : 'Pause preview'}</span>
-				<span class="glyph" aria-hidden="true">
-					{#if paused}<svg viewBox="0 0 10 10"><path d="M2 1.5v7l6-3.5z" /></svg>{:else}<svg viewBox="0 0 10 10"><path d="M2.5 1.5h1.6v7H2.5zM5.9 1.5h1.6v7H5.9z" /></svg>{/if}
-				</span>
-			</button>
-		</header>
-		<div class="plot-area">
-			{#if desk.length}
-				<PulsePlot {desk} {config} {paused} {time} />
-			{/if}
+	<header class="head">
+		<div>
+			<h1 id="lighting-title" class="page-title">Lighting</h1>
+			<p class="lede">One effect across your whole desk. Changes apply as you make them.</p>
 		</div>
-		<footer class="stage-foot caps-sm">
-			<span>Each line is a slice of your desk · pointer decodes a slice in live colour</span>
-			<span class="num">{desk.length} devices on the desk</span>
-		</footer>
+		<button class="btn-quiet" type="button" aria-pressed={paused} onclick={() => (paused = !paused)}>
+			{#if paused}<Play size={14} />Play preview{:else}<Pause size={14} />Pause preview{/if}
+		</button>
+	</header>
+
+	<div class="stage">
+		<DeskPreview {desk} {colors} {away} />
 	</div>
 
-	<aside class="data" aria-label="Current effect">
-		<h2 class="caps head">Transmission data</h2>
-		<dl>
-			{#each data as [k, v] (k)}
-				<div class="row">
-					<dt class="caps-sm">{k}</dt>
-					<dd class="num">{v}</dd>
-				</div>
-			{/each}
-		</dl>
-	</aside>
+	<ul class="chips" aria-label="Devices">
+		{#each desk as d (d.id)}
+			{@const state = !engineUp ? 'Preview only' : liveIds.has(d.id) ? 'Live' : 'Not connected'}
+			<li class:live={engineUp && liveIds.has(d.id)} class:off={engineUp && !liveIds.has(d.id)}>
+				<span class="lamp" aria-hidden="true"></span>{d.name.replace(/^Razer /, '')}<span class="state">{state}</span>
+			</li>
+		{/each}
+	</ul>
 
 	<div class="controls">
-		<Segmented label="Effect" options={kinds} value={config.effect.kind} onchange={setKind} />
-		<div class="params">
+		<div class="effect">
+			<Segmented label="Effect" options={kinds} value={config.effect.kind} onchange={setKind} />
 			{#key config.effect.kind}
-				<div class="params-inner" in:fly={{ x: 14, duration: ms(380), easing: expoOut }} out:fade={{ duration: ms(120) }}>
+				<div class="params" in:fly={{ y: 8, duration: ms(320), easing: expoOut }} out:fade={{ duration: ms(100) }}>
 					{#if config.effect.kind === 'wave'}
 						{@const wave = config.effect}
 						<Dial label="Direction" bind:value={wave.angle_deg} />
@@ -157,17 +134,15 @@
 					{:else if config.effect.kind === 'spectrum'}
 						{@const spectrum = config.effect}
 						<div class="col wide">
-							<Slider label="Speed" min={0} max={100} step={0.5} bind:value={() => toPos(spectrum.period_s), (v) => (spectrum.period_s = toPeriod(v))} format={(v) => `${fmtPeriod(toPeriod(v))} per cycle`} ends={['Slower', 'Faster']} hint="Every LED on the desk shows the same colour and moves through the rainbow together." />
+							<Slider label="Speed" min={0} max={100} step={0.5} bind:value={() => toPos(spectrum.period_s), (v) => (spectrum.period_s = toPeriod(v))} format={(v) => `${fmtPeriod(toPeriod(v))} per cycle`} ends={['Slower', 'Faster']} hint="Every LED shows the same colour and moves through the rainbow together." />
 						</div>
 					{:else if config.effect.kind === 'static'}
 						{@const stat = config.effect}
 						<div class="col wide">
-							<div class="color">
-								<label class="caps-sm" for={colorId}>Colour</label>
-								<div class="swatch-row">
-									<input id={colorId} type="color" value={toHex(stat.color)} oninput={(e) => (stat.color = fromHex(e.currentTarget.value))} />
-									<output class="num" for={colorId}>{toHex(stat.color).toUpperCase()}</output>
-								</div>
+							<label class="label" for={colorId}>Colour</label>
+							<div class="swatch-row">
+								<input id={colorId} type="color" value={toHex(stat.color)} oninput={(e) => (stat.color = fromHex(e.currentTarget.value))} />
+								<output class="num" for={colorId}>{toHex(stat.color).toUpperCase()}</output>
 							</div>
 						</div>
 					{:else}
@@ -175,269 +150,155 @@
 					{/if}
 				</div>
 			{/key}
-			<div class="col output">
-				<Slider label="Brightness" min={0} max={100} bind:value={() => Math.round(config.brightness * 100), (v) => (config.brightness = v / 100)} format={pct} disabled={config.effect.kind === 'off'} />
-				<Slider label="Saturation" min={0} max={100} bind:value={() => Math.round(config.saturation * 100), (v) => (config.saturation = v / 100)} format={pct} ends={['White', 'Vivid']} disabled={config.effect.kind === 'off' || config.effect.kind === 'static'} />
-			</div>
 		</div>
-	</div>
-
-	<div class="devices" aria-label="Devices on the desk">
-		<h2 class="caps head">Devices</h2>
-		<ul>
-			{#each desk as d, i (d.id)}
-				{@const live = liveIds.has(d.id)}
-				<li class:away={engineUp && !live}>
-					<CodeStrip colors={live || !engineUp ? stripFor(i) : []} label="{d.name} live colours" />
-					<span class="dname">{d.name.replace(/^Razer /, '')}</span>
-					<span class="dstate caps-sm">{!engineUp ? 'Preview' : live ? 'Live' : 'Away'}</span>
-				</li>
-			{/each}
-		</ul>
+		<div class="output">
+			<Slider label="Brightness" min={0} max={100} bind:value={() => Math.round(config.brightness * 100), (v) => (config.brightness = v / 100)} format={pct} disabled={config.effect.kind === 'off'} />
+			<Slider label="Saturation" min={0} max={100} bind:value={() => Math.round(config.saturation * 100), (v) => (config.saturation = v / 100)} format={pct} ends={['White', 'Vivid']} disabled={config.effect.kind === 'off' || config.effect.kind === 'static'} />
+		</div>
 	</div>
 </section>
 
 <style>
 	.lighting {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 236px;
-		grid-template-rows: minmax(300px, 1fr) auto;
-		grid-template-areas:
-			'stage data'
-			'controls devices';
-		gap: 0;
+		grid-template-rows: auto minmax(180px, 1fr) auto auto;
+		gap: 14px;
 		height: 100%;
 		min-height: 0;
-		border: var(--hair);
-	}
-	.stage {
-		grid-area: stage;
-		display: grid;
-		grid-template-rows: auto 1fr auto;
-		min-height: 0;
-		border-right: var(--hair);
-		border-bottom: var(--hair);
-	}
-	.stage-head {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		padding: 22px 24px 0;
-	}
-	.title {
-		display: flex;
-		align-items: baseline;
-		gap: 18px;
-		margin: 0;
-		font-weight: inherit;
-	}
-	.fac {
-		font-size: 44px;
-		white-space: nowrap;
-	}
-	.name {
-		color: var(--color-ink-2);
-		letter-spacing: 0.32em;
-	}
-	.ghost {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 8px 10px 8px 14px;
-		border: var(--hair-strong);
-		background: none;
-		color: var(--color-ink-2);
-		transition:
-			color var(--t-mid) var(--ease),
-			border-color var(--t-mid) var(--ease);
-	}
-	.ghost:hover {
-		color: var(--color-ink);
-		border-color: var(--color-ink-3);
-	}
-	.glyph svg {
-		width: 10px;
-		height: 10px;
-		fill: currentColor;
-		display: block;
-	}
-	.plot-area {
-		min-height: 0;
-		position: relative;
-	}
-	.stage-foot {
-		display: flex;
-		justify-content: space-between;
-		gap: 16px;
-		padding: 0 24px 14px;
-		color: var(--color-ink-4);
-	}
-
-	.data {
-		grid-area: data;
-		padding: 22px 22px 18px;
-		border-bottom: var(--hair);
-		min-height: 0;
-		overflow: auto;
 	}
 	.head {
-		color: var(--color-ink-2);
-		margin: 0 0 14px;
-		padding-bottom: 10px;
-		border-bottom: var(--hair);
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 24px;
+	}
+	.lede {
+		margin: 6px 0 0;
+		color: var(--color-ink-3);
+		font-size: 13px;
+	}
+	.stage {
+		min-height: 0;
+		padding: 18px;
+		border-radius: var(--radius-lg);
+		background: radial-gradient(ellipse at 50% 40%, #151515, #0d0d0d 70%);
+		border: 1px solid var(--color-seam);
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.chips li {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		height: 30px;
+		padding: 0 12px;
+		border-radius: 15px;
+		background: var(--color-surface);
+		font-size: 12px;
 		font-weight: 500;
 	}
-	dl {
-		margin: 0;
-		display: grid;
-		gap: 12px;
+	.state {
+		color: var(--color-ink-3);
+		font-weight: 400;
 	}
-	.row {
-		display: grid;
-		gap: 3px;
+	.lamp {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: var(--color-ink-4);
 	}
-	dt {
+	.chips li.live .lamp {
+		background: #3fb950;
+	}
+	.chips li.off {
 		color: var(--color-ink-3);
 	}
-	dd {
-		margin: 0;
-		font-size: 15px;
-		font-stretch: 112%;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-	}
-
 	.controls {
-		grid-area: controls;
 		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
+		gap: 28px;
+		padding: 18px 20px;
+		border-radius: var(--radius-lg);
+		background: var(--color-raised);
+		border: 1px solid var(--color-seam);
+	}
+	.effect {
+		display: grid;
+		gap: 18px;
 		align-content: start;
-		gap: 22px;
-		padding: 20px 24px 22px;
-		border-right: var(--hair);
-		min-height: 268px;
+		min-width: 0;
 	}
 	.params {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 0.62fr);
-		gap: 32px;
-		align-items: start;
-	}
-	.params-inner {
-		grid-area: 1 / 1;
-		display: grid;
-		grid-template-columns: 128px minmax(0, 1fr);
+		grid-template-columns: auto minmax(0, 1fr);
 		gap: 28px;
 		align-items: start;
 	}
 	.col {
 		display: grid;
-		gap: 16px;
+		gap: 14px;
 		min-width: 0;
 	}
 	.col.wide {
 		grid-column: 1 / -1;
+		gap: 8px;
 	}
 	.output {
-		grid-column: 2;
-		grid-row: 1;
+		display: grid;
+		gap: 18px;
+		align-content: start;
+		padding-left: 28px;
+		border-left: 1px solid var(--color-seam);
 	}
 	.off-note {
 		grid-column: 1 / -1;
+		margin: 0;
 		color: var(--color-ink-3);
 		font-size: 13px;
-		max-width: 44ch;
-		margin: 6px 0 0;
-	}
-	.color {
-		display: grid;
-		gap: 10px;
-	}
-	.color label {
-		color: var(--color-ink-2);
 	}
 	.swatch-row {
 		display: flex;
 		align-items: center;
-		gap: 14px;
+		gap: 12px;
 	}
 	.swatch-row output {
-		font-size: 14px;
-		letter-spacing: 0.06em;
+		font-size: 13px;
+		color: var(--color-ink-2);
 	}
 	input[type='color'] {
 		appearance: none;
-		width: 64px;
-		height: 30px;
+		width: 56px;
+		height: 32px;
 		padding: 0;
-		border: var(--hair-strong);
+		border: 1px solid var(--color-seam-2);
+		border-radius: var(--radius);
 		background: none;
+		overflow: hidden;
 	}
 	input[type='color']::-webkit-color-swatch-wrapper {
 		padding: 3px;
 	}
 	input[type='color']::-webkit-color-swatch {
 		border: 0;
-		border-radius: 0;
+		border-radius: var(--radius-sm);
 	}
-
-	.devices {
-		grid-area: devices;
-		padding: 20px 22px;
-		min-height: 0;
-		overflow: auto;
-	}
-	ul {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: grid;
-		gap: 14px;
-	}
-	li {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: 6px 10px;
-		transition: opacity var(--t-slow) var(--ease);
-	}
-	li :global(.strip) {
-		grid-column: 1 / -1;
-	}
-	.dname {
-		font-size: 13px;
-		color: var(--color-ink);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.dstate {
-		color: var(--color-fac-red);
-	}
-	li.away .dname {
-		color: var(--color-ink-3);
-	}
-	li.away .dstate {
-		color: var(--color-ink-3);
-	}
-
-	/* Narrow windows (down to the 900px minimum): one column that scrolls. The transmission data repeats
-	   what the controls already show, so it steps aside rather than squeezing them. */
 	@container view (max-width: 820px) {
 		.lighting {
-			grid-template-columns: minmax(0, 1fr);
-			grid-template-rows: 300px auto auto;
-			grid-template-areas: 'stage' 'controls' 'devices';
+			grid-template-rows: auto 240px auto auto;
 			height: auto;
-			min-height: 100%;
-		}
-		.data {
-			display: none;
-		}
-		.stage,
-		.controls {
-			border-right: 0;
 		}
 		.controls {
-			border-bottom: var(--hair);
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.output {
+			padding-left: 0;
+			border-left: 0;
 		}
 	}
 </style>

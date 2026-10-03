@@ -2,10 +2,9 @@
 @import '@fontsource-variable/archivo/wdth.css';
 
 /*
- * uncoil design tokens: the Factory catalog world.
- * Matte black ground, plot-white ink, industrial greys for seams. Colour is code: the FAC hues mark
- * state and catalog strips; live LED colour appears only where something is decoded. Zero radius,
- * one-pixel hairlines, wide-tracked engraved caps for labels, a wide grotesk for display numerals.
+ * uncoil design tokens. Matte black ground, near-white ink, quiet greys, one red accent for "active"
+ * and "live". Live LED colour only appears where it shows what the devices are actually doing.
+ * Small radii and solid surfaces for controls; hairlines separate regions.
  * The canonical copy of these values lives in DESIGN.md / .impeccable/design.json.
  */
 @theme {
@@ -13,8 +12,11 @@
 
 	--color-ground: #0b0b0b;
 	--color-raised: #111111;
+	--color-surface: #161616;
+	--color-surface-2: #1e1e1e;
+	--color-surface-3: #282828;
 	--color-ink: #f2f2f2;
-	--color-ink-2: #a8a8a8;
+	--color-ink-2: #b4b4b4;
 	--color-ink-3: #8a8a8a;
 	--color-ink-4: #5c5c5c;
 	--color-seam: #262626;
@@ -34,6 +36,9 @@
 	--t-fast: 160ms;
 	--t-mid: 260ms;
 	--t-slow: 420ms;
+	--radius-sm: 4px;
+	--radius: 6px;
+	--radius-lg: 10px;
 	--hair: 1px solid var(--color-seam);
 	--hair-strong: 1px solid var(--color-seam-2);
 	--hair-ink: 1px solid var(--color-ink);
@@ -72,8 +77,8 @@
 	}
 
 	:focus-visible {
-		outline: 1px solid var(--color-ink);
-		outline-offset: 3px;
+		outline: 2px solid var(--color-ink);
+		outline-offset: 2px;
 	}
 
 	button {
@@ -92,28 +97,128 @@
 }
 
 @layer components {
-	/* Engraved caps: the world's label voice. Small, wide, generously tracked. */
-	.caps {
+	/* Small uppercase labels, used sparingly: table headers and tiny status words. */
+	.caps,
+	.caps-sm {
 		font-size: 11px;
 		font-weight: 500;
-		font-stretch: 115%;
-		letter-spacing: 0.22em;
+		font-stretch: 108%;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		line-height: 1.4;
 	}
-	.caps-sm {
-		font-size: 10px;
+	/* Field and section labels: sentence case, quiet. */
+	.label {
+		font-size: 13px;
+		font-weight: 500;
+		color: var(--color-ink-2);
+	}
+	/* Page titles. */
+	.page-title {
+		margin: 0;
+		font-size: 26px;
 		font-weight: 500;
 		font-stretch: 112%;
-		letter-spacing: 0.2em;
-		text-transform: uppercase;
+		letter-spacing: -0.01em;
+		line-height: 1.1;
 	}
-	/* Display numerals: wide, light, set tight. */
+	.section-title {
+		margin: 0;
+		font-size: 15px;
+		font-weight: 600;
+		font-stretch: 105%;
+	}
+
+	/* Buttons. Primary is filled ink; quiet is an outline. */
+	.btn,
+	.btn-quiet {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		height: 36px;
+		padding: 0 16px;
+		border-radius: var(--radius);
+		font-size: 13px;
+		font-weight: 600;
+		white-space: nowrap;
+		transition:
+			background-color var(--t-mid) var(--ease),
+			border-color var(--t-mid) var(--ease),
+			color var(--t-mid) var(--ease),
+			opacity var(--t-mid) var(--ease);
+	}
+	.btn {
+		border: 1px solid var(--color-ink);
+		background: var(--color-ink);
+		color: var(--color-ground);
+	}
+	.btn:hover:not(:disabled) {
+		background: #ffffff;
+	}
+	.btn-quiet {
+		border: 1px solid var(--color-seam-2);
+		background: transparent;
+		color: var(--color-ink);
+	}
+	.btn-quiet:hover:not(:disabled) {
+		border-color: var(--color-ink-3);
+		background: var(--color-surface);
+	}
+	.btn:disabled,
+	.btn-quiet:disabled {
+		opacity: 0.35;
+	}
+
+	/* Text inputs and selects. */
+	.input {
+		height: 36px;
+		padding: 0 12px;
+		border: 1px solid var(--color-seam-2);
+		border-radius: var(--radius);
+		background: var(--color-surface);
+		color: var(--color-ink);
+		font: inherit;
+		font-size: 13px;
+		transition: border-color var(--t-mid) var(--ease);
+	}
+	.input:hover {
+		border-color: var(--color-ink-4);
+	}
+	.input:focus-visible {
+		outline: none;
+		border-color: var(--color-ink-2);
+	}
+
+	/* A result line under an action: a small lamp, grey when fine, yellow on trouble. */
+	.outcome {
+		display: grid;
+		grid-template-columns: 8px 1fr;
+		gap: 10px;
+		align-items: baseline;
+		margin: 0;
+		font-size: 13px;
+		line-height: 1.5;
+		color: var(--color-ink-2);
+	}
+	.outcome::before {
+		content: '';
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #3fb950;
+	}
+	.outcome.bad {
+		color: var(--color-fac-yellow);
+	}
+	.outcome.bad::before {
+		background: var(--color-fac-yellow);
+	}
+
 	.display {
-		font-weight: 380;
-		font-stretch: 125%;
+		font-weight: 400;
+		font-stretch: 118%;
 		letter-spacing: -0.02em;
-		line-height: 0.95;
+		line-height: 1;
 		font-variant-numeric: tabular-nums;
 	}
 }

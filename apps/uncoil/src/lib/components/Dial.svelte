@@ -1,7 +1,6 @@
 <script lang="ts">
-	// Direction control drawn as a polar plot (the world's other instrument): concentric hairline rings,
-	// radial spokes every 30°, a white needle pointing the way the bands travel across the desk, and a red
-	// code block at its tip. Same orientation as the preview: 0° = left to right, 90° = back to front.
+	// Direction knob: a pointer showing the way the bands travel across the desk, with a red tip.
+	// Same orientation as the preview: 0° = left to right, 90° = back to front.
 	import { Spring } from 'svelte/motion';
 	import { reducedMotion } from '#lib/motion.ts';
 
@@ -15,8 +14,6 @@
 	const id = $props.id();
 	const C = 64;
 	const R = 56;
-	const rings = [R, R * 0.72, R * 0.44, R * 0.16];
-	const spokes = Array.from({ length: 12 }, (_, i) => i * 30);
 
 	let svg: SVGSVGElement;
 	let dragging = $state(false);
@@ -81,7 +78,7 @@
 
 <div class="dial" class:disabled>
 	<div class="head">
-		<span class="caps-sm label" id="{id}-label">{label}</span>
+		<span class="label" id="{id}-label">{label}</span>
 		<output class="num">{value}°</output>
 	</div>
 	<svg
@@ -105,21 +102,10 @@
 		onpointercancel={onpointerup}
 		{onkeydown}
 	>
-		{#each rings as r (r)}<circle cx={C} cy={C} {r} class="ring" />{/each}
-		{#each spokes as s (s)}
-			{@const a = (s * Math.PI) / 180}
-			<line class="spoke" x1={C + Math.cos(a) * R * 0.16} y1={C + Math.sin(a) * R * 0.16} x2={C + Math.cos(a) * R} y2={C + Math.sin(a) * R} />
-		{/each}
-		<line class="needle" x1={C} y1={C} x2={C + Math.cos(rad) * (R - 6)} y2={C + Math.sin(rad) * (R - 6)} />
-		<rect
-			class="tip"
-			x={C + Math.cos(rad) * (R - 6) - 4}
-			y={C + Math.sin(rad) * (R - 6) - 4}
-			width="8"
-			height="8"
-			transform="rotate({shown.current} {C + Math.cos(rad) * (R - 6)} {C + Math.sin(rad) * (R - 6)})"
-		/>
-		<circle cx={C} cy={C} r="5" class="hub" />
+		<circle cx={C} cy={C} r={R} class="face" />
+		<line class="needle" x1={C} y1={C} x2={C + Math.cos(rad) * (R - 14)} y2={C + Math.sin(rad) * (R - 14)} />
+		<circle class="tip" cx={C + Math.cos(rad) * (R - 14)} cy={C + Math.sin(rad) * (R - 14)} r="6" />
+		<circle cx={C} cy={C} r="4" class="hub" />
 	</svg>
 	<p class="caption">Bands travel {describe(value)}.</p>
 	<p class="sr-only" id="{id}-help">Drag, or use the arrow keys. Hold Shift for 15 degree steps.</p>
@@ -140,10 +126,7 @@
 		align-items: baseline;
 		width: 100%;
 	}
-	.label {
-		color: var(--color-ink-2);
-	}
-	output {
+		output {
 		font-size: 13px;
 	}
 	svg {
@@ -157,33 +140,25 @@
 	svg:focus-visible {
 		outline-offset: 2px;
 	}
-	.ring {
-		fill: none;
+	.face {
+		fill: var(--color-surface-2);
 		stroke: var(--color-seam-2);
 		stroke-width: 1;
-		vector-effect: non-scaling-stroke;
+		transition: fill var(--t-mid) var(--ease);
 	}
-	.ring:first-child {
-		stroke: var(--color-ink-4);
-	}
-	.spoke {
-		stroke: var(--color-seam);
-		stroke-width: 1;
+	svg:hover .face {
+		fill: var(--color-surface-3);
 	}
 	.needle {
-		stroke: var(--color-ink);
-		stroke-width: 1.5;
+		stroke: var(--color-ink-2);
+		stroke-width: 2;
+		stroke-linecap: round;
 	}
 	.tip {
 		fill: var(--color-fac-red);
 	}
 	.hub {
-		fill: var(--color-ground);
-		stroke: var(--color-ink);
-		stroke-width: 1;
-	}
-	svg:hover .ring:first-child {
-		stroke: var(--color-ink-3);
+		fill: var(--color-ink-2);
 	}
 	.caption {
 		color: var(--color-ink-3);
