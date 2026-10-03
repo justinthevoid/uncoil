@@ -1,12 +1,12 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-03T08:20:53+00:00",
+  "generatedAt": "2026-10-03T20:58:27+00:00",
   "title": "Design System: uncoil",
   "extensions": {
     "colorMeta": {
       "ground": {
         "role": "neutral",
-        "displayName": "Matte Ground",
+        "displayName": "Ground",
         "canonical": "#0b0b0b",
         "tonalRamp": [
           "#262626",
@@ -34,9 +34,54 @@
           "#f2f2f2"
         ]
       },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface 1",
+        "canonical": "#161616",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#8c8c8c",
+          "#adadad",
+          "#d1d1d1",
+          "#f2f2f2"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Surface 2",
+        "canonical": "#1e1e1e",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#8c8c8c",
+          "#adadad",
+          "#d1d1d1",
+          "#f2f2f2"
+        ]
+      },
+      "surface-3": {
+        "role": "neutral",
+        "displayName": "Surface 3",
+        "canonical": "#282828",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#8c8c8c",
+          "#adadad",
+          "#d1d1d1",
+          "#f2f2f2"
+        ]
+      },
       "ink": {
         "role": "neutral",
-        "displayName": "Plot White",
+        "displayName": "Ink",
         "canonical": "#f2f2f2",
         "tonalRamp": [
           "#262626",
@@ -52,7 +97,7 @@
       "ink-2": {
         "role": "neutral",
         "displayName": "Ink 2",
-        "canonical": "#a8a8a8",
+        "canonical": "#b4b4b4",
         "tonalRamp": [
           "#262626",
           "#404040",
@@ -124,9 +169,9 @@
           "#f2f2f2"
         ]
       },
-      "fac-red": {
+      "accent": {
         "role": "primary",
-        "displayName": "Live Red",
+        "displayName": "Accent red",
         "canonical": "#e2372c",
         "tonalRamp": [
           "#430d09",
@@ -139,9 +184,24 @@
           "#fceae9"
         ]
       },
-      "fac-yellow": {
+      "ok": {
         "role": "secondary",
-        "displayName": "Caution Yellow",
+        "displayName": "OK green",
+        "canonical": "#3fb950",
+        "tonalRamp": [
+          "#133919",
+          "#205f29",
+          "#2d853a",
+          "#3aab4a",
+          "#54c564",
+          "#85d690",
+          "#bbe8c1",
+          "#ecf9ee"
+        ]
+      },
+      "warn": {
+        "role": "secondary",
+        "displayName": "Warning yellow",
         "canonical": "#e9c31b",
         "tonalRamp": [
           "#463a07",
@@ -153,106 +213,72 @@
           "#f7e9ab",
           "#fdf9e8"
         ]
-      },
-      "fac-blue": {
-        "role": "secondary",
-        "displayName": "Catalog Blue",
-        "canonical": "#2f63e8",
-        "tonalRamp": [
-          "#081945",
-          "#0d2973",
-          "#123aa1",
-          "#174bcf",
-          "#3064e8",
-          "#6c91ef",
-          "#acc1f6",
-          "#e8eefc"
-        ]
-      },
-      "fac-grey": {
-        "role": "secondary",
-        "displayName": "Catalog Grey",
-        "canonical": "#6b6b6b",
-        "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
-        ]
-      },
-      "fac-white": {
-        "role": "neutral",
-        "displayName": "Catalog White",
-        "canonical": "#f2f2f2",
-        "tonalRamp": [
-          "#262626",
-          "#404040",
-          "#595959",
-          "#737373",
-          "#8c8c8c",
-          "#adadad",
-          "#d1d1d1",
-          "#f2f2f2"
-        ]
       }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display numerals",
-        "purpose": "Catalog numbers in section headers. Width axis 125%."
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "One per screen."
       },
-      "caps": {
-        "displayName": "Engraved caps",
-        "purpose": "Every label, button and section name. Width 115%."
+      "section-title": {
+        "displayName": "Section title",
+        "purpose": "Card headings."
       },
-      "caps-sm": {
-        "displayName": "Engraved caps, small",
-        "purpose": "Table headers, states, engine readout."
-      },
-      "readout": {
-        "displayName": "Readout",
-        "purpose": "Values in the transmission data list. Width 112%, uppercase."
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, sentence case."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Hints and notes; 62ch max."
+        "purpose": "Descriptions and hints."
+      },
+      "keycap": {
+        "displayName": "Keycap legend",
+        "purpose": "Scales with the keyboard drawing (container units)."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "keycap-edge",
+        "value": "inset 0 -0.35cqw 0 rgb(0 0 0 / 0.45)",
+        "purpose": "The bottom edge of a keycap."
+      },
+      {
+        "name": "device-on-desk",
+        "value": "0 12px 32px rgb(0 0 0 / 0.45)",
+        "purpose": "Keyboard and mouse resting on the desk."
+      },
+      {
+        "name": "segment-pill",
+        "value": "0 1px 2px rgb(0 0 0 / 0.5)",
+        "purpose": "The raised pill in a segmented control."
+      }
+    ],
     "motion": [
       {
         "name": "ease",
         "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Expo-out; every transition and slide."
-      },
-      {
-        "name": "ease-in-out",
-        "value": "cubic-bezier(0.65, 0, 0.35, 1)",
-        "purpose": "Symmetric moves (rare)."
+        "purpose": "Expo-out; every transition."
       },
       {
         "name": "t-fast",
         "value": "160ms",
-        "purpose": "Thumb and colour flicks. 0 under reduced motion."
+        "purpose": "Thumb scale, small flicks. 0 under reduced motion."
       },
       {
         "name": "t-mid",
         "value": "260ms",
-        "purpose": "Hover, toggles, button blocks. 0 under reduced motion."
+        "purpose": "Hover and colour changes. 0 under reduced motion."
       },
       {
         "name": "t-slow",
         "value": "420ms",
-        "purpose": "Rail marker, view fly-in, segment indicator. 0 under reduced motion."
+        "purpose": "Sliding highlights, toggle knob. 0 under reduced motion."
       }
     ],
     "breakpoints": [
       {
-        "name": "sheet-narrow",
+        "name": "content-narrow",
         "value": "820px (container: view)"
       },
       {
@@ -263,112 +289,100 @@
   },
   "components": [
     {
-      "name": "Outline Button",
+      "name": "Primary button",
       "kind": "button",
-      "refersTo": "button-outline",
-      "description": "Primary action. Plot-white hairline with a red block set into the right edge.",
-      "html": "<button class=\"ds-btn-outline\"><span>Source code</span><span class=\"ds-btn-block\" aria-hidden=\"true\"></span></button>",
-      "css": ".ds-btn-outline { position: relative; display: inline-flex; align-items: center; height: 38px; padding: 0 34px 0 16px; border: 1px solid #f2f2f2; border-radius: 0; background: none; color: #f2f2f2; overflow: hidden; font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 11px; font-weight: 500; font-stretch: 115%; letter-spacing: 0.22em; text-transform: uppercase; } .ds-btn-block { position: absolute; right: 0; top: 0; bottom: 0; width: 26px; background: #e2372c; transform: scaleX(0.6923); transform-origin: right; transition: transform 260ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-outline:hover .ds-btn-block { transform: none; } .ds-btn-outline:focus-visible { outline: 1px solid #f2f2f2; outline-offset: 3px; }"
+      "refersTo": "button-primary",
+      "description": "The main action of a card.",
+      "html": "<button class=\"ds-btn\">Save to keyboard</button>",
+      "css": ".ds-btn { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; height: 36px; padding: 0 16px; border: 1px solid #f2f2f2; border-radius: 6px; background: #f2f2f2; color: #0b0b0b; font-size: 13px; font-weight: 600; transition: background-color 260ms cubic-bezier(0.16,1,0.3,1); } .ds-btn:hover { background: #fff; } .ds-btn:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 2px; }"
     },
     {
-      "name": "Ghost Button",
+      "name": "Quiet button",
       "kind": "button",
-      "refersTo": "button-ghost",
-      "description": "Secondary action. Seam-2 hairline, quiet text that brightens on hover.",
-      "html": "<button class=\"ds-btn-ghost\">How it works</button>",
-      "css": ".ds-btn-ghost { height: 38px; padding: 0 16px; border: 1px solid #3d3d3d; border-radius: 0; background: none; color: #a8a8a8; transition: color 260ms cubic-bezier(0.16,1,0.3,1), border-color 260ms cubic-bezier(0.16,1,0.3,1); font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 11px; font-weight: 500; font-stretch: 115%; letter-spacing: 0.22em; text-transform: uppercase; } .ds-btn-ghost:hover { color: #f2f2f2; border-color: #8a8a8a; } .ds-btn-ghost:focus-visible { outline: 1px solid #f2f2f2; outline-offset: 3px; }"
+      "refersTo": "button-quiet",
+      "description": "Secondary actions.",
+      "html": "<button class=\"ds-btn-quiet\">Restore original</button>",
+      "css": ".ds-btn-quiet { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; height: 36px; padding: 0 16px; border: 1px solid #3d3d3d; border-radius: 6px; background: transparent; color: #f2f2f2; font-size: 13px; font-weight: 600; transition: background-color 260ms cubic-bezier(0.16,1,0.3,1), border-color 260ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-quiet:hover { border-color: #8a8a8a; background: #161616; } .ds-btn-quiet:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 2px; }"
     },
     {
-      "name": "Catalog Rail",
-      "kind": "nav",
-      "refersTo": "nav-item-active",
-      "description": "Section navigation: code plus engraved label, an outlined box marks the active entry, its code in red.",
-      "html": "<ul class=\"ds-rail\"><li><button aria-current=\"page\"><span class=\"ds-code\">01</span>Lighting</button></li><li><button><span class=\"ds-code\">02</span>Devices</button></li><li><button><span class=\"ds-code\">03</span>Display</button></li></ul>",
-      "css": ".ds-rail { list-style: none; margin: 0; padding: 12px; display: grid; gap: 4px; width: 196px; background: #0b0b0b; } .ds-rail button { display: flex; gap: 14px; align-items: center; width: 100%; height: 40px; padding: 0 12px; border: 1px solid transparent; background: none; color: #8a8a8a; text-align: left; transition: color 260ms cubic-bezier(0.16,1,0.3,1), border-color 420ms cubic-bezier(0.16,1,0.3,1); font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 11px; font-weight: 500; font-stretch: 115%; letter-spacing: 0.22em; text-transform: uppercase; } .ds-rail button:hover { color: #a8a8a8; } .ds-rail button[aria-current] { color: #f2f2f2; border-color: #f2f2f2; } .ds-code { font-size: 12px; font-stretch: 112%; letter-spacing: 0.08em; } .ds-rail button[aria-current] .ds-code { color: #e2372c; } .ds-rail button:focus-visible { outline: 1px solid #f2f2f2; outline-offset: -3px; }"
-    },
-    {
-      "name": "Catalog Cells",
+      "name": "Segmented control",
       "kind": "custom",
-      "refersTo": "segment-active",
-      "description": "Segmented choice: hairline cells with codes; the active cell is outlined in white with a red edge block.",
-      "html": "<div class=\"ds-seg\" role=\"radiogroup\"><button role=\"radio\" aria-checked=\"true\"><span class=\"ds-c\">101</span>Wave</button><button role=\"radio\" aria-checked=\"false\"><span class=\"ds-c\">102</span>Spectrum</button><button role=\"radio\" aria-checked=\"false\"><span class=\"ds-c\">103</span>Static</button></div>",
-      "css": ".ds-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid #3d3d3d; background: #0b0b0b; } .ds-seg button { position: relative; display: flex; gap: 10px; align-items: center; height: 38px; padding: 0 14px; border: 0; border-left: 1px solid #3d3d3d; background: none; color: #8a8a8a; font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 11px; font-weight: 500; font-stretch: 115%; letter-spacing: 0.22em; text-transform: uppercase; } .ds-seg button:first-child { border-left: 0; } .ds-seg button:hover { color: #a8a8a8; } .ds-seg .ds-c { font-size: 11px; letter-spacing: 0.06em; color: #5c5c5c; } .ds-seg [aria-checked=true] { color: #f2f2f2; outline: 1px solid #f2f2f2; outline-offset: -1px; } .ds-seg [aria-checked=true] .ds-c { color: #e2372c; } .ds-seg [aria-checked=true]::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 5px; background: #e2372c; }"
-    },
-    {
-      "name": "Slider",
-      "kind": "input",
-      "description": "Hairline track, 3px tick thumb that turns red while dragged; label and readout above.",
-      "html": "<label class=\"ds-slider\"><span class=\"ds-row\"><span>Brightness</span><output>72%</output></span><input type=\"range\" value=\"72\"></label>",
-      "css": ".ds-slider { display: grid; gap: 10px; width: 260px; color: #f2f2f2; } .ds-row { display: flex; justify-content: space-between; } .ds-row span { font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 11px; font-weight: 500; font-stretch: 115%; letter-spacing: 0.22em; text-transform: uppercase; color: #a8a8a8; } .ds-row output { font-size: 13px; font-variant-numeric: tabular-nums; } .ds-slider input { appearance: none; width: 100%; height: 18px; background: linear-gradient(#f2f2f2,#f2f2f2) 0 50%/72% 1px no-repeat, linear-gradient(#3d3d3d,#3d3d3d) 0 50%/100% 1px no-repeat; } .ds-slider input::-webkit-slider-thumb { appearance: none; width: 3px; height: 18px; background: #f2f2f2; transition: background 160ms; } .ds-slider input:active::-webkit-slider-thumb { background: #e2372c; } .ds-slider input:focus-visible { outline: 1px solid #f2f2f2; outline-offset: 3px; }"
+      "description": "Equal segments on a dark track; a raised pill marks the choice.",
+      "html": "<div class=\"ds-seg\"><button aria-checked=\"true\">Wave</button><button>Spectrum</button><button>Static</button><button>Off</button></div>",
+      "css": ".ds-seg { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: grid; grid-template-columns: repeat(4, 1fr); padding: 3px; width: 380px; border-radius: 9px; background: #161616; border: 1px solid #262626; } .ds-seg button { height: 32px; border: 0; border-radius: 6px; background: none; color: #8a8a8a; font: inherit; font-size: 13px; font-weight: 500; } .ds-seg button:hover { color: #b4b4b4; } .ds-seg button[aria-checked=true] { background: #282828; color: #f2f2f2; box-shadow: 0 1px 2px rgb(0 0 0 / .5); }"
     },
     {
       "name": "Toggle",
       "kind": "input",
-      "refersTo": "toggle-on",
-      "description": "Hairline rectangle with a sliding square; the square turns red when on.",
-      "html": "<button class=\"ds-toggle\" role=\"switch\" aria-checked=\"true\"><span class=\"ds-state\">On</span><span class=\"ds-track\"><span class=\"ds-knob\"></span></span></button>",
-      "css": ".ds-toggle { display: inline-flex; gap: 12px; align-items: center; border: 0; background: none; color: #a8a8a8; } .ds-state { font-family: var(--font-sans, 'Archivo Variable', system-ui, sans-serif); font-size: 11px; font-weight: 500; font-stretch: 115%; letter-spacing: 0.22em; text-transform: uppercase; } .ds-track { position: relative; width: 38px; height: 18px; border: 1px solid #3d3d3d; } .ds-knob { position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; background: #5c5c5c; transition: transform 260ms cubic-bezier(0.16,1,0.3,1), background 260ms; } .ds-toggle[aria-checked=true] .ds-track { border-color: #f2f2f2; } .ds-toggle[aria-checked=true] .ds-knob { transform: translateX(20px); background: #e2372c; } .ds-toggle:focus-visible { outline: 1px solid #f2f2f2; outline-offset: 3px; }"
+      "description": "Pill switch that turns red when on.",
+      "html": "<button class=\"ds-toggle\" role=\"switch\" aria-checked=\"true\"><span>Turn lighting off when the display sleeps</span><i></i></button>",
+      "css": ".ds-toggle { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 360px; border: 0; background: none; color: #f2f2f2; font-size: 14px; } .ds-toggle i { position: relative; width: 38px; height: 22px; border-radius: 11px; background: #282828; transition: background-color 260ms; } .ds-toggle i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #b4b4b4; transition: transform 420ms cubic-bezier(0.16,1,0.3,1); } .ds-toggle[aria-checked=true] i { background: #e2372c; } .ds-toggle[aria-checked=true] i::after { transform: translateX(16px); background: #fff; }"
     },
     {
-      "name": "Code Strip",
+      "name": "Slider",
+      "kind": "input",
+      "description": "Rounded track filled in ink, round thumb.",
+      "html": "<label class=\"ds-slider\"><span><b>Brightness</b><output>72%</output></span><input type=\"range\" value=\"72\"></label>",
+      "css": ".ds-slider { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: grid; gap: 6px; width: 280px; color: #f2f2f2; } .ds-slider span { display: flex; justify-content: space-between; font-size: 13px; } .ds-slider b { font-weight: 500; color: #b4b4b4; } .ds-slider input { appearance: none; height: 20px; background: transparent; } .ds-slider input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, #f2f2f2 72%, #282828 72%); } .ds-slider input::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: #f2f2f2; box-shadow: 0 0 0 3px #0b0b0b; }"
+    },
+    {
+      "name": "Keycap",
       "kind": "custom",
-      "description": "A device's live colours as a row of blocks; seam grey when the device is away.",
-      "html": "<div class=\"ds-strip\"><i style=\"background:#e2372c\"></i><i style=\"background:#e9c31b\"></i><i style=\"background:#3fd23a\"></i><i style=\"background:#2f9be8\"></i><i style=\"background:#2f63e8\"></i><i style=\"background:#8a2be2\"></i><i></i><i></i></div>",
-      "css": ".ds-strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; width: 200px; height: 10px; } .ds-strip i { background: #3d3d3d; transition: background-color 420ms cubic-bezier(0.16,1,0.3,1); }"
+      "refersTo": "keycap",
+      "description": "Solid keycaps; Fn actions in red on a tinted cap.",
+      "html": "<div class=\"ds-keys\"><span class=\"k\">O</span><span class=\"k fn\">P<small>PrtSc</small></span><span class=\"k sel\">[</span></div>",
+      "css": ".ds-keys { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; display: flex; gap: 6px; padding: 12px; background: #0e0e0e; border-radius: 8px; } .ds-keys .k { display: grid; place-content: center; justify-items: center; width: 44px; height: 44px; border-radius: 4px; background: #1e1e1e; box-shadow: inset 0 -3px 0 rgb(0 0 0 / .45); color: #f2f2f2; font-size: 14px; font-weight: 500; } .ds-keys .fn { background: #2a1a19; } .ds-keys small { color: #e2372c; font-size: 10px; } .ds-keys .sel { box-shadow: inset 0 0 0 2px #f2f2f2, inset 0 -3px 0 rgb(0 0 0 / .45); }"
+    },
+    {
+      "name": "Sidebar navigation",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Icon and label per section; filled highlight, red active icon.",
+      "html": "<ul class=\"ds-nav\"><li aria-current=\"page\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"10\" r=\"5\"/><path d=\"M9 18h6M10 21h4\"/></svg>Lighting</li><li><svg viewBox=\"0 0 24 24\"><rect x=\"2\" y=\"6\" width=\"20\" height=\"12\" rx=\"2\"/></svg>Keys</li></ul>",
+      "css": ".ds-nav { font-family: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif; list-style: none; margin: 0; padding: 10px; width: 180px; background: #111; display: grid; gap: 2px; } .ds-nav li { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 12px; border-radius: 6px; color: #8a8a8a; font-size: 14px; font-weight: 500; } .ds-nav svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.75; } .ds-nav li[aria-current] { background: #282828; color: #f2f2f2; } .ds-nav li[aria-current] svg { color: #e2372c; }"
     }
   ],
   "narrative": {
-    "northStar": "The Factory Catalog Sleeve",
-    "overview": "uncoil looks like a record sleeve from an industrial label: matte black, ruled hairlines, wide engraved capitals, and every object filed under a catalog number. The lighting engine is the record. The app is its sleeve, and the sleeve's job is to print what the engine is doing with the precision of a spec sheet.\n\nThe world lends the app four things only: its palette, its lettering, its density, and one signature move (the pulse plot). Controls stay standard controls; the world dresses them in hairlines and catalog codes but never disguises them.\n\nColour is code. The interface itself is monochrome; the four FAC hues mark state (red is live and active, yellow is a warning, blue and grey are reserved), and real LED colour appears only where the app is decoding something the devices are actually showing.",
+    "northStar": "The Dark Desk",
+    "overview": "uncoil sits next to a desk full of RGB, so the app stays dark, quiet and out of the way, and lets the devices' real light be the only colour that matters. Where the app shows colour, it is the actual colour your keyboard, mouse and mat are showing right now, drawn on a to-scale picture of your desk.\n\nEverything else is plain: sentence-case words, standard controls with small radii, and one red accent for \"selected\" or \"on\". There are no codes, numbers or labels for decoration. A first-time user should know what every control does by reading it.",
     "keyCharacteristics": [
-      "Matte near-black ground with plot-white ink and four grey steps for hierarchy",
-      "One-pixel hairline rules in place of cards, shadows, or fills",
-      "Every section and option carries a catalog code (FAC 101, 201, 02)",
-      "Wide variable grotesk: wide and light for display numerals, wide and tracked caps for labels",
-      "Zero radius everywhere",
-      "Motion is a single expo-out curve; nothing bounces except the dial needle"
+      "Near-black ground with raised dark cards and four grey text steps",
+      "The desk drawn to scale and lit with the live effect (Lighting, Devices)",
+      "Keyboards drawn as solid keycaps with real legends (Keys)",
+      "Red is the only accent: selected nav icon, toggle on, the dial's tip, Fn actions on keycaps",
+      "Archivo throughout; width axis slightly widened for titles",
+      "One expo-out ease; nothing bounces except the direction dial's needle"
     ],
     "rules": [
       {
-        "name": "The Colour Is Code Rule",
-        "body": "A hue appears only when it means something: red for live or active, yellow for trouble. Decorative colour is never used. LED colours are data and appear only where they decode real output.",
+        "name": "The Real Light Rule",
+        "body": "Colour in the content area is either the accent or the devices' actual LED colours. Never decorate with colour.",
         "section": "colors"
       },
       {
-        "name": "The One Red Rule",
-        "body": "At most one red mark per control. The active nav item gets a red code, not a red code plus a red border.",
+        "name": "The One Accent Rule",
+        "body": "Red marks selection or \"on\", once per control. Green and yellow are reserved for status.",
         "section": "colors"
       },
       {
-        "name": "The Engraved Label Rule",
-        "body": "Every label is engraved caps: small, wide, and tracked. Sentence case is for prose and hints only.",
+        "name": "The Plain Words Rule",
+        "body": "Every label says what the control does, in sentence case. No codes, catalog numbers, section numbers or kickers above headings.",
         "section": "typography"
-      },
-      {
-        "name": "The No Kicker Rule",
-        "body": "Nothing sits above a heading. The catalog code and name share one baseline (FAC 200 · DEVICES); the code is the heading.",
-        "section": "typography"
-      },
-      {
-        "name": "The Hairline Rule",
-        "body": "If something needs separating, rule it with a 1px line. Never use a fill, a shadow, or a card.",
-        "section": "elevation"
       }
     ],
     "dos": [
-      "Do give every section, effect, and device a catalog code, and let the code be the heading.",
-      "Do separate with 1px hairlines and nothing else.",
-      "Do keep red for live, active, or in-hand states, one mark per control.",
-      "Do route every transition through the shared expo-out ease and the 160 / 260 / 420 ms steps, and make them zero under reduced motion (JS transitions go through `ms()` in `src/lib/motion.ts`).",
-      "Do show real LED colour only where it decodes actual output."
+      "Do name things plainly and describe what will happen before it happens.",
+      "Do show the devices' real colours on a to-scale desk when colour helps.",
+      "Do keep red for selection and \"on\"; use green and yellow only for status.",
+      "Do route JS transition durations through `ms()` in `src/lib/motion.ts` so reduced motion turns them off."
     ],
     "donts": [
-      "Don't put kicker or eyebrow labels above headings.",
-      "Don't use gradient text, glass, blur, shadows, or rounded corners.",
-      "Don't use colour decoratively or invent a fifth hue.",
-      "Don't animate layout properties (width, height, padding, margin); use `transform` and `opacity`.",
-      "Don't name SVG classes after Tailwind utilities (`outline`, `border`, `ring`). Tailwind's rule applies to the SVG element and scales by the viewBox.",
-      "Don't imitate Razer's branding, green, or product imagery. uncoil is its own label."
+      "Don't add codes, catalog numbers, section numbers or kicker labels.",
+      "Don't use gradient text, glass, or decorative colour.",
+      "Don't draw outline-only or line-art versions of physical things people need to read (keyboards, buttons).",
+      "Don't animate width, height, padding or margin; use transform and opacity.",
+      "Don't name SVG classes after Tailwind utilities (`outline`, `border`, `ring`).",
+      "Don't imitate Razer's branding, green or product imagery."
     ]
   }
 }

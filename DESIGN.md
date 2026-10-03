@@ -1,200 +1,184 @@
 ---
 name: uncoil
-description: Factory catalog sleeve: matte black, plot-white ink, colour as code.
+description: Dark, quiet, friendly controls; your desk's real light is the colour.
 colors:
   ground: "#0b0b0b"
   raised: "#111111"
+  surface: "#161616"
+  surface-2: "#1e1e1e"
+  surface-3: "#282828"
   ink: "#f2f2f2"
-  ink-2: "#a8a8a8"
+  ink-2: "#b4b4b4"
   ink-3: "#8a8a8a"
   ink-4: "#5c5c5c"
   seam: "#262626"
   seam-2: "#3d3d3d"
-  fac-red: "#e2372c"
-  fac-blue: "#2f63e8"
-  fac-yellow: "#e9c31b"
-  fac-grey: "#6b6b6b"
-  fac-white: "#f2f2f2"
+  accent: "#e2372c"
+  ok: "#3fb950"
+  warn: "#e9c31b"
 typography:
-  display:
+  page-title:
     fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "44px"
-    fontWeight: 380
-    lineHeight: 0.95
-    letterSpacing: "-0.02em"
-  caps:
-    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "11px"
+    fontSize: "26px"
     fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: "0.22em"
-  caps-sm:
-    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "10px"
-    fontWeight: 500
-    letterSpacing: "0.2em"
-  readout:
+    lineHeight: 1.1
+    letterSpacing: "-0.01em"
+  section-title:
     fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "15px"
-    fontWeight: 400
-    letterSpacing: "0.06em"
+    fontWeight: 600
+  label:
+    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 500
   body:
     fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "13px"
     fontWeight: 400
-    lineHeight: 1.6
+    lineHeight: 1.5
+  keycap:
+    fontFamily: "Archivo Variable, Segoe UI, system-ui, sans-serif"
+    fontSize: "clamp(9px, 1.75cqw, 15px)"
+    fontWeight: 500
 rounded:
-  none: "0px"
+  sm: "4px"
+  md: "6px"
+  lg: "10px"
 spacing:
   xs: "6px"
   sm: "10px"
   md: "16px"
   lg: "24px"
-  xl: "32px"
 components:
-  button-outline:
+  button-primary:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.ground}"
+    rounded: "{rounded.md}"
+    height: "36px"
+    padding: "0 16px"
+  button-quiet:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "0 34px 0 16px"
-    height: "38px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink-2}"
-    rounded: "{rounded.none}"
-    padding: "8px 10px 8px 14px"
+    rounded: "{rounded.md}"
+    height: "36px"
+    padding: "0 16px"
+  card:
+    backgroundColor: "{colors.raised}"
+    rounded: "{rounded.lg}"
+    padding: "18px 20px"
   nav-item-active:
+    backgroundColor: "{colors.surface-3}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    height: "40px"
-  segment-active:
+    rounded: "{rounded.md}"
+    height: "38px"
+  keycap:
+    backgroundColor: "{colors.surface-2}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-  toggle-on:
-    backgroundColor: "{colors.fac-red}"
-    rounded: "{rounded.none}"
+    rounded: "{rounded.sm}"
 ---
 
 # Design System: uncoil
 
 ## Overview
 
-**Creative North Star: "The Factory Catalog Sleeve"**
+**Creative North Star: "The Dark Desk"**
 
-uncoil looks like a record sleeve from an industrial label: matte black, ruled hairlines, wide engraved capitals, and every object filed under a catalog number. The lighting engine is the record. The app is its sleeve, and the sleeve's job is to print what the engine is doing with the precision of a spec sheet.
+uncoil sits next to a desk full of RGB, so the app stays dark, quiet and out of the way, and lets the devices' real light be the only colour that matters. Where the app shows colour, it is the actual colour your keyboard, mouse and mat are showing right now, drawn on a to-scale picture of your desk.
 
-The world lends the app four things only: its palette, its lettering, its density, and one signature move (the pulse plot). Controls stay standard controls; the world dresses them in hairlines and catalog codes but never disguises them.
-
-Colour is code. The interface itself is monochrome; the four FAC hues mark state (red is live and active, yellow is a warning, blue and grey are reserved), and real LED colour appears only where the app is decoding something the devices are actually showing.
+Everything else is plain: sentence-case words, standard controls with small radii, and one red accent for "selected" or "on". There are no codes, numbers or labels for decoration. A first-time user should know what every control does by reading it.
 
 **Key Characteristics:**
-- Matte near-black ground with plot-white ink and four grey steps for hierarchy
-- One-pixel hairline rules in place of cards, shadows, or fills
-- Every section and option carries a catalog code (FAC 101, 201, 02)
-- Wide variable grotesk: wide and light for display numerals, wide and tracked caps for labels
-- Zero radius everywhere
-- Motion is a single expo-out curve; nothing bounces except the dial needle
+- Near-black ground with raised dark cards and four grey text steps
+- The desk drawn to scale and lit with the live effect (Lighting, Devices)
+- Keyboards drawn as solid keycaps with real legends (Keys)
+- Red is the only accent: selected nav icon, toggle on, the dial's tip, Fn actions on keycaps
+- Archivo throughout; width axis slightly widened for titles
+- One expo-out ease; nothing bounces except the direction dial's needle
 
 ## Colors
 
-A monochrome instrument with a four-colour code. Greys do the hierarchy; hues carry meaning.
-
 ### Primary
-- **Live Red** (fac-red): the only accent with a job in every screen. Marks the active catalog code, the "live" state, the engine lamp, the toggle's on-square, the slider thumb while dragging, the dial tip, and the caret.
+- **Accent red** (accent): selection and "on". The active nav icon, the toggle track when on, the dial tip, the radio dot, and the second legend on a keycap that does something different with Fn held.
 
 ### Secondary
-- **Caution Yellow** (fac-yellow): device errors and warnings only.
-- **Catalog Blue** (fac-blue) and **Catalog Grey** (fac-grey): reserved FAC hues. Grey fills empty code-strip cells; blue is unused in the app and held for the site.
+- **OK green** (ok): status lamps for a running engine and connected devices.
+- **Warning yellow** (warn): device errors, the engine being stopped, and failed results.
 
 ### Neutral
-- **Matte Ground** (ground): the page field everywhere.
-- **Raised** (raised): reserved for overlays; currently unused in the app.
-- **Plot White** (ink): headings, values, active labels.
-- **Ink 2 / Ink 3 / Ink 4**: secondary text, field labels, and footnotes, in that order of quietness.
-- **Seam / Seam 2**: hairline rules (seam) and stronger rules or inactive control borders (seam-2).
+- **Ground** (ground): the window background.
+- **Raised** (raised): cards and the navigation sidebar.
+- **Surface 1-3**: control tracks, keycaps, hover and selected fills, in that order.
+- **Ink 1-4**: primary text, secondary text, hints, disabled/placeholder.
+- **Seam / Seam 2**: card borders and dividers; control outlines.
 
 ### Named Rules
-**The Colour Is Code Rule.** A hue appears only when it means something: red for live or active, yellow for trouble. Decorative colour is never used. LED colours are data and appear only where they decode real output.
+**The Real Light Rule.** Colour in the content area is either the accent or the devices' actual LED colours. Never decorate with colour.
 
-**The One Red Rule.** At most one red mark per control. The active nav item gets a red code, not a red code plus a red border.
+**The One Accent Rule.** Red marks selection or "on", once per control. Green and yellow are reserved for status.
 
 ## Typography
 
-**Display Font:** Archivo Variable (with Segoe UI, system-ui)
-**Body Font:** Archivo Variable, same family, using its width axis (62 to 125%) instead of a second face.
-
-**Character:** One grotesk stretched to two voices: wide, light, tight numerals for catalog numbers, and wide, heavily tracked engraved capitals for every label. Body copy sits at normal width and stays quiet.
+**Font:** Archivo Variable (self-hosted), falling back to Segoe UI.
 
 ### Hierarchy
-- **Display** (380 weight, 125% width, 44px, 0.95 line height): catalog numbers in section headers (FAC 101). Tabular figures.
-- **Readout** (400 weight, 112% width, 15px, uppercase, 0.06em tracking): values in the transmission data list.
-- **Caps** (500 weight, 115% width, 11px, 0.22em tracking): section names, field labels, button text.
-- **Caps small** (500 weight, 112% width, 10px, 0.2em tracking): table headers, states, the engine readout.
-- **Body** (400, 13px, 1.6 line height, at most 62ch): hints, notes, explanations.
+- **Page title** (500, 26px, width 112%): one per screen, plain words ("Lighting", "Keys").
+- **Section title** (600, 15px): card headings.
+- **Label** (500, 13px, ink-2): field labels, sentence case.
+- **Body** (400, 13px): descriptions and hints; hints in ink-3 at 12px, at most ~60ch.
+- **Small caps** (500, 11px, tracked 0.08em): only for tiny status words where space is tight. Not for labels.
 
 ### Named Rules
-**The Engraved Label Rule.** Every label is engraved caps: small, wide, and tracked. Sentence case is for prose and hints only.
-
-**The No Kicker Rule.** Nothing sits above a heading. The catalog code and name share one baseline (FAC 200 · DEVICES); the code is the heading.
+**The Plain Words Rule.** Every label says what the control does, in sentence case. No codes, catalog numbers, section numbers or kickers above headings.
 
 ## Layout
 
-The app is a fixed 196px catalog rail plus a main sheet, with 18px of margin around the sheet. Every sheet is one hairline-bordered frame divided by internal hairlines into panes, like a spec sheet ruled into fields. Panes are padded 20 to 24px.
-
-The Lighting sheet is a two-by-two grid: the stage (pulse plot) and transmission data on top, controls and device strips below, with a 236px right column. Below 820px of sheet width (a container query on the view), it collapses to one scrolling column and the transmission data steps aside, since it repeats what the controls show. Tables drop their least-needed columns (LEDs, PID) at the same width. The window's minimum is 900 × 600.
+A 200px sidebar (icon plus label per section, engine status at the foot) and a content area with 20-24px padding. Each screen is a page title with a one-line description, then stacked cards. The Keys screen puts the keyboard full width with the editor in a three-column card beneath it. Below 820px of content width (a container query), grids collapse to one column and the screen scrolls. The window's minimum is 900 × 600.
 
 ## Elevation & Depth
 
-Flat. There are no shadows, blurs, glass, or gradients. Depth is expressed only by rule weight: seam for the grid, seam-2 for inactive control borders, plot white for the active outline.
-
-### Named Rules
-**The Hairline Rule.** If something needs separating, rule it with a 1px line. Never use a fill, a shadow, or a card.
+Mostly flat. Cards are raised by a lighter fill and a 1px seam border, not shadows. Real depth is used only where it explains something physical: keycaps have an inset bottom edge, the keyboard and mouse cast a soft shadow onto the desk, and lit LEDs glow.
 
 ## Shapes
 
-Square-cornered throughout (0px radius). The only curves are functional geometry: the dial's polar rings, the mouse outline in the desk diagram, and the pulse plot's ridges. Small square blocks (7px lamp, red tip, code-strip cells) are the world's dots.
+Small radii: 4px for keycaps and list items, 6px for buttons and inputs, 10px for cards, full pills for toggles and status chips. The mouse is drawn as a rounded body.
 
 ## Components
 
 ### Buttons
-- **Outline** (plot-white 1px border, 38px, caps text): primary actions such as "Source code". A red block is set flush into the right edge and widens on hover via `scaleX`.
-- **Ghost** (seam-2 border, ink-2 text, caps): secondary actions such as "Play preview" and "How it works". Hover brightens the text and border.
+- **Primary** (filled ink, dark text, 36px): the main action of a card, such as "Save to keyboard".
+- **Quiet** (outline, 36px): secondary actions such as "Restore original" or "Pause preview".
 
 ### Inputs / Fields
-- **Slider:** a hairline track with a 3px vertical tick for a thumb, which turns red while dragged. The label and readout share a row above it; optional end words sit below in caps-sm.
-- **Toggle:** a hairline rectangle holding a sliding square, with "On"/"Off" in caps beside it. The square turns red when on.
-- **Segmented (catalog cells):** a row of hairline cells, each with a code (101) and a name. An outlined indicator slides to the active cell and carries a red block on its right edge.
-- **Dial:** polar rings and spokes, a white needle, and a red square tip. It settles on a spring (the one place motion overshoots), and the spring becomes instant under reduced motion.
-
-- **Catalog list:** a vertical radio index (code, name, optional note) for longer choices such as firmware
-  effects and dial modes. The chosen row is boxed in plot white with a red code; "On device" marks what
-  the hardware holds now.
-- **Onboard write:** an outline button that, when pressed, becomes a hairline-framed confirm row saying what
-  will be saved and how to undo it. Results report the device's read-back next to a 7px square lamp
-  (grey when fine, yellow on trouble), never a side stripe.
+- **Segmented control:** equal segments on a dark track; a raised pill slides to the choice.
+- **Slider:** rounded 4px track filled in ink up to a round thumb; label and value above.
+- **Toggle:** pill switch; turns red when on.
+- **Option list:** radio rows with a ring that fills red when chosen; "On device" tags what the hardware holds now.
+- **Search + list:** the Keys editor's "Change to" picker, grouped and filterable.
 
 ### Navigation
-A catalog rail. Entries are a code plus caps label (01 LIGHTING). An outlined box slides between entries on the shared ease; the active code turns red. Ctrl+1 to 4 jump between sections. The engine readout sits at the foot: a red lamp, then rows of caps-sm keys and tabular values.
+Sidebar entries are an icon (lucide, 1.75 stroke) and a label. A filled highlight slides between entries; the active icon turns red. Ctrl+1-6 switch sections.
 
-### Pulse Plot (signature)
-Thirty stacked lines, each a slice of the desk sampled across 240 points, with ridges drawn from the live effect field and filled to occlude the lines behind. The slice under the pointer (by default the keyboard's home row) is decoded in live LED colour and marked with a red square on the margin. The plot runs at about 40 fps and starts paused under reduced motion.
+### Keyboard (signature)
+The keyboard drawn from its real geometry as solid keycaps with their legends. On the Fn layer, keys that do something different get a tinted cap and their Fn action in red under the legend. Keys that can't be remapped (Win, Fn) are dimmed. In colour mode the caps and underglow take the live LED colours.
 
-### Code Strip
-A row of square-ish blocks showing a device's live colours. When the device is away or lighting is off, the blocks fall back to seam grey, so the state reads without colour.
+### Desk preview
+The desk to scale: the mat's edge glows its colour, the keyboard lights up per key, the mouse's LEDs shine. Devices that aren't connected are dimmed.
+
+### Onboard write
+Saving to a device's memory takes a second click: the button opens a confirm panel saying what will be saved and how to undo it. The result is reported with a status lamp and the device's read-back.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** give every section, effect, and device a catalog code, and let the code be the heading.
-- **Do** separate with 1px hairlines and nothing else.
-- **Do** keep red for live, active, or in-hand states, one mark per control.
-- **Do** route every transition through the shared expo-out ease and the 160 / 260 / 420 ms steps, and make them zero under reduced motion (JS transitions go through `ms()` in `src/lib/motion.ts`).
-- **Do** show real LED colour only where it decodes actual output.
+- **Do** name things plainly and describe what will happen before it happens.
+- **Do** show the devices' real colours on a to-scale desk when colour helps.
+- **Do** keep red for selection and "on"; use green and yellow only for status.
+- **Do** route JS transition durations through `ms()` in `src/lib/motion.ts` so reduced motion turns them off.
 
 ### Don't:
-- **Don't** put kicker or eyebrow labels above headings.
-- **Don't** use gradient text, glass, blur, shadows, or rounded corners.
-- **Don't** use colour decoratively or invent a fifth hue.
-- **Don't** animate layout properties (width, height, padding, margin); use `transform` and `opacity`.
-- **Don't** name SVG classes after Tailwind utilities (`outline`, `border`, `ring`). Tailwind's rule applies to the SVG element and scales by the viewBox.
-- **Don't** imitate Razer's branding, green, or product imagery. uncoil is its own label.
+- **Don't** add codes, catalog numbers, section numbers or kicker labels.
+- **Don't** use gradient text, glass, or decorative colour.
+- **Don't** draw outline-only or line-art versions of physical things people need to read (keyboards, buttons).
+- **Don't** animate width, height, padding or margin; use transform and opacity.
+- **Don't** name SVG classes after Tailwind utilities (`outline`, `border`, `ring`).
+- **Don't** imitate Razer's branding, green or product imagery.

@@ -1,45 +1,44 @@
 ---
-version: 1
+version: 2
 slug: "apps-uncoil"
 primary_target: "apps/uncoil"
-related_targets: []
+related_targets: ["site"]
 ---
 
 # Surface brief: uncoil desktop app (apps/uncoil)
 
-Scope: the Tauri desktop app (Lighting, Devices, Display, About). Mode: **Operate**. The same world is
-the shared design system for the Astro site (Persuade) and Starlight docs (Read), which get their own briefs.
+Scope: the Tauri desktop app (Lighting, Keys, Dial & screen, Devices, Settings, About). Mode: **Operate**.
+The site (Persuade) and docs (Read) share the palette and type.
 
 Audience and job: Razer owners on Windows, enthusiasts first, opening the app occasionally to set the
-effect, check that devices are live, and close it again. Proof on hand: measured daemon footprint
-(3.0 MB RAM, 0.8% of one core, 651 KB executable); live device state; the real effect.
-Constraints: standard controls and navigation (Operate); readable state without colour; reduced motion.
+effect, remap a key, check that devices are connected, and close it again. Proof on hand: measured engine
+footprint; live device state; the real effect colours.
+Constraints: standard controls and navigation; plain words; readable state without colour; reduced motion.
+
+## History
+
+Version 1 used a "Factory Catalog Sleeve" direction (Peter Saville / Factory Records: catalog numbers on
+everything, hairline line plots, engraved caps). Justin chose it on 2026-10-02 from comps, then rejected it
+in use on 2026-10-03: the FAC numbers meant nothing to users, and the outline keyboard was hard to read.
+He chose "keep dark, drop gimmicks" and "solid keycaps, big legends". Don't bring the catalog devices back.
 
 ## Direction contract
 
-THESIS: uncoil is catalogued like a Factory Records release: matte black, one white hairline plot owning
-the field, every artifact given a catalog number, colour used as code. It refuses the gamer-RGB dashboard
-(neon glow on dark cards) and the generic settings panel.
+THESIS: a dark, quiet control panel next to a desk full of light. The only colour that matters is the
+devices' real colour, shown on a to-scale picture of the desk; everything else is plain and readable.
 
-OWN-WORLD: matte black ground #0b0b0b, plot-white ink #f2f2f2, industrial greys for seams and secondary
-ink, and the FAC code hues (grey, blue, yellow, red, white) used only as code: catalog strips, state, and
-the red active block. Zero radius, one-pixel hairlines, wide-tracked engraved caps for labels, a wide
-geometric grotesk for display numerals. Live LED colour appears only where something is decoded.
+OWN-WORLD: near-black ground #0b0b0b with raised dark cards, four grey text steps, one red accent #e2372c
+for selection and "on", green and yellow for status only. Archivo, sentence case, small radii (4/6/10px),
+lucide icons. Solid keycaps and lit LEDs are the only places with physical depth.
 
-STORY: the visitor sees their desk's effect as a pulse plot, reads its exact parameters beside it, knows
-every device is live (or away) from its coded strip, adjusts, and leaves; the app's lightness is stated
-as data, never as hype.
+STORY: open the app, see your desk lit exactly as it is, change the effect with ordinary controls, click a
+key to change what it does, save it to the device with one confirmation, close the app.
 
-FIRST VIEWPORT: left catalog rail (wordmark; FAC 01 Lighting, 02 Devices, 03 Display, 04 About, active
-item boxed with a red catalog number; engine readout pinned at the bottom: uncoild running, memory, cpu,
-size). Main: the plot stage across the top two-thirds, a stack of white hairline lines where each line is
-a slice of the desk and ridges are the wave's bands (angle, width and speed visible), amplitude only where
-LEDs exist, one slice decoded in live colour under the pointer; a "transmission data" column to its right
-with the effect's parameters. Below: effect catalog entries (FAC 101 Wave, 102 Spectrum, 103 Static,
-104 Off) and plain sliders; devices as rows with coded hue strips of their live colours, away rows greyed.
-Signature move: the pulse plot of the effect field, with the decoded slice.
+FIRST VIEWPORT: icon sidebar (Lighting, Keys, Dial & screen, Devices, Settings, About; engine status at the
+foot). Lighting: page title and one-line description, the desk preview lit live, connected-device chips,
+then a card with the effect picker, its settings, and brightness/saturation.
 
-FORM: Factory Records catalog identity (Peter Saville), dealt challenger brand-identity-canon-saville-catalog-sleeve,
-chosen over the assigned Night Desk Photography; seed key 59e7ab65 (re-roll 1).
+Signature move: the desk drawn to scale and lit with the live effect; on Keys, the real keyboard as solid
+keycaps with Fn actions written on them.
 
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+FINISH: reviewed against DESIGN.md (rewritten 2026-10-03), detector clean, screenshots in .impeccable/review/.
