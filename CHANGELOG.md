@@ -29,8 +29,14 @@ Everything so far. Nothing has been released yet.
   `%LOCALAPPDATA%\uncoil\status.json`; a small self-trimming log at `%LOCALAPPDATA%\uncoil\uncoild.log`.
 - **Optional OpenRGB hand-off:** one CLI run at start puts motherboard, GPU and RAM RGB on their own
   hardware rainbow.
-- **Desktop app** (Tauri 2, SvelteKit, Tailwind): live desk preview drawn by the engine's real effect code,
-  effect and display controls, device status; a browser mock for UI work without hardware.
+- **Desktop app** (Tauri 2, SvelteKit, Tailwind) in the factory-catalogue design (`DESIGN.md`): a pulse
+  plot of the live effect drawn by the engine's real effect code, effect and display controls, device
+  status with a to-scale desk, and a browser mock for UI work without hardware.
+  - **Keys:** the keyboard drawn from its real geometry, normal and Fn layers, remap any key to a key
+    (with modifiers), a mouse button or nothing; restore the original. Mouse buttons too.
+  - **Hardware:** firmware effects per device, the command dial's mode, OLED brightness and readout,
+    onboard profile slots.
+  - Every onboard write takes a second, explicit confirmation and reports the read-back.
 - **Protocol documentation:** `docs/PROTOCOL.md`, a 30-command catalog mined from Synapse's own logs, the
   BlackWidow key-id table, and the onboard key-map commands (verified by mapping Fn+P to Print Screen in
   the keyboard's own memory).
@@ -53,9 +59,7 @@ Everything so far. Nothing has been released yet.
 ### Changed
 
 - The release daemon grew from 0.66 MB to about 0.93 MB for the control pipe and feature modules.
-
-### In progress
-
-- Desktop app redesign in the catalogue direction described in `.impeccable/surfaces/apps-uncoil.md`.
+- `scripts/install-task.ps1` installs the elevated daemon to `%ProgramFiles%\uncoil` instead of
+  `%LOCALAPPDATA%\uncoil\bin`, so no unelevated process can replace it; `scripts/uninstall-task.ps1` added.
 
 [Unreleased]: https://github.com/justinthevoid/uncoil/commits/main

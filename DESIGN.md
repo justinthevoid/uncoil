@@ -166,6 +166,13 @@ Square-cornered throughout (0px radius). The only curves are functional geometry
 - **Segmented (catalog cells):** a row of hairline cells, each with a code (101) and a name. An outlined indicator slides to the active cell and carries a red block on its right edge.
 - **Dial:** polar rings and spokes, a white needle, and a red square tip. It settles on a spring (the one place motion overshoots), and the spring becomes instant under reduced motion.
 
+- **Catalog list:** a vertical radio index (code, name, optional note) for longer choices such as firmware
+  effects and dial modes. The chosen row is boxed in plot white with a red code; "On device" marks what
+  the hardware holds now.
+- **Onboard write:** an outline button that, when pressed, becomes a hairline-framed confirm row saying what
+  will be saved and how to undo it. Results report the device's read-back next to a 7px square lamp
+  (grey when fine, yellow on trouble), never a side stripe.
+
 ### Navigation
 A catalog rail. Entries are a code plus caps label (01 LIGHTING). An outlined box slides between entries on the shared ease; the active code turns red. Ctrl+1 to 4 jump between sections. The engine readout sits at the foot: a red lamp, then rows of caps-sm keys and tabular values.
 
