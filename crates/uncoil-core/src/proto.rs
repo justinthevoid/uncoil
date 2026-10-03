@@ -62,6 +62,9 @@ pub enum DeviceMode {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Report {
     pub transaction_id: u8,
+    /// Value of the "data size" byte. Usually `args.len()`, but several getters announce a larger
+    /// size than the arguments they send (e.g. `0x50` for list replies), exactly as Synapse does.
+    pub size: u8,
     pub class: u8,
     pub id: u8,
     pub args: Vec<u8>,
@@ -70,7 +73,18 @@ pub struct Report {
 impl Report {
     pub fn new(transaction_id: u8, class: u8, id: u8, args: &[u8]) -> Self {
         assert!(args.len() <= MAX_ARGS, "razer report args exceed 80 bytes");
-        Report { transaction_id, class, id, args: args.to_vec() }
+        Report { transaction_id, size: args.len() as u8, class, id, args: args.to_vec() }
+    }
+
+    /// Like [`Report::new`] but with an explicit data-size byte (`size >= args.len()`).
+    pub fn sized(transaction_id: u8, size: u8, class: u8, id: u8, args: &[u8]) -> Self {
+        assert!(args.len() <= size as usize && size as usize <= MAX_ARGS, "bad razer report size");
+        Report { transaction_id, size, class, id, args: args.to_vec() }
+    }
+
+    /// Commands with the high bit set in their id only read state ("get"); everything else may write.
+    pub fn is_read_only(&self) -> bool {
+        self.id & 0x80 != 0
     }
 
     /// Serialise to the 91-byte buffer hidapi expects (report id 0 first).
@@ -78,7 +92,7 @@ impl Report {
         let mut w = [0u8; WIRE_LEN];
         let r = &mut w[1..];
         r[1] = self.transaction_id;
-        r[5] = self.args.len() as u8;
+        r[5] = self.size;
         r[6] = self.class;
         r[7] = self.id;
         r[8..8 + self.args.len()].copy_from_slice(&self.args);
@@ -95,6 +109,84 @@ pub fn crc(report: &[u8]) -> u8 {
 /// Status byte from a 91-byte reply buffer as returned by `get_feature_report` (report id first).
 pub fn reply_status(wire: &[u8]) -> Status {
     Status::from(wire.get(1).copied().unwrap_or(0))
+}
+
+/// A parsed device reply.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reply {
+    pub status: Status,
+    pub transaction_id: u8,
+    /// Data-size byte as reported by the device.
+    pub size: u8,
+    pub class: u8,
+    pub id: u8,
+    /// All 80 argument bytes (devices do not always zero what lies beyond `size`).
+    pub raw: [u8; MAX_ARGS],
+}
+
+impl Reply {
+    /// Parse a 91-byte buffer (report id first) or a bare 90-byte report.
+    pub fn parse(buf: &[u8]) -> Option<Reply> {
+        let r = match buf.len() {
+            WIRE_LEN => &buf[1..],
+            REPORT_LEN => buf,
+            _ => return None,
+        };
+        let mut raw = [0u8; MAX_ARGS];
+        raw.copy_from_slice(&r[8..88]);
+        Some(Reply { status: Status::from(r[0]), transaction_id: r[1], size: r[5], class: r[6], id: r[7], raw })
+    }
+
+    /// The argument bytes the device declared (`size`, capped at 80).
+    pub fn args(&self) -> &[u8] {
+        &self.raw[..(self.size as usize).min(MAX_ARGS)]
+    }
+
+    /// Does this reply answer `request` (same command class and id)?
+    pub fn answers(&self, request: &Report) -> bool {
+        self.class == request.class && self.id == request.id
+    }
+
+    /// Build a reply buffer as a device would send it (used by fake devices in tests).
+    pub fn to_wire(&self) -> [u8; WIRE_LEN] {
+        let mut w = [0u8; WIRE_LEN];
+        let r = &mut w[1..];
+        r[0] = status_byte(self.status);
+        r[1] = self.transaction_id;
+        r[5] = self.size;
+        r[6] = self.class;
+        r[7] = self.id;
+        r[8..88].copy_from_slice(&self.raw);
+        r[88] = crc(r);
+        w
+    }
+}
+
+fn status_byte(s: Status) -> u8 {
+    match s {
+        Status::New => 0x00,
+        Status::Busy => 0x01,
+        Status::Ok => 0x02,
+        Status::Fail => 0x03,
+        Status::Timeout => 0x04,
+        Status::Unsupported => 0x05,
+        Status::Other(x) => x,
+    }
+}
+
+/// Something that can answer a report: the real HID device (uncoil-hid) or a fake in tests.
+/// Implementations retry `busy` replies and skip replies that answer a different command.
+pub trait Transport {
+    fn query(&mut self, request: &Report) -> anyhow::Result<Reply>;
+}
+
+/// Query and require an `ok` status.
+pub fn query_ok(t: &mut dyn Transport, request: &Report) -> anyhow::Result<Reply> {
+    let reply = t.query(request)?;
+    match reply.status {
+        Status::Ok => Ok(reply),
+        s => anyhow::bail!("device answered {:?} to {:02X}/{:02X}", s, request.class, request.id),
+    }
 }
 
 // ---- known commands ---------------------------------------------------------------------------
@@ -174,6 +266,27 @@ mod tests {
         let row = [[0u8; 3]; 18];
         let r = custom_frame_row(0x1F, 0, 0, &row);
         assert_eq!(r.args.len(), 5 + 54);
+    }
+
+    #[test]
+    fn sized_report_keeps_declared_size() {
+        // obm_probe.py: profile id list is requested with data size 0x50 and no arguments
+        let w = Report::sized(0x1F, 0x50, 0x05, 0x81, &[]).to_wire();
+        assert_eq!(&w[1..9], &[0, 0x1F, 0, 0, 0, 0x50, 0x05, 0x81]);
+        assert!(Report::sized(0x1F, 0x50, 0x05, 0x81, &[]).is_read_only());
+        assert!(!Report::new(0x1F, 0x02, 0x0D, &[1]).is_read_only());
+    }
+
+    #[test]
+    fn reply_roundtrip() {
+        let mut raw = [0u8; MAX_ARGS];
+        raw[..3].copy_from_slice(&[1, 26, 1]);
+        let r = Reply { status: Status::Ok, transaction_id: 0x1F, size: 7, class: 2, id: 0x8D, raw };
+        let back = Reply::parse(&r.to_wire()).unwrap();
+        assert_eq!(back, r);
+        assert_eq!(back.args().len(), 7);
+        assert!(back.answers(&Report::new(0x1F, 2, 0x8D, &[1, 26, 1])));
+        assert!(!back.answers(&Report::new(0x1F, 2, 0x0D, &[1, 26, 1])));
     }
 
     #[test]

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 use uncoil_core::device::{DeviceDef, UsbEndpoint};
-use uncoil_core::proto::{self, DeviceMode, Report, Status, WIRE_LEN};
+use uncoil_core::proto::{self, DeviceMode, Reply, Report, Status, Transport, WIRE_LEN};
 
 /// An opened device, ready to receive frames.
 pub struct LiveDevice {
@@ -130,8 +130,49 @@ impl LiveDevice {
         Ok(())
     }
 
+    /// Send a command and return the device's matching reply (feature commands: key maps, OLED, …).
+    ///
+    /// Busy / not-yet-processed replies and replies to a different command are re-read with growing pauses;
+    /// after six reads the request is sent again (all commands uncoil sends are idempotent). Within uncoild
+    /// only the device's own thread calls this, between frames.
+    pub fn query(&mut self, r: &Report) -> Result<Reply> {
+        let wire = r.to_wire();
+        let mut buf = [0u8; WIRE_LEN];
+        let mut last = None;
+        for attempt in 0..4u64 {
+            self.dev.send_feature_report(&wire)?;
+            for read in 0..6u64 {
+                sleep(Duration::from_millis(2 + 2 * read + 4 * attempt));
+                self.dev.get_feature_report(&mut buf)?;
+                let reply = Reply::parse(&buf).context("short reply")?;
+                if !reply.answers(r) {
+                    // still the previous command's reply (or another program's): read again, then resend
+                    last = Some(reply);
+                    continue;
+                }
+                // busy, or not processed yet (status still "new"): read again
+                if matches!(reply.status, Status::Busy | Status::New) {
+                    self.busy_retries += 1;
+                    last = Some(reply);
+                    continue;
+                }
+                return Ok(reply);
+            }
+        }
+        match last {
+            Some(reply) if reply.answers(r) => Ok(reply),
+            _ => anyhow::bail!("no reply to {:02X}/{:02X} from {}", r.class, r.id, self.def.name),
+        }
+    }
+
     /// Put the device back in firmware mode (best effort; used on shutdown).
     pub fn release(&mut self) {
         let _ = self.ask(&proto::set_device_mode(self.tid(), DeviceMode::Normal));
+    }
+}
+
+impl Transport for LiveDevice {
+    fn query(&mut self, request: &Report) -> anyhow::Result<Reply> {
+        LiveDevice::query(self, request)
     }
 }

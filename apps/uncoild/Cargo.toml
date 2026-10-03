@@ -10,7 +10,21 @@ uncoil-core.workspace = true
 uncoil-hid.workspace = true
 hidapi.workspace = true
 anyhow.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
+[features]
+# `uncoild --fake`: serve the control pipe for fake devices (development / CLI testing only)
+fake = []
+
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_Security"] }
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_System_Threading",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_System_ProcessStatus",
+  "Win32_System_Pipes",
+  "Win32_System_IO",
+  "Win32_Storage_FileSystem",
+] }

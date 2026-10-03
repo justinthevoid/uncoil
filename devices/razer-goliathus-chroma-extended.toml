@@ -4,6 +4,7 @@ id = "razer-goliathus-chroma-extended"
 name = "Razer Goliathus Chroma Extended"
 kind = "mousemat"
 vendor_id = 0x1532
+features = ["lighting", "hw_effects"]
 
 [[usb]]
 product_id = 0x0C02
@@ -28,3 +29,9 @@ width = 26.25
 depth = 9.75
 # single LED: sample the effect at the centre of the mat
 points = [[0.0, 0.0]]
+
+[hw_effects]
+# Whole device (LED id 0), as OpenRazer. The mat lists 0,1,2,3,5,8 for its one region (0F/81 [4]); reactive
+# needs input the mat does not have.
+led = 0x00
+effects = ["off", "static", "breathing", "spectrum"]

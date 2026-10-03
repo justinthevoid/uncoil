@@ -4,6 +4,7 @@ id = "razer-basilisk-v3-pro"
 name = "Razer Basilisk V3 Pro"
 kind = "mouse"
 vendor_id = 0x1532
+features = ["lighting", "hw_effects", "keymap", "profiles"]
 
 [[usb]]
 product_id = 0x00AA
@@ -42,4 +43,34 @@ points = [
   [-1.4, -2.6], [-1.4, -1.25], [-1.4, 0.1], [-1.4, 1.45], [-1.4, 3.0],
   [0.0, 3.0],
   [1.4, 2.8], [1.4, 1.45], [1.4, 0.1], [1.4, -1.25], [1.4, -2.6],
+]
+
+[hw_effects]
+# Whole device (LED id 0), as OpenRazer. The mouse lists 0,1,2,3,5,8 for each of its regions (0F/81);
+# wave comes from OpenRazer (OpenRGB notes the list is not exhaustive on Basilisk V3 Pros).
+led = 0x00
+effects = ["off", "static", "breathing", "spectrum", "wave", "reactive"]
+
+[keymap]
+# Mouse variant of the onboard map: 02/8C get, 02/0C set (OpenSynapse ViperObmProtocol). Button ids are the
+# 13 the mouse lists itself (02/84, read 2026-10-03); Synapse's inputID names in comments. Defaults are what
+# Synapse's logs and the mouse report for an unmodified profile. The firmware echoes layer 0 for Hypershift
+# reads and both layers currently hold the same mapping.
+get = 0x8C
+set = 0x0C
+layers = ["normal", "hypershift"]
+keys = [
+  { id = 1, name = "LEFT_CLICK", default = "button 1" },        # LeftClick
+  { id = 2, name = "RIGHT_CLICK", default = "button 2" },       # RightClick
+  { id = 3, name = "WHEEL_CLICK", default = "button 3" },       # ScrollButton
+  { id = 4, name = "BACK", default = "button 4" },              # Button4
+  { id = 5, name = "FORWARD", default = "button 5" },           # Button5
+  { id = 9, name = "WHEEL_UP", default = "button 9" },          # ScrollUp
+  { id = 10, name = "WHEEL_DOWN", default = "button 10" },       # ScrollDown
+  { id = 52, name = "WHEEL_LEFT", default = "button 104" },     # ScrollLeft (tilt)
+  { id = 53, name = "WHEEL_RIGHT", default = "button 105" },    # ScrollRight (tilt)
+  { id = 14, name = "PROFILE_BUTTON", default = "profile 4" },  # DKM_SB_01: next profile
+  { id = 15, name = "CLUTCH", default = "dpi 5 1 144 1 144" },  # DKM_SB_02: DPI clutch, 400 x 400
+  { id = 96, name = "DPI_BUTTON", default = "dpi 6" },          # DKM_SB_03: DPI cycle up
+  { id = 106, name = "SCROLL_MODE", default = "shortcut 1" },   # DKM_M_106: free-spin / notched toggle
 ]

@@ -9,6 +9,8 @@ id = "razer-blackwidow-v4-pro-75"
 name = "Razer BlackWidow V4 Pro 75%"
 kind = "keyboard"
 vendor_id = 0x1532
+# lighting: per-LED frames streamed by uncoild; the rest are commands over the daemon's control pipe.
+features = ["lighting", "hw_effects", "keymap", "profiles", "dial", "oled"]
 
 [[usb]]
 product_id = 0x02B3
@@ -76,3 +78,98 @@ left = { prefix = "LU", x = -0.55, count = 9 }
 right = { prefix = "RU", x = 16.8, count = 9 }
 y_start = 0.2
 y_end = 6.05
+
+[hw_effects]
+# Firmware effects target the backlight (LED id 5), as OpenRazer does for the BlackWidow V4 family.
+# The keyboard itself lists effects 0-9 (0F/81 [5], read 2026-10-03); wheel (0x0A) is OpenRazer's addition.
+led = 0x05
+effects = ["off", "static", "breathing", "spectrum", "wave", "wheel", "reactive", "starlight"]
+
+[keymap]
+# Onboard key map: 02/8D get, 02/0D set (verified on this keyboard). Key ids and normal-layer defaults
+# mined from Synapse's logs (tools/reference/mine_keyids.py); Synapse's full id table, including keys
+# this 75% board does not have, is docs/blackwidow-keyids.json. Left Windows and Fn have no id there.
+get = 0x8D
+set = 0x0D
+layers = ["normal", "hypershift"]
+keys = [
+  { id = 110, name = "ESC", led = "Escape", default = "key ESCAPE" },
+  { id = 112, name = "F1", led = "F1", default = "key F1" },
+  { id = 113, name = "F2", led = "F2", default = "key F2" },
+  { id = 114, name = "F3", led = "F3", default = "key F3" },
+  { id = 115, name = "F4", led = "F4", default = "key F4" },
+  { id = 116, name = "F5", led = "F5", default = "key F5" },
+  { id = 117, name = "F6", led = "F6", default = "key F6" },
+  { id = 118, name = "F7", led = "F7", default = "key F7" },
+  { id = 119, name = "F8", led = "F8", default = "key F8" },
+  { id = 120, name = "F9", led = "F9", default = "key F9" },
+  { id = 121, name = "F10", led = "F10", default = "key F10" },
+  { id = 122, name = "F11", led = "F11", default = "key F11" },
+  { id = 123, name = "F12", led = "F12", default = "key F12" },
+  { id = 1, name = "TILDE", led = "`", default = "key GRAVE" },
+  { id = 2, name = "1", led = "1", default = "key 1" },
+  { id = 3, name = "2", led = "2", default = "key 2" },
+  { id = 4, name = "3", led = "3", default = "key 3" },
+  { id = 5, name = "4", led = "4", default = "key 4" },
+  { id = 6, name = "5", led = "5", default = "key 5" },
+  { id = 7, name = "6", led = "6", default = "key 6" },
+  { id = 8, name = "7", led = "7", default = "key 7" },
+  { id = 9, name = "8", led = "8", default = "key 8" },
+  { id = 10, name = "9", led = "9", default = "key 9" },
+  { id = 11, name = "0", led = "0", default = "key 0" },
+  { id = 12, name = "HYPEN", led = "-", default = "key MINUS" },
+  { id = 13, name = "EQUAL", led = "=", default = "key EQUAL" },
+  { id = 15, name = "BACKSPACE", led = "Backspace", default = "key BACKSPACE" },
+  { id = 76, name = "DELETE", led = "Delete", default = "key DELETE" },
+  { id = 16, name = "TAB", led = "Tab", default = "key TAB" },
+  { id = 17, name = "Q", led = "Q", default = "key Q" },
+  { id = 18, name = "W", led = "W", default = "key W" },
+  { id = 19, name = "E", led = "E", default = "key E" },
+  { id = 20, name = "R", led = "R", default = "key R" },
+  { id = 21, name = "T", led = "T", default = "key T" },
+  { id = 22, name = "Y", led = "Y", default = "key Y" },
+  { id = 23, name = "U", led = "U", default = "key U" },
+  { id = 24, name = "I", led = "I", default = "key I" },
+  { id = 25, name = "O", led = "O", default = "key O" },
+  { id = 26, name = "P", led = "P", default = "key P" },
+  { id = 27, name = "OPEN_SQUARE_BRACKET", led = "[", default = "key LEFT_BRACKET" },
+  { id = 28, name = "CLOSE_SQUARE_BRACKET", led = "]", default = "key RIGHT_BRACKET" },
+  { id = 29, name = "BACKSLASH", led = '\', default = "key BACKSLASH" },
+  { id = 85, name = "PAGE_UP", led = "Page Up", default = "key PAGE_UP" },
+  { id = 30, name = "CAPS_LOCK", led = "Caps Lock", default = "key CAPS_LOCK" },
+  { id = 31, name = "A", led = "A", default = "key A" },
+  { id = 32, name = "S", led = "S", default = "key S" },
+  { id = 33, name = "D", led = "D", default = "key D" },
+  { id = 34, name = "F", led = "F", default = "key F" },
+  { id = 35, name = "G", led = "G", default = "key G" },
+  { id = 36, name = "H", led = "H", default = "key H" },
+  { id = 37, name = "J", led = "J", default = "key J" },
+  { id = 38, name = "K", led = "K", default = "key K" },
+  { id = 39, name = "L", led = "L", default = "key L" },
+  { id = 40, name = "SEMICOLON", led = ";", default = "key SEMICOLON" },
+  { id = 41, name = "APOSTROPHE", led = "'", default = "key APOSTROPHE" },
+  { id = 43, name = "ENTER", led = "Enter", default = "key ENTER" },
+  { id = 86, name = "PAGE_DOWN", led = "Page Down", default = "key PAGE_DOWN" },
+  { id = 44, name = "LEFT_SHIFT", led = "Left Shift", default = "key +lshift" },
+  { id = 46, name = "Z", led = "Z", default = "key Z" },
+  { id = 47, name = "X", led = "X", default = "key X" },
+  { id = 48, name = "C", led = "C", default = "key C" },
+  { id = 49, name = "V", led = "V", default = "key V" },
+  { id = 50, name = "B", led = "B", default = "key B" },
+  { id = 51, name = "N", led = "N", default = "key N" },
+  { id = 52, name = "M", led = "M", default = "key M" },
+  { id = 53, name = "COMMA", led = ",", default = "key COMMA" },
+  { id = 54, name = "PERIOD", led = ".", default = "key PERIOD" },
+  { id = 55, name = "SLASH", led = "/", default = "key SLASH" },
+  { id = 57, name = "RIGHT_SHIFT", led = "Right Shift", default = "key +rshift" },
+  { id = 83, name = "UP_ARROW", led = "Up Arrow", default = "key UP" },
+  { id = 75, name = "INSERT", led = "Insert", default = "key INSERT" },
+  { id = 58, name = "LEFT_CTRL", led = "Left Control", default = "key +lctrl" },
+  { id = 60, name = "LEFT_ALT", led = "Left Alt", default = "key +lalt" },
+  { id = 61, name = "SPACEBAR", led = "Space", default = "key SPACE" },
+  { id = 62, name = "RIGHT_ALT", led = "Right Alt", default = "key +ralt" },
+  { id = 64, name = "RIGHT_CTRL", led = "Right Control", default = "key +rctrl" },
+  { id = 79, name = "LEFT_ARROW", led = "Left Arrow", default = "key LEFT" },
+  { id = 84, name = "DOWN_ARROW", led = "Down Arrow", default = "key DOWN" },
+  { id = 89, name = "RIGHT_ARROW", led = "Right Arrow", default = "key RIGHT" },
+]

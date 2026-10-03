@@ -86,6 +86,14 @@ pub struct Status {
     pub display: String,
     pub level: f32,
     pub devices: Vec<DeviceStatus>,
+    /// The daemon's own footprint, measured by itself: private memory, CPU as % of one core
+    /// (averaged over the last status interval), and the size of its executable.
+    #[serde(default)]
+    pub memory_bytes: u64,
+    #[serde(default)]
+    pub cpu_percent: f32,
+    #[serde(default)]
+    pub exe_bytes: u64,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -1,0 +1,15 @@
+[package]
+name = "uncoil-cli"
+description = "uncoil command line: key maps, profiles, OLED dial and firmware effects via the uncoild daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "uncoil"
+path = "src/main.rs"
+
+[dependencies]
+uncoil-core.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true

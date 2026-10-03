@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/uncoil-core", "crates/uncoil-hid", "apps/uncoild", "apps/uncoil/src-tauri"]
+members = ["crates/uncoil-core", "crates/uncoil-hid", "apps/uncoild", "apps/uncoil-cli", "apps/uncoil/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
