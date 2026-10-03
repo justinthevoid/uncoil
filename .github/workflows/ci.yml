@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -- -D warnings
+      - run: cargo test -p uncoil-core -p uncoil-hid -p uncoild
+      - run: cargo build --release -p uncoild
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uncoild
+          path: target/release/uncoild.exe
+
+  gui:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/uncoil
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/uncoil/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: cargo build -p uncoil-gui
+        working-directory: .
