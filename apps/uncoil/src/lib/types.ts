@@ -82,4 +82,8 @@ export interface Status {
 	display: string;
 	level: number;
 	devices: DeviceStatus[];
+	/** The daemon's own footprint: private memory, CPU as % of one core, executable size. */
+	memory_bytes: number;
+	cpu_percent: number;
+	exe_bytes: number;
 }

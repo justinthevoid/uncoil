@@ -1,169 +1,200 @@
 <script lang="ts">
 	import { inTauri } from '#lib/api.ts';
+	import { app } from '#lib/state.svelte.ts';
 
 	const REPO = 'https://github.com/justinthevoid/uncoil';
-
-	// Headline figures: Synapse idling with Chroma lighting, versus uncoild driving the same devices.
-	const SYNAPSE_MB = 1400;
-	const UNCOIL_MB = 8;
-
-	async function openRepo(e: MouseEvent) {
-		if (!inTauri) return; // plain browser: let the link open normally
-		e.preventDefault();
-		const { openUrl } = await import('@tauri-apps/plugin-opener');
-		await openUrl(REPO);
+	async function open(url: string) {
+		if (inTauri) {
+			const { openUrl } = await import('@tauri-apps/plugin-opener');
+			await openUrl(url);
+		} else window.open(url, '_blank', 'noopener');
 	}
+	const s = $derived(app.status);
+	const mb = (b: number) => (b / 1048576).toFixed(1);
 </script>
 
-<section class="view" aria-labelledby="about-title">
-	<header>
-		<h1 id="about-title">uncoil</h1>
-		<p class="lede">
-			Razer lighting without Razer Synapse. One small background process drives your keyboard, mouse and
-			mouse mat as a single surface.
-		</p>
+<section class="about" aria-labelledby="about-title">
+	<header class="head">
+		<h1 id="about-title" class="title"><span class="display fac">FAC 400</span><span class="caps name">About</span></h1>
+		<p class="lede">uncoil {s?.version ?? '0.1.0'} · GPL-3.0-or-later</p>
 	</header>
 
-	<div class="compare">
-		<h2>Memory in use</h2>
-		<div class="bars">
-			<div class="bar-row">
-				<span class="who">Razer Synapse</span>
-				<span class="track"><span class="fill synapse" style:width="100%"></span></span>
-				<span class="val num">~1.4 GB</span>
-			</div>
-			<div class="bar-row">
-				<span class="who">uncoil engine</span>
-				<span class="track">
-					<span class="fill uncoil" style:width="{(UNCOIL_MB / SYNAPSE_MB) * 100}%"></span>
-				</span>
-				<span class="val num">~8 MB</span>
-			</div>
-		</div>
+	<div class="grid">
+		<section class="block compare" aria-labelledby="weight-title">
+			<h2 id="weight-title" class="caps sub">Weight</h2>
+			<table>
+				<thead>
+					<tr class="caps-sm"><th></th><th scope="col">Synapse 4</th><th scope="col">uncoild</th></tr>
+				</thead>
+				<tbody>
+					<tr><th scope="row" class="caps-sm">Processes</th><td class="num">17</td><td class="num">1</td></tr>
+					<tr><th scope="row" class="caps-sm">Memory</th><td class="num">~1.4 GB, growing</td><td class="num">{s?.memory_bytes ? `${mb(s.memory_bytes)} MB, now` : '~3 MB'}</td></tr>
+					<tr><th scope="row" class="caps-sm">Install</th><td class="num">~500 MB</td><td class="num">{s?.exe_bytes ? `${Math.round(s.exe_bytes / 1024)} KB` : '651 KB'}</td></tr>
+					<tr><th scope="row" class="caps-sm">Drivers</th><td>Kernel filter drivers</td><td>None, user-mode HID</td></tr>
+				</tbody>
+			</table>
+			<p class="note">Synapse figures measured on the maintainer's PC. uncoild figures are live when the engine is running.</p>
+		</section>
 
-		<h2>Processes</h2>
-		<div class="bars">
-			<div class="bar-row">
-				<span class="who">Razer Synapse</span>
-				<span class="dots" aria-hidden="true">
-					{#each Array(17) as _, i (i)}<span class="dot synapse"></span>{/each}
-				</span>
-				<span class="val num">17</span>
+		<section class="block" aria-labelledby="what-title">
+			<h2 id="what-title" class="caps sub">What it is</h2>
+			<p>A small background engine that drives Razer lighting from one shared effect field, and this app to adjust it. Close the app whenever you like; the engine keeps running on its own.</p>
+			<p>Features written into the devices themselves, like Fn+P for Print Screen, keep working even without uncoil.</p>
+			<div class="actions">
+				<button type="button" class="btn" onclick={() => open(REPO)}><span class="caps-sm">Source code</span><span class="block-red" aria-hidden="true"></span></button>
+				<button type="button" class="btn ghost" onclick={() => open(`${REPO}/blob/main/docs/PROTOCOL.md`)}><span class="caps-sm">How it works</span></button>
 			</div>
-			<div class="bar-row">
-				<span class="who">uncoil engine</span>
-				<span class="dots" aria-hidden="true"><span class="dot uncoil"></span></span>
-				<span class="val num">1</span>
-			</div>
-		</div>
+		</section>
+
+		<section class="block wide" aria-labelledby="credit-title">
+			<h2 id="credit-title" class="caps sub">Credits</h2>
+			<p>Protocol knowledge from <strong>OpenRazer</strong>, <strong>OpenRGB</strong> and <strong>OpenSynapse</strong>; colour from <strong>FastLED</strong>'s rainbow. Not affiliated with or endorsed by Razer Inc. Razer, Synapse and Chroma are trademarks of Razer Inc.</p>
+		</section>
 	</div>
-
-	<footer>
-		<a href={REPO} target="_blank" rel="noreferrer" onclick={openRepo}>Source code on GitHub</a>
-		<span class="meta">Version 0.1.0. Free software under the GPL, version 3 or later.</span>
-	</footer>
 </section>
 
 <style>
-	.view {
+	.about {
 		display: grid;
-		align-content: start;
-		gap: 32px;
-		max-width: 640px;
+		grid-template-rows: auto 1fr;
+		height: 100%;
+		border: var(--hair);
+		overflow: auto;
 	}
-	header {
-		display: grid;
-		gap: 8px;
+	.head {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 24px;
+		padding: 22px 24px 18px;
+		border-bottom: var(--hair);
 	}
-	h1 {
-		font-family: var(--font-display);
-		font-size: 32px;
-		font-weight: 600;
-		letter-spacing: -0.02em;
-		line-height: 1.1;
+	.title {
+		display: flex;
+		align-items: baseline;
+		gap: 18px;
+		margin: 0;
+		font-weight: inherit;
+	}
+	.fac {
+		font-size: 44px;
+	}
+	.name {
+		color: var(--color-ink-2);
+		letter-spacing: 0.32em;
 	}
 	.lede {
-		color: var(--color-dim);
-		font-size: 15px;
-		max-width: 52ch;
+		margin: 0;
+		color: var(--color-ink-3);
+		font-size: 12px;
+		letter-spacing: 0.06em;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+		align-content: start;
+	}
+	.block {
+		display: grid;
+		gap: 14px;
+		align-content: start;
+		padding: 24px;
+		border-bottom: var(--hair);
 	}
 	.compare {
-		display: grid;
-		gap: 12px;
-		padding: 22px 24px;
-		border-radius: 14px;
-		background: var(--color-ink-1);
-		box-shadow: inset 0 0 0 1px var(--color-line);
+		border-right: var(--hair);
 	}
-	h2 {
-		color: var(--color-dim);
+	.wide {
+		grid-column: 1 / -1;
+	}
+	.sub {
+		margin: 0;
+		color: var(--color-ink-2);
+		font-weight: 500;
+	}
+	p {
+		margin: 0;
+		color: var(--color-ink-2);
 		font-size: 13px;
-		font-weight: normal;
+		line-height: 1.6;
+		max-width: 62ch;
 	}
-	h2:not(:first-child) {
-		margin-top: 10px;
+	strong {
+		color: var(--color-ink);
+		font-weight: 500;
 	}
-	.bars {
-		display: grid;
-		gap: 8px;
+	table {
+		border-collapse: collapse;
+		width: 100%;
 	}
-	.bar-row {
-		display: grid;
-		grid-template-columns: 112px 1fr 64px;
+	th,
+	td {
+		text-align: left;
+		padding: 11px 12px 11px 0;
+		border-bottom: var(--hair);
+		font-weight: 400;
+	}
+	td {
+		font-size: 13px;
+	}
+	thead th {
+		white-space: nowrap;
+	}
+	thead th {
+		color: var(--color-ink-3);
+		border-bottom: var(--hair-strong);
+	}
+	tbody th {
+		color: var(--color-ink-3);
+	}
+	td:last-child {
+		color: var(--color-ink);
+	}
+	td:nth-child(2) {
+		color: var(--color-ink-3);
+	}
+	.note {
+		font-size: 12px;
+		color: var(--color-ink-3);
+	}
+	.actions {
+		display: flex;
+		gap: 10px;
+		margin-top: 4px;
+	}
+	.btn {
+		position: relative;
+		display: flex;
 		align-items: center;
 		gap: 14px;
-		font-size: 13px;
-	}
-	.who {
-		color: var(--color-text);
-	}
-	.val {
-		text-align: right;
-		color: var(--color-text);
-	}
-	.track {
-		height: 10px;
-		border-radius: 3px;
-		background: var(--color-well);
+		height: 38px;
+		padding: 0 34px 0 16px;
+		border: var(--hair-ink);
+		background: none;
+		color: var(--color-ink);
 		overflow: hidden;
 	}
-	.fill {
-		display: block;
-		height: 100%;
-		min-width: 3px;
-		border-radius: 3px;
+	.btn.ghost {
+		padding-right: 16px;
+		border: var(--hair-strong);
+		color: var(--color-ink-2);
 	}
-	.synapse {
-		background: #4a4e55;
+	.block-red {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 26px;
+		background: var(--color-fac-red);
+		transform: scaleX(0.6923);
+		transform-origin: right;
+		transition: transform var(--t-mid) var(--ease);
 	}
-	.uncoil {
-		background: var(--color-brass);
+	.btn:hover .block-red {
+		transform: none;
 	}
-	.dots {
-		display: flex;
-		gap: 5px;
-	}
-	.dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 2px;
-	}
-	footer {
-		display: grid;
-		gap: 6px;
-		font-size: 13px;
-	}
-	a {
-		color: var(--color-brass);
-		text-decoration: underline;
-		text-underline-offset: 3px;
-		text-decoration-color: var(--color-brass-dim);
-		justify-self: start;
-	}
-	a:hover {
-		text-decoration-color: currentColor;
-	}
-	.meta {
-		color: var(--color-faint);
+	.btn.ghost:hover {
+		color: var(--color-ink);
+		border-color: var(--color-ink-3);
 	}
 </style>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	// On/off switch in the catalog world: a hairline rectangle with a square block that slides across
+	// and turns into the red code block when on.
 	interface Props {
 		label: string;
 		checked: boolean;
@@ -18,6 +20,7 @@
 		onclick={() => (checked = !checked)}
 	>
 		<span class="label">{label}</span>
+		<span class="state caps-sm" aria-hidden="true">{checked ? 'On' : 'Off'}</span>
 		<span class="track" class:on={checked} aria-hidden="true"><span class="knob"></span></span>
 	</button>
 	{#if hint}
@@ -28,60 +31,63 @@
 <style>
 	.toggle {
 		display: grid;
-		gap: 4px;
+		gap: 6px;
 	}
 	button {
-		display: flex;
+		display: grid;
+		grid-template-columns: 1fr auto auto;
 		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
+		gap: 14px;
 		width: 100%;
-		padding: 2px 0;
+		padding: 4px 0;
 		background: none;
 		border: 0;
-		color: var(--color-text);
-		font: inherit;
-		font-size: 13px;
 		text-align: left;
 	}
+	.label {
+		font-size: 14px;
+	}
+	.state {
+		color: var(--color-ink-3);
+		width: 3ch;
+		text-align: right;
+		transition: color var(--t-mid) var(--ease);
+	}
+	button[aria-checked='true'] .state {
+		color: var(--color-ink);
+	}
 	.track {
-		flex: none;
 		position: relative;
-		width: 32px;
+		width: 38px;
 		height: 18px;
-		border-radius: 9px;
-		background: var(--color-ink-3);
-		transition: background 120ms ease;
+		border: var(--hair-strong);
+		transition: border-color var(--t-mid) var(--ease);
 	}
 	.knob {
 		position: absolute;
 		top: 3px;
 		left: 3px;
-		width: 12px;
-		height: 12px;
-		border-radius: 50%;
-		background: var(--color-dim);
+		width: 10px;
+		height: 10px;
+		background: var(--color-ink-4);
 		transition:
-			transform 120ms ease,
-			background 120ms ease;
+			transform var(--t-slow) var(--ease),
+			background-color var(--t-mid) var(--ease);
 	}
 	.on {
-		background: var(--color-brass-dim);
+		border-color: var(--color-ink);
 	}
 	.on .knob {
-		transform: translateX(14px);
-		background: var(--color-text);
+		transform: translateX(20px);
+		background: var(--color-fac-red);
+	}
+	button:hover .track:not(.on) {
+		border-color: var(--color-ink-3);
 	}
 	.hint {
-		color: var(--color-faint);
+		color: var(--color-ink-3);
 		font-size: 12px;
-		line-height: 1.4;
+		line-height: 1.45;
 		max-width: 52ch;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.track,
-		.knob {
-			transition: none;
-		}
 	}
 </style>

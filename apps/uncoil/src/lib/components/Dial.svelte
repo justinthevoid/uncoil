@@ -1,6 +1,10 @@
 <script lang="ts">
-	// Rotary direction control. The needle points the way the colour bands travel across the desk,
-	// in the same screen orientation as the preview (0° = left to right, 90° = back to front).
+	// Direction control drawn as a polar plot (the world's other instrument): concentric hairline rings,
+	// radial spokes every 30°, a white needle pointing the way the bands travel across the desk, and a red
+	// code block at its tip. Same orientation as the preview: 0° = left to right, 90° = back to front.
+	import { Spring } from 'svelte/motion';
+	import { reducedMotion } from '#lib/motion.ts';
+
 	interface Props {
 		label: string;
 		value: number;
@@ -9,15 +13,28 @@
 	let { label, value = $bindable(), disabled = false }: Props = $props();
 
 	const id = $props.id();
-	const R = 54;
-	const C = 66;
-	const ticks = Array.from({ length: 24 }, (_, i) => i * 15);
+	const C = 64;
+	const R = 56;
+	const rings = [R, R * 0.72, R * 0.44, R * 0.16];
+	const spokes = Array.from({ length: 12 }, (_, i) => i * 30);
 
 	let svg: SVGSVGElement;
 	let dragging = $state(false);
 
+	// The needle eases to keyboard and click changes but follows the pointer exactly while dragging.
+	const shown = new Spring(0, { stiffness: 0.18, damping: 0.72 });
+	let lastTarget = 0;
+	$effect(() => {
+		// unwrap so the needle takes the short way round 0/360
+		let target = value;
+		while (target - lastTarget > 180) target -= 360;
+		while (target - lastTarget < -180) target += 360;
+		lastTarget = target;
+		shown.set(target, dragging || reducedMotion() ? { instant: true } : undefined);
+	});
+	const rad = $derived((shown.current * Math.PI) / 180);
+
 	const wrap = (deg: number) => ((Math.round(deg) % 360) + 360) % 360;
-	const rad = $derived((value * Math.PI) / 180);
 
 	/** Plain-words direction, in desk terms: x runs left to right, y runs toward you. */
 	const describe = (deg: number) => {
@@ -38,7 +55,6 @@
 		if (e.shiftKey) deg = Math.round(deg / 15) * 15;
 		value = wrap(deg);
 	}
-
 	function onpointerdown(e: PointerEvent) {
 		if (disabled || e.button !== 0) return;
 		svg.setPointerCapture(e.pointerId);
@@ -51,18 +67,10 @@
 	function onpointerup() {
 		dragging = false;
 	}
-
 	function onkeydown(e: KeyboardEvent) {
 		if (disabled) return;
 		const big = e.shiftKey ? 15 : 1;
-		const step: Record<string, number> = {
-			ArrowRight: big,
-			ArrowUp: big,
-			ArrowLeft: -big,
-			ArrowDown: -big,
-			PageUp: 15,
-			PageDown: -15
-		};
+		const step: Record<string, number> = { ArrowRight: big, ArrowUp: big, ArrowLeft: -big, ArrowDown: -big, PageUp: 15, PageDown: -15 };
 		if (e.key in step) value = wrap(value + step[e.key]);
 		else if (e.key === 'Home') value = 0;
 		else if (e.key === 'End') value = 270;
@@ -73,14 +81,14 @@
 
 <div class="dial" class:disabled>
 	<div class="head">
-		<span class="label" id="{id}-label">{label}</span>
+		<span class="caps-sm label" id="{id}-label">{label}</span>
 		<output class="num">{value}°</output>
 	</div>
 	<svg
 		bind:this={svg}
-		viewBox="0 0 132 132"
-		width="132"
-		height="132"
+		viewBox="0 0 128 128"
+		width="128"
+		height="128"
 		role="slider"
 		tabindex={disabled ? -1 : 0}
 		aria-labelledby="{id}-label"
@@ -97,47 +105,34 @@
 		onpointercancel={onpointerup}
 		{onkeydown}
 	>
-		<circle cx={C} cy={C} r={R + 6} class="face" />
-		{#each ticks as t (t)}
-			{@const a = (t * Math.PI) / 180}
-			{@const major = t % 90 === 0}
-			<line
-				x1={C + Math.cos(a) * (R - (major ? 8 : 4))}
-				y1={C + Math.sin(a) * (R - (major ? 8 : 4))}
-				x2={C + Math.cos(a) * R}
-				y2={C + Math.sin(a) * R}
-				class:major
-			/>
+		{#each rings as r (r)}<circle cx={C} cy={C} {r} class="ring" />{/each}
+		{#each spokes as s (s)}
+			{@const a = (s * Math.PI) / 180}
+			<line class="spoke" x1={C + Math.cos(a) * R * 0.16} y1={C + Math.sin(a) * R * 0.16} x2={C + Math.cos(a) * R} y2={C + Math.sin(a) * R} />
 		{/each}
-		<line
-			class="needle"
-			x1={C - Math.cos(rad) * 14}
-			y1={C - Math.sin(rad) * 14}
-			x2={C + Math.cos(rad) * (R - 12)}
-			y2={C + Math.sin(rad) * (R - 12)}
-		/>
-		<polygon
+		<line class="needle" x1={C} y1={C} x2={C + Math.cos(rad) * (R - 6)} y2={C + Math.sin(rad) * (R - 6)} />
+		<rect
 			class="tip"
-			points="{C + Math.cos(rad) * (R - 4)},{C + Math.sin(rad) * (R - 4)} {C +
-				Math.cos(rad + 2.6) * 9 +
-				Math.cos(rad) * (R - 12)},{C + Math.sin(rad + 2.6) * 9 + Math.sin(rad) * (R - 12)} {C +
-				Math.cos(rad - 2.6) * 9 +
-				Math.cos(rad) * (R - 12)},{C + Math.sin(rad - 2.6) * 9 + Math.sin(rad) * (R - 12)}"
+			x={C + Math.cos(rad) * (R - 6) - 4}
+			y={C + Math.sin(rad) * (R - 6) - 4}
+			width="8"
+			height="8"
+			transform="rotate({shown.current} {C + Math.cos(rad) * (R - 6)} {C + Math.sin(rad) * (R - 6)})"
 		/>
-		<circle cx={C} cy={C} r="4" class="hub" />
+		<circle cx={C} cy={C} r="5" class="hub" />
 	</svg>
-	<p class="caption">Bands move {describe(value)}.</p>
+	<p class="caption">Bands travel {describe(value)}.</p>
 	<p class="sr-only" id="{id}-help">Drag, or use the arrow keys. Hold Shift for 15 degree steps.</p>
 </div>
 
 <style>
 	.dial {
 		display: grid;
-		gap: 8px;
+		gap: 6px;
 		justify-items: start;
 	}
 	.disabled {
-		opacity: 0.4;
+		opacity: 0.35;
 	}
 	.head {
 		display: flex;
@@ -146,49 +141,54 @@
 		width: 100%;
 	}
 	.label {
-		font-size: 13px;
+		color: var(--color-ink-2);
 	}
 	output {
-		color: var(--color-dim);
 		font-size: 13px;
 	}
 	svg {
 		touch-action: none;
-		border-radius: 50%;
 		justify-self: center;
+		cursor: grab;
+	}
+	svg.dragging {
+		cursor: grabbing;
 	}
 	svg:focus-visible {
-		outline-offset: 0;
-		border-radius: 50%;
+		outline-offset: 2px;
 	}
-	.face {
-		fill: var(--color-well);
-		stroke: var(--color-line);
+	.ring {
+		fill: none;
+		stroke: var(--color-seam-2);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
 	}
-	line {
-		stroke: var(--color-ink-3);
-		stroke-width: 1.5;
-		stroke-linecap: round;
+	.ring:first-child {
+		stroke: var(--color-ink-4);
 	}
-	line.major {
-		stroke: var(--color-faint);
+	.spoke {
+		stroke: var(--color-seam);
+		stroke-width: 1;
 	}
 	.needle {
-		stroke: var(--color-brass);
-		stroke-width: 2.5;
+		stroke: var(--color-ink);
+		stroke-width: 1.5;
 	}
 	.tip {
-		fill: var(--color-brass);
+		fill: var(--color-fac-red);
 	}
 	.hub {
-		fill: var(--color-ink-1);
-		stroke: var(--color-brass);
-		stroke-width: 2;
+		fill: var(--color-ground);
+		stroke: var(--color-ink);
+		stroke-width: 1;
+	}
+	svg:hover .ring:first-child {
+		stroke: var(--color-ink-3);
 	}
 	.caption {
-		color: var(--color-faint);
+		color: var(--color-ink-3);
 		font-size: 12px;
 		line-height: 1.4;
-		max-width: 26ch;
+		max-width: 22ch;
 	}
 </style>

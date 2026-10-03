@@ -1,14 +1,16 @@
 <script lang="ts" generics="T extends string">
-	// A row of mutually exclusive choices (radio group), arrow-key navigable.
+	// Mutually exclusive choices (radio group) set as catalog entries: equal cells, hairline seams, and
+	// one outlined indicator carrying the red code block that slides to the chosen entry.
 	interface Props {
 		label: string;
-		options: { value: T; label: string }[];
+		options: { value: T; label: string; code?: string }[];
 		value: T;
 		onchange: (v: T) => void;
 	}
 	let { label, options, value, onchange }: Props = $props();
 
 	let buttons: HTMLButtonElement[] = $state([]);
+	const index = $derived(Math.max(0, options.findIndex((o) => o.value === value)));
 
 	function onkeydown(e: KeyboardEvent, i: number) {
 		const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
@@ -20,7 +22,8 @@
 	}
 </script>
 
-<div class="seg" role="radiogroup" aria-label={label}>
+<div class="seg" role="radiogroup" aria-label={label} style:--n={options.length} style:--i={index}>
+	<span class="indicator" aria-hidden="true"><span class="block"></span></span>
 	{#each options as o, i (o.value)}
 		<button
 			bind:this={buttons[i]}
@@ -29,42 +32,83 @@
 			aria-checked={o.value === value}
 			tabindex={o.value === value ? 0 : -1}
 			onclick={() => onchange(o.value)}
-			onkeydown={(e) => onkeydown(e, i)}>{o.label}</button
+			onkeydown={(e) => onkeydown(e, i)}
 		>
+			{#if o.code}<span class="code num">{o.code}</span>{/if}
+			<span class="caps">{o.label}</span>
+		</button>
 	{/each}
 </div>
 
 <style>
 	.seg {
+		position: relative;
 		display: grid;
-		grid-auto-flow: column;
-		grid-auto-columns: 1fr;
-		gap: 2px;
-		padding: 3px;
-		border-radius: 9px;
-		background: var(--color-well);
-		box-shadow: inset 0 0 0 1px var(--color-line);
+		grid-template-columns: repeat(var(--n), 1fr);
+		border: var(--hair-strong);
 	}
 	button {
-		padding: 6px 12px;
+		position: relative;
+		z-index: 1;
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		padding: 11px 14px 10px;
 		border: 0;
-		border-radius: 6px;
-		background: transparent;
-		color: var(--color-dim);
-		font: inherit;
-		font-size: 13px;
+		border-left: var(--hair);
+		background: none;
+		color: var(--color-ink-3);
+		text-align: left;
+		transition: color var(--t-mid) var(--ease);
+	}
+	button:first-of-type {
+		border-left: 0;
 	}
 	button:hover {
-		color: var(--color-text);
+		color: var(--color-ink-2);
 	}
 	button[aria-checked='true'] {
-		background: var(--color-ink-2);
-		color: var(--color-text);
-		box-shadow:
-			inset 0 1px 0 rgb(255 255 255 / 0.04),
-			0 1px 2px rgb(0 0 0 / 0.4);
+		color: var(--color-ink);
+	}
+	.code {
+		font-size: 11px;
+		font-stretch: 112%;
+		letter-spacing: 0.08em;
+		color: inherit;
+		opacity: 0.7;
+	}
+	button[aria-checked='true'] .code {
+		color: var(--color-fac-red);
+		opacity: 1;
+	}
+	.caps {
+		letter-spacing: 0.2em;
 	}
 	button:focus-visible {
-		outline-offset: -2px;
+		outline-offset: -4px;
+	}
+	/* The sliding catalog marker: an inked outline with the red code block on its trailing edge. */
+	.indicator {
+		position: absolute;
+		inset: -1px auto -1px 0;
+		width: calc(100% / var(--n));
+		transform: translateX(calc(100% * var(--i)));
+		border: var(--hair-ink);
+		transition: transform var(--t-slow) var(--ease);
+		pointer-events: none;
+	}
+	.block {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 6px;
+		background: var(--color-fac-red);
+		animation: block-in var(--t-slow) var(--ease);
+	}
+	@keyframes block-in {
+		from {
+			transform: scaleY(0);
+		}
 	}
 </style>

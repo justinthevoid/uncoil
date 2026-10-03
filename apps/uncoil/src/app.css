@@ -1,62 +1,119 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/archivo/wdth.css';
 
 /*
- * uncoil: an instrument panel, not a gaming dashboard. Graphite surfaces, one brass accent for
- * state and focus, and every other colour on screen comes from the live preview.
+ * uncoil design tokens: the Factory catalog world.
+ * Matte black ground, plot-white ink, industrial greys for seams. Colour is code: the FAC hues mark
+ * state and catalog strips; live LED colour appears only where something is decoded. Zero radius,
+ * one-pixel hairlines, wide-tracked engraved caps for labels, a wide grotesk for display numerals.
+ * The canonical copy of these values lives in DESIGN.md / .impeccable/design.json.
  */
 @theme {
-	--font-sans: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-	--font-display: 'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+	--font-sans: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif;
 
-	--color-well: #0f1012;
-	--color-ink-0: #151619;
-	--color-ink-1: #1b1d20;
-	--color-ink-2: #24272b;
-	--color-ink-3: #2e3136;
-	--color-line: #2b2e33;
-	--color-text: #e7e5e0;
-	--color-dim: #9a9ea5;
-	--color-faint: #6c7078;
-	--color-brass: #d4b46c;
-	--color-brass-dim: #8a7646;
-	--color-ok: #8fb99a;
-	--color-warn: #d49a6c;
+	--color-ground: #0b0b0b;
+	--color-raised: #111111;
+	--color-ink: #f2f2f2;
+	--color-ink-2: #a8a8a8;
+	--color-ink-3: #8a8a8a;
+	--color-ink-4: #5c5c5c;
+	--color-seam: #262626;
+	--color-seam-2: #3d3d3d;
 
-	--text-2xs: 0.6875rem;
-	--text-2xs--line-height: 1rem;
+	--color-fac-grey: #6b6b6b;
+	--color-fac-blue: #2f63e8;
+	--color-fac-yellow: #e9c31b;
+	--color-fac-red: #e2372c;
+	--color-fac-white: #f2f2f2;
+}
+
+:root {
+	color-scheme: dark;
+	--ease: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+	--t-fast: 160ms;
+	--t-mid: 260ms;
+	--t-slow: 420ms;
+	--hair: 1px solid var(--color-seam);
+	--hair-strong: 1px solid var(--color-seam-2);
+	--hair-ink: 1px solid var(--color-ink);
 }
 
 @layer base {
-	:root {
-		color-scheme: dark;
-	}
-
 	html,
 	body {
 		height: 100%;
-		background: var(--color-ink-0);
-		color: var(--color-text);
+		background: var(--color-ground);
+		color: var(--color-ink);
 		font-family: var(--font-sans);
 		font-size: 14px;
-		line-height: 1.45;
+		line-height: 1.5;
+		font-stretch: 100%;
 		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
 		user-select: none;
 		overflow: hidden;
 	}
 
-	/* Numbers that change while you drag should not jitter. */
 	output,
 	.num {
 		font-variant-numeric: tabular-nums;
 	}
 
+	::selection {
+		background: var(--color-ink);
+		color: var(--color-ground);
+	}
+
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-seam-2) transparent;
+		caret-color: var(--color-fac-red);
+	}
+
 	:focus-visible {
-		outline: 2px solid var(--color-brass);
-		outline-offset: 2px;
-		border-radius: 4px;
+		outline: 1px solid var(--color-ink);
+		outline-offset: 3px;
 	}
 
 	button {
 		cursor: default;
+		font: inherit;
+		color: inherit;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:root {
+			--t-fast: 0ms;
+			--t-mid: 0ms;
+			--t-slow: 0ms;
+		}
+	}
+}
+
+@layer components {
+	/* Engraved caps: the world's label voice. Small, wide, generously tracked. */
+	.caps {
+		font-size: 11px;
+		font-weight: 500;
+		font-stretch: 115%;
+		letter-spacing: 0.22em;
+		text-transform: uppercase;
+		line-height: 1.4;
+	}
+	.caps-sm {
+		font-size: 10px;
+		font-weight: 500;
+		font-stretch: 112%;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+	}
+	/* Display numerals: wide, light, set tight. */
+	.display {
+		font-weight: 380;
+		font-stretch: 125%;
+		letter-spacing: -0.02em;
+		line-height: 0.95;
+		font-variant-numeric: tabular-nums;
 	}
 }
