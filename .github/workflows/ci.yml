@@ -81,6 +81,10 @@ jobs:
       - if: steps.detect.outputs.present == 'true'
         working-directory: site
         run: pnpm install --frozen-lockfile
+      # The site imports the app's effect maths; the app's tsconfig extends SvelteKit's generated one.
+      - if: steps.detect.outputs.present == 'true'
+        working-directory: apps/uncoil
+        run: pnpm install --frozen-lockfile && pnpm exec svelte-kit sync
       - if: steps.detect.outputs.present == 'true'
         working-directory: site
         run: pnpm build

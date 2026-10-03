@@ -48,6 +48,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The site imports the app's effect maths; the app's tsconfig extends SvelteKit's generated one.
+      - working-directory: apps/uncoil
+        run: pnpm install --frozen-lockfile && pnpm exec svelte-kit sync
+
       - run: pnpm build
         # env:
         #   SITE: https://uncoil.example
