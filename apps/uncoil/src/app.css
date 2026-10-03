@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/*
+ * uncoil: an instrument panel, not a gaming dashboard. Graphite surfaces, one brass accent for
+ * state and focus, and every other colour on screen comes from the live preview.
+ */
+@theme {
+	--font-sans: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+	--font-display: 'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+
+	--color-well: #0f1012;
+	--color-ink-0: #151619;
+	--color-ink-1: #1b1d20;
+	--color-ink-2: #24272b;
+	--color-ink-3: #2e3136;
+	--color-line: #2b2e33;
+	--color-text: #e7e5e0;
+	--color-dim: #9a9ea5;
+	--color-faint: #6c7078;
+	--color-brass: #d4b46c;
+	--color-brass-dim: #8a7646;
+	--color-ok: #8fb99a;
+	--color-warn: #d49a6c;
+
+	--text-2xs: 0.6875rem;
+	--text-2xs--line-height: 1rem;
+}
+
+@layer base {
+	:root {
+		color-scheme: dark;
+	}
+
+	html,
+	body {
+		height: 100%;
+		background: var(--color-ink-0);
+		color: var(--color-text);
+		font-family: var(--font-sans);
+		font-size: 14px;
+		line-height: 1.45;
+		-webkit-font-smoothing: antialiased;
+		user-select: none;
+		overflow: hidden;
+	}
+
+	/* Numbers that change while you drag should not jitter. */
+	output,
+	.num {
+		font-variant-numeric: tabular-nums;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--color-brass);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+
+	button {
+		cursor: default;
+	}
+}
