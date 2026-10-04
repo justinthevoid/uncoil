@@ -12,7 +12,7 @@ Everything so far. Nothing has been released yet.
 ### Added
 
 - **`uncoild`, the daemon.** One headless process that drives Razer lighting directly over user-mode HID:
-  no services, no kernel drivers, no network. Installed as a per-user, elevated logon task by
+  no services, no kernel drivers, no network. Installed as a per-user, unelevated logon task by
   `scripts/install-task.ps1` into `%ProgramFiles%\uncoil`; removed by `scripts/uninstall-task.ps1`.
 - **Desk-wide effects:** wave (angle, speed, band width, direction), spectrum, breathing, static, starlight,
   fire (flames rising from the front of the desk), wheel, reactive (keys light when pressed), ripple (rings
@@ -56,8 +56,9 @@ Everything so far. Nothing has been released yet.
   second keyboard below the first, another mouse to the right); the default desk is unchanged.
 - **Hot-reloaded config** at `%APPDATA%\uncoil\config.json`; live status at
   `%LOCALAPPDATA%\uncoil\status.json`; a small self-trimming log at `%LOCALAPPDATA%\uncoil\uncoild.log`.
-- **Optional OpenRGB hand-off** (on by default): one CLI run at start puts motherboard, GPU and RAM RGB on
-  their own hardware rainbow. The target device names are fixed in `apps/uncoild/src/openrgb.rs`.
+- **Optional OpenRGB hand-off** (off by default): one OpenRGB CLI run at logon puts the motherboard, GPU and
+  RAM devices listed in `openrgb.devices` on their own hardware modes, from the elevated one-shot task
+  `uncoil-openrgb` (`install-task.ps1 -OpenRgb`).
 - **Desktop app** (Tauri 2, SvelteKit, Tailwind; design in `DESIGN.md`): your desk drawn to scale and lit
   with the live effect from the engine's real effect code, effect and display settings, device status, and
   a browser mock for UI work without hardware.
@@ -88,8 +89,25 @@ Everything so far. Nothing has been released yet.
 
 For anyone running an earlier build from source:
 
-- `scripts/install-task.ps1` installs the elevated daemon to `%ProgramFiles%\uncoil` instead of
-  `%LOCALAPPDATA%\uncoil\bin`, so no unelevated process can replace it, and deletes the old copy.
+- **The daemon runs unelevated by default.** `scripts/install-task.ps1` registers the `uncoil` task with run
+  level Limited. `-OpenRgb` adds the elevated one-shot task `uncoil-openrgb` (`uncoild --openrgb-once`) for
+  the OpenRGB hand-off; `-Elevated` is the fallback that runs the daemon itself elevated. The binary goes to
+  `%ProgramFiles%\uncoil` instead of `%LOCALAPPDATA%\uncoil\bin` and its hash is checked after copying; the
+  installer no longer deletes the old copy, it prints a note. `uninstall-task.ps1` removes both tasks and
+  `%ProgramData%\uncoil` and leaves your profile alone.
+- **OpenRGB hand-off** is off by default and configured by `openrgb.devices` in `config.json` (plain names
+  only); there are no built-in device names. OpenRGB gets an admin-only settings folder
+  (`%ProgramData%\uncoil\openrgb`), and only an OpenRGB in your session is closed first.
+- **Stricter device file validation** (Razer vendor id only, known key map commands and transaction ids,
+  size limits, plain ids and names). Files in `%APPDATA%\uncoil\devices` are experimental unless they set
+  `support`; files over 1 MB are skipped.
+- **Pipe:** the control pipe is the single-instance lock (a second uncoild exits); connections idle for 5
+  minutes are closed; clients connect with identification-level impersonation and refuse a server that does
+  not run as the same user; the integrity label is `NWNR`; release builds ignore `UNCOIL_PIPE`.
+- Profiles in requests are limited to 1–5; jobs a device thread has not started within 10 s are dropped and
+  answered with an error.
+- The onboard-write journal has a `state` field (`pending`, `done`, `failed`); `keymap import` keeps a left
+  click on mice and orders its writes so the guard never stops it half-way.
 - **Device files:** `matrix` and `layout` are only required with `lighting` or `hw_effects`; new optional
   `support`, `unverified`, `[sources]`, `alt_usages`, `reply_wait_us`, per-command-group
   `[usb.transaction_ids]`, `[dpi]`, `[poll_rate]` and `[power]`; unknown keys are now errors that name the
@@ -97,7 +115,8 @@ For anyone running an earlier build from source:
 - **Pipe:** failed requests may carry a `code` (`check_failed`, `left_click_guard`, `not_supported`);
   `devices` and `capabilities` report `support`, `capabilities` also `checks` and `unverified`. A device
   query by kind (`keyboard`, `mouse`) now prefers connected devices; with two mice connected, name one.
-- The release daemon is 1,208,320 bytes (about 1.2 MB, 2026-10-03), up from 0.66 MB before the control pipe;
+- The release daemon is 1,257,472 bytes (about 1.3 MB, 2026-10-03; 1,208,320 before the hardening above), up
+  from 0.66 MB before the control pipe;
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#footprint) has the breakdown.
 
 [Unreleased]: https://github.com/justinthevoid/uncoil/commits/main

@@ -18,9 +18,9 @@ full version, module by module.
 
 ## The daemon: `uncoild`
 
-One process, no window, no console, no service, no kernel driver. On the maintainer's PC it is a 1.2 MB
-executable that used about 3 MB of private memory and under 1% of one core while animating (memory and CPU
-measured on an earlier build).
+One process, no window, no console, no service, no kernel driver. It runs as the logged-in user, unelevated.
+On the maintainer's PC it is a 1.3 MB executable (1,257,472 bytes) that used about 3 MB of private memory and
+under 1% of one core while animating (memory and CPU measured on an earlier build).
 
 - **Main loop** (every 33 ms; every 250 ms while the lights are faded out): watches the config file's
   modification time and reloads it, follows the display state and steps the fade level, rescans for new or
@@ -32,14 +32,21 @@ measured on an earlier build).
 - **The control pipe** `\\.\pipe\uncoil` serves the app and the CLI. Commands for a device (key maps, the
   dial, the screen, firmware effects, DPI, poll rate, power, read-only checks) are queued to that device's
   thread and run between two frames, so the daemon stays the only thing that talks to the hardware. Only the
-  logged-in user can connect, and only from this PC.
+  logged-in user can connect, and only from this PC; the app and CLI in turn refuse a pipe served by a
+  process running as anyone else. Connections idle for 5 minutes are closed.
 - **Display watcher:** a hidden message window registered for Windows' `GUID_CONSOLE_DISPLAY_STATE`
   notifications (off, dimmed, on). On wake every device is re-prepared, since some reset during sleep.
 - **Key and audio listeners**, only while an effect needs them (reactive and ripple; the audio meter). Key
   presses become desk positions on the spot; which key it was is never kept.
-- **Single instance:** a named mutex stops a second copy from starting.
-- **Optional OpenRGB hand-off** (on by default): at start, one OpenRGB CLI run puts some non-Razer RGB on its
-  hardware rainbow, then OpenRGB exits. See [Configuration](/docs/configuration/#openrgb_hardware_rainbow).
+- **Single instance:** the control pipe doubles as the lock. If the pipe name is already taken (another
+  uncoild, or anything else), the daemon logs it and exits before opening a device.
+- **Device files are untrusted input:** each is checked (Razer vendor id, known commands and transaction ids,
+  size limits, plain ids and names) before use, and one you add yourself is experimental unless it sets
+  `support`.
+- **Optional OpenRGB hand-off** (off by default): not in the daemon. A separate elevated task,
+  **uncoil-openrgb** (`install-task.ps1 -OpenRgb`), runs `uncoild --openrgb-once` at logon: one OpenRGB CLI run
+  puts the devices listed in the config on their hardware modes, then both exit. See
+  [Configuration](/docs/configuration/#openrgb_hardware_rainbow).
 - **Self-measurement:** the daemon samples its own private memory and CPU time and publishes them in the
   status file, so the footprint claim can be checked on any machine.
 
@@ -100,7 +107,7 @@ uncoil check mouse        # the read-only checks, nothing is written
   ],
   "memory_bytes": 3145728,
   "cpu_percent": 0.8,
-  "exe_bytes": 1208320,
+  "exe_bytes": 1257472,
   "unknown_devices": []
 }
 ```

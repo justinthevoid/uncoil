@@ -62,11 +62,17 @@ The same applies to Fn shortcuts that stopped working: in normal mode the firmwa
 
 - **Razer devices:** let one program drive them. uncoil talks to them directly over HID; two programs writing
   frames at once looks like flicker or a freeze.
-- **OpenRGB:** uncoil only uses it once, at start, to put non-Razer hardware (motherboard, GPU, RAM) on its own
-  hardware rainbow, then OpenRGB exits. It closes a running OpenRGB first, and only targets the device names
-  listed under [`openrgb_hardware_rainbow`](/docs/configuration/#openrgb_hardware_rainbow). Don't also run OpenRGB's SDK server against the Razer devices; in
-  testing, OpenRGB 1.0's SDK server accepted per-LED updates for them but never pushed them to the hardware.
-  To turn the hand-off off, set `"openrgb_hardware_rainbow": false` and restart the task.
+- **OpenRGB:** the hand-off is off by default. When turned on (and installed with `-OpenRgb`), the
+  **uncoil-openrgb** task runs OpenRGB once at logon to put the devices you listed in
+  [`openrgb.devices`](/docs/configuration/#openrgb_hardware_rainbow) on their own hardware modes, then
+  OpenRGB exits. It closes a running OpenRGB in your session first. Don't also run OpenRGB's SDK server
+  against the Razer devices; in testing, OpenRGB 1.0's SDK server accepted per-LED updates for them but never
+  pushed them to the hardware. To turn the hand-off off, set `"openrgb_hardware_rainbow": false`, or install
+  again without `-OpenRgb` to remove the task.
+- **Did the hand-off run?** The task writes no log. Open Task Scheduler, find **uncoil-openrgb** and read its
+  **Last Run Result**: `0` done, `1` turned off or nothing in `openrgb.devices`, `2` failed (OpenRGB is not
+  installed, `%ProgramData%\uncoil\openrgb` is missing or not administrators-only, or no entry was a plain
+  name). Reinstalling with `-OpenRgb` recreates the folder.
 - **iCUE:** RAM lighting shares the SMBus with iCUE, so uncoil skips the RAM in the OpenRGB hand-off while
   iCUE is running. Corsair devices themselves are iCUE's business.
 
@@ -94,10 +100,14 @@ uncoil waits for it. Unplug the cable and the mouse is picked up on the dongle w
 Both talk to uncoild over the named pipe `\\.\pipe\uncoil`. If they say the daemon is unreachable:
 
 - Check it is running (`Get-Process uncoild`).
-- Look for `control pipe … unavailable` in the log. The daemon won't share the pipe name with another
-  process, so this means something else created `\\.\pipe\uncoil` first. Lighting keeps working; restart the
-  task once the other process is gone. (A second copy of uncoild exits at start, logging `another uncoild is
-  already running`.)
+- Look for `control pipe … unavailable (…): another uncoild, or another program, holds it; exiting` in the
+  log. The pipe is also uncoild's single-instance lock: something else (usually another uncoild, for example
+  one started by hand next to the task) already holds `\\.\pipe\uncoil`, so this copy exited before opening
+  any device. Close the other one (`Get-Process uncoild`) and restart the task.
+- **`too many clients`:** uncoild serves at most 8 connections at once. Close a few `uncoil` commands or app
+  windows and retry. A connection that sends nothing for 5 minutes is closed by the daemon.
+- **`something else is serving the uncoil pipe`:** the process holding `\\.\pipe\uncoil` does not run as your
+  user, so the app and CLI refuse to talk to it. Find it and stop it, then restart the task.
 - The pipe only accepts your own user account, from this PC.
 
 ## A setting won't save
@@ -108,6 +118,7 @@ timer) are refused in these cases, with a message saying why:
 - **`check_failed`:** the device is experimental, or the feature isn't confirmed on it yet, and the read-only
   check didn't pass: the device didn't answer the way its file expects. `uncoil check <device>` shows what was
   read. Reads and lighting still work. Please [report it](https://github.com/justinthevoid/uncoil/issues/new?template=device_report.yml).
+  A device file you added to `%APPDATA%\uncoil\devices` counts as experimental unless it sets `support`.
 - **`left_click_guard`:** the change would leave the mouse with no button that left-clicks. Map another button
   to left click first.
 - **`not_supported`:** the device file doesn't list that feature.

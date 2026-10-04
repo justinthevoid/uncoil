@@ -9,7 +9,7 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
       │                  │
       └──── \\.\pipe\uncoil ─ newline-delimited JSON ────────────────────────────────────────────
                          │
- uncoild (elevated logon task)
+ uncoild (logon task, unelevated)
    pipe acceptor ─▶ client thread ─▶ Control::dispatch
                                        ├─ status / devices / capabilities: answered directly
                                        └─ device command ─▶ job queue of that device
@@ -18,7 +18,15 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
      loop { send frame; wait for next frame ← jobs run here, between frames (exec::run) }
                          │
                      HID feature reports (uncoil-hid::LiveDevice)
+
+ uncoild --openrgb-once (optional "uncoil-openrgb" task, elevated, runs once at logon and exits)
+   reads config.json ─▶ OpenRGB.exe -d … -m …   (motherboard, GPU, RAM; nothing over the pipe)
 ```
+
+The daemon runs as the logged-in user, unelevated. The OpenRGB hand-off needs administrator rights (RAM
+lighting sits on the SMBus), so it runs from its own elevated one-shot task, registered by
+`install-task.ps1 -OpenRgb`. `install-task.ps1 -Elevated` is the fallback that runs the daemon itself
+elevated; that daemon then does the hand-off itself.
 
 ## Crates and modules
 
@@ -37,9 +45,11 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
 | `crates/uncoil-hid/src/keys.rs`, `audio.rs` | key press listener (Raw Input), audio peak meter (WASAPI) | Windows input / audio |
 | `apps/uncoild/src/inputs.rs` | press buffer (positions only), listener start/stop, desk geometry | via `uncoil-hid` |
 | `crates/uncoil-hid/src/transport.rs` | `LiveDevice`: frames, quirks, and `query()` (send + matching reply, busy/new retry) implementing `Transport` | HID |
-| `apps/uncoild/src/main.rs` | main loop (config reload, display fade, rescan, status), one renderer thread per device, single-instance mutex, `--fake` | everything above |
-| `apps/uncoild/src/log.rs`, `selfstat.rs`, `openrgb.rs` | the log (trimmed past 256 KB), the daemon's own memory / CPU / size, the one-shot OpenRGB hand-off | files, process launch |
-| `apps/uncoild/src/pipe.rs` | named-pipe server | pipe |
+| `apps/uncoild/src/main.rs` | main loop (config reload, display fade, rescan, status), one renderer thread per device; the control pipe doubles as the single-instance lock; `--fake`, `--openrgb-once` | everything above |
+| `apps/uncoild/src/log.rs`, `selfstat.rs` | the log (trimmed past 256 KB), the daemon's own memory / CPU / size | files |
+| `apps/uncoild/src/openrgb.rs` | the OpenRGB hand-off: targets from `openrgb.devices` in the config (plain names only), `taskkill` scoped to the current session, OpenRGB given the admin-only `--config` folder `%ProgramData%\uncoil\openrgb` | process launch |
+| `apps/uncoild/src/winsec.rs` | is the process elevated; redirection-safe writes to the daemon's own files under `%LOCALAPPDATA%\uncoil` when elevated; the admin-only folder check; system folder and session id | Windows security APIs |
+| `apps/uncoild/src/pipe.rs` | named-pipe server; closes connections idle for 5 minutes | pipe |
 | `apps/uncoild/src/control.rs` | request router, device registry, job queues | channels |
 | `apps/uncoild/src/exec.rs` | runs one command against any `Transport`; write gating, read-back, journal, left-click guard | via `Transport` |
 | `apps/uncoild/src/checks.rs` | read-only checks per feature, cached per connection; gate writes on experimental devices | via `Transport` |
@@ -79,13 +89,32 @@ More sections, each required by its feature: `[dpi]` (`min`, `max`, `storage`, `
 Unknown keys anywhere in a device file are errors, and every error names the file and the field
 (`devices/experimental/x.toml: [dpi]: min 200 must be above 0 and below max 100`).
 
+Device files are untrusted input (a user file runs in the daemon, and its values end up in HID reports, the
+log and the GUI), so values with a size or a fixed set of meanings are checked (`DeviceDef::validate`):
+
+- `vendor_id` must be Razer's `0x1532`; `id` is 1–64 characters of `[a-z0-9-]`, not starting with `-`.
+- `[[usb]]`: 1–8 endpoints, no product id twice, at most 8 `alt_usages`, `reply_wait_us` at most 100000,
+  and every transaction id one of `0x1F`, `0x3F`, `0x9F`, `0xFF`.
+- `[matrix]`: rows 1–32, cols 1–25 (a frame row must fit one report), with `names` matching that size.
+- `[layout]`: at most 16 key rows of 48 keys, at most 64 underglow LEDs per side or 64 `points`, and sizes
+  that are finite numbers within ±1000.
+- `[keymap]`: get/set must be `0x8D`/`0x0D` (keyboards) or `0x8C`/`0x0C` (mice); no key id twice.
+- `[hw_effects]`: at most 16 effects. `[dpi]`: `max` at most 50000, `stages_max` at most 5.
+  `[poll_rate]`: 1–8 rates the command can set.
+- Text: the device name at most 64 characters, key, LED, shape and effect names at most 32, layout key
+  names at most 48; none may contain control characters.
+
+A file in `%APPDATA%\uncoil\devices` without a `support` line is `experimental` (nobody vouched for it), so
+its writes wait for the read-only checks below. Files there larger than 1 MB are skipped.
+
 ### Every file is compiled in
 
 `crates/uncoil-core/build.rs` embeds every `devices/*.toml` and `devices/experimental/*.toml`, sorted by
 path, with comments and blank lines dropped, so a new device needs no Rust edit. The test
 `every_device_file_parses` parses all of them, checks that a file's folder matches its `support`, and that
 no id or product id is used twice. A file that fails to parse is left out at run time (and logged) rather
-than stopping the daemon. User files in `%APPDATA%\uncoil\devices` still override built-ins by id.
+than stopping the daemon. User files in `%APPDATA%\uncoil\devices` still override built-ins by id (and are
+experimental unless they set `support`).
 
 ### Support levels and read-only checks
 
@@ -108,7 +137,7 @@ until the device disconnects:
 | poll_rate | `00/85` or `00/C0` | a rate listed in `[poll_rate]` |
 | power | `07/80` + `07/84`, `07/83`, `07/81` (the enabled parts) | well-formed, idle 60–900 s, threshold `0x0C`–`0x3F` |
 | dial / oled | `17/80` / `17/83` | a known mode / a percentage |
-| lighting / hw_effects | `0F/80` regions | informational only: regions add up to the file's matrix; never blocks lighting |
+| lighting / hw_effects | `0F/80` regions | regions add up to the file's matrix; blocks only saving a firmware effect to the device (`storage: onboard`), never showing one or streaming lighting |
 
 A failed or not-yet-run check makes that feature's writes fail with code `check_failed` and a plain message
 ("uncoil couldn't confirm Razer DeathAdder V3 Pro answers the way it expects, so it won't change its DPI
@@ -150,7 +179,8 @@ logs each product id once, and publishes them as `status.unknown_devices` (`[{pr
 
 ## The control pipe
 
-`\\.\pipe\uncoil` (override with `UNCOIL_PIPE` for tests). One JSON object per line each way:
+`\\.\pipe\uncoil`. Only builds with the `fake` feature let `UNCOIL_PIPE` move it (development and tests);
+release builds ignore it. One JSON object per line each way:
 
 ```
 → {"id":1,"cmd":"keymap.get","device":"keyboard","args":{"key":"P","layer":"fn"}}
@@ -186,21 +216,35 @@ gets the typed values for free. Spec strings instead of tagged JSON objects, and
 | `power.get` | | `{battery_pct, charging, idle_s, idle_range, low_battery_pct, low_battery_range}` | |
 | `power.set` | `idle_s`, `low_battery_pct`, `write` | before / after | **yes** |
 
+`profile` is 1 to 5 (onboard profiles are numbered from 1; Razer devices keep at most 5); anything else is
+refused before a report is sent.
+
 A failed request is `{"id":…, "ok":false, "error":"<plain words>", "code":"<code>"}`; `code` is present
 only for `check_failed`, `left_click_guard` and `not_supported`. The desktop app's bridge turns it into the
-error text `"<code>: <plain words>"`, next to the existing `unreachable:` prefix.
+error text `"<code>: <plain words>"`, next to the existing `unreachable:` prefix. Errors that answer the
+connection rather than a request (`too many clients`, `request too long`) carry no `id`; `ipc::Client`
+treats such an error as the answer to whatever it is waiting for.
 
 Backups (`uncoil keymap export/import`) are built from `keymap.dump` / `keymap.set` on the client side.
 
 ## Who may talk to the daemon
 
-The daemon runs elevated (the logon task uses "highest privileges") as the logged-in user. The pipe's
-security descriptor is `D:P(A;;GA;;;<that user's SID>)S:(ML;;NW;;;ME)`: a protected DACL with a single
-allow entry for that user, and a medium integrity label so the same user's *unelevated* CLI and GUI can
-connect. Other users, services without that SID, and remote machines (`PIPE_REJECT_REMOTE_CLIENTS`) are
-refused. `FILE_FLAG_FIRST_PIPE_INSTANCE` makes the daemon refuse to share the name if another process
-created `\\.\pipe\uncoil` first: it logs `control pipe … unavailable` and keeps driving the lighting without
-a pipe. At most 8 clients at a time; request lines are capped at 64 KB.
+The daemon runs as the logged-in user, unelevated by default (elevated only with the `-Elevated` install).
+The pipe's security descriptor is `D:P(A;;GA;;;<that user's SID>)S:(ML;;NWNR;;;ME)`: a protected DACL with
+a single allow entry for that user, and a medium integrity label (no write up, no read up) so the same
+user's *unelevated* CLI and GUI can still connect to an elevated daemon. Other users, services without that
+SID, and remote machines (`PIPE_REJECT_REMOTE_CLIENTS`) are refused.
+
+The pipe is the single-instance lock. It is created with `FILE_FLAG_FIRST_PIPE_INSTANCE`, so if another
+uncoild, or any other program, already holds `\\.\pipe\uncoil`, the daemon logs
+`control pipe … unavailable (…): another uncoild, or another program, holds it; exiting` and exits before it
+opens a device.
+
+At most 8 clients at a time (the ninth gets `too many clients` and is disconnected); request lines are
+capped at 64 KB; a connection that sends no request for 5 minutes is closed. Clients (`ipc::Client`) open
+the pipe with identification-level impersonation only, so the daemon can tell who is calling but cannot act
+as them, and refuse a server whose process does not run as the same user (`something else is serving the
+uncoil pipe`). They read replies up to 1 MB.
 
 ## Commands run between frames
 
@@ -209,6 +253,13 @@ that arrives is run immediately (`exec::run`), then the thread goes back to wait
 So feature traffic never interleaves with a frame upload, the keyboard's "read every reply" quirk holds,
 and nothing polls: an idle daemon's control path costs no CPU (measured: 0 ms CPU over 20 s for the pipe
 server with two fake devices). A key-map dump holds the keyboard's animation for about half a second.
+
+A client waits up to 15 s for a device thread. A job the thread has not started within 10 s is dropped, not
+run, and answered with an error ("… was busy for too long; nothing was done"), so a GUI retry after a
+timeout cannot apply the same change twice.
+
+A device seen on two endpoints at once (cable and dongle) has two device threads. The first one registered
+serves commands; the second waits as a backup and takes over only when the first goes away.
 
 Firmware effects replace streamed frames: after `effect.hw` the renderer stops sending frames, re-applies
 the effect after the PC wakes, turns it off while the display is off, and checks every 2 s that the device
@@ -219,9 +270,12 @@ is still there. Any config change (or `effect.software`) brings back the softwar
 Every command that writes onboard memory is refused unless the request says `"write": true` (CLI:
 `--write`). When it runs, `exec` reads the current value, skips the write if it already matches, writes,
 reads back, and reports `before`, `after` and `verified`. Each write gets a line in `uncoild.log`
-(`ONBOARD WRITE …`) and a JSON line in `%LOCALAPPDATA%\uncoil\onboard-writes.jsonl`. `keymap.reset`
-restores the value from before uncoil's *first* write to that key (from the journal), falling back to the
-factory default in the device file.
+(`ONBOARD WRITE …`, or `ONBOARD WRITE NOT DONE …` when a confirmed write fails) and JSON lines in
+`%LOCALAPPDATA%\uncoil\onboard-writes.jsonl`, each with a `state`: `pending` (with the value from before)
+goes in before anything is sent, `done` after the read-back, and `failed` (with what was already applied)
+when a write of several reports stops part-way. `keymap.reset` restores the value from before uncoil's
+*first* write to that key (from the journal, including a `pending` entry), falling back to the factory
+default in the device file.
 
 ## Effects, layers and inputs
 
@@ -277,3 +331,6 @@ DPI / poll rate / power and per-group transaction ids took it from 1,015,296 to 
 measured 2026-10-03): about 146 KB was the 32 embedded device files (comments stripped; 29 of them
 experimental), about 171 KB code, mostly TOML and JSON (de)serialisers for the new sections and results.
 Deflating the device files into one blob (inflated once, on first use) brought it to 1,208,320 bytes.
+Running unelevated and treating device files and the pipe as untrusted (validation, the pipe idle timeout
+and server check, `winsec.rs`, the config-driven OpenRGB hand-off) took it to 1,257,472 bytes (about
+1.3 MB, measured 2026-10-03).

@@ -24,7 +24,8 @@ This is what uncoil runs when there is no config file at all:
   "fps": 30,
   "display": { "off_when_display_off": true, "dim_level": 0.35, "fade_s": 1.2 },
   "desk": {},
-  "openrgb_hardware_rainbow": true
+  "openrgb_hardware_rainbow": false,
+  "openrgb": { "devices": [] }
 }
 ```
 
@@ -38,7 +39,8 @@ This is what uncoil runs when there is no config file at all:
 | `fps` | integer | `30` | Frames per second sent to each device, clamped to 5–60. |
 | `display` | object | see below | How lighting follows the display. See [Display](#display). |
 | `desk` | object | `{}` | Where each device sits on the desk. See [Desk](#desk). |
-| `openrgb_hardware_rainbow` | boolean | `true` | Hand some non-Razer RGB to OpenRGB once at start. See [below](#openrgb_hardware_rainbow). |
+| `openrgb_hardware_rainbow` | boolean | `false` | Hand the devices in `openrgb` to OpenRGB once at logon. See [below](#openrgb_hardware_rainbow). |
+| `openrgb` | object | `{ "devices": [] }` | Which devices the OpenRGB hand-off sets, and to what. See [below](#openrgb_hardware_rainbow). |
 
 ## Effects
 
@@ -217,25 +219,51 @@ positions, a correct desk layout is what makes the bands line up from one device
 
 ## `openrgb_hardware_rainbow`
 
-On by default. When `true` and OpenRGB is installed at `C:\Program Files\OpenRGB\OpenRGB.exe`, uncoild runs
-it once at start to put the motherboard, GPU and RAM on their own built-in rainbow effects, then OpenRGB
-exits. If OpenRGB is already running, uncoild closes it first. uncoil does not drive those devices itself. If
-iCUE is running, the RAM is skipped, because RAM lighting shares the SMBus with iCUE and writing it from two
-programs at once is a bad idea.
+Off by default. uncoil does not drive non-Razer hardware itself, but it can ask OpenRGB, once at logon, to put
+the motherboard, GPU and RAM on their own built-in (hardware) effects; OpenRGB then exits. This needs three
+things:
 
-The devices it targets are fixed in `apps/uncoild/src/openrgb.rs` today, by OpenRGB device-name substring:
-`ASUS ROG STRIX` (rainbow), `GeForce` (wave) and `Vengeance` (rainbow wave). Hardware with other names is left
-alone. If you don't want this, set the key to `false`.
+1. OpenRGB installed at `C:\Program Files\OpenRGB\OpenRGB.exe`.
+2. The `-OpenRgb` install (`scripts\install-task.ps1 -OpenRgb`), which registers the elevated
+   **uncoil-openrgb** task and the administrators-only folder OpenRGB keeps its settings in
+   (`%ProgramData%\uncoil\openrgb`). RAM lighting sits on the SMBus, which needs administrator rights, so the
+   unelevated daemon can't do this itself. (A daemon installed with `-Elevated` does the hand-off itself at
+   start.)
+3. `"openrgb_hardware_rainbow": true` and at least one entry in `openrgb.devices`. There is no built-in
+   device list.
 
-This key is read at start only; restart the task after changing it.
+```json
+"openrgb_hardware_rainbow": true,
+"openrgb": {
+  "devices": [
+    { "match": "ASUS", "mode": "rainbow" },
+    { "match": "Vengeance", "mode": "rainbow wave", "ram": true }
+  ]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `match` | Part of the device name as OpenRGB lists it (passed to `OpenRGB.exe -d`). |
+| `mode` | The OpenRGB mode to put it in (passed to `-m`). |
+| `ram` | `true` for RAM on the SMBus: skipped while Corsair iCUE runs, because both would write the same bus. Default `false`. |
+
+`match` and `mode` must be plain names: 1 to 64 letters, digits, spaces and `-_.()+#&:/`, not starting with
+`-` or a space and not ending with a space. Anything else is skipped, so a config entry can never become an
+OpenRGB option. If OpenRGB is already running in your session, it is closed first.
+
+The task runs at logon, so a change takes effect at your next logon (with `-Elevated`, when the daemon
+restarts). The task writes no log; its result is the task's **Last Run Result** in Task Scheduler: `0` done,
+`1` turned off or nothing configured, `2` failed (see [Troubleshooting](/docs/troubleshooting/#icue-openrgb-and-signalrgb)).
 
 ## Other files
 
 | Path | Written by | Contents |
 |---|---|---|
 | `%APPDATA%\uncoil\config.json` | you, the app | Settings (this page). |
-| `%APPDATA%\uncoil\devices\*.toml` | you | Extra or overriding [device definitions](/docs/devices/#adding-a-device), read at start. |
+| `%APPDATA%\uncoil\devices\*.toml` | you | Extra or overriding [device definitions](/docs/devices/#adding-a-device), read at start. Experimental unless the file sets `support`; files over 1 MB are skipped. |
 | `%LOCALAPPDATA%\uncoil\status.json` | uncoild, every 2 s | Running devices, fps, retries, errors, and the daemon's own memory, CPU and size. |
 | `%LOCALAPPDATA%\uncoil\uncoild.log` | uncoild | Device opens and losses, display changes, reloads, writes to device memory. Trimmed past 256 KB. |
 | `%LOCALAPPDATA%\uncoil\onboard-writes.jsonl` | uncoild | One line per write to a device's own memory. `keymap reset` uses it to restore a key's value from before uncoil first wrote it. |
-| `%ProgramFiles%\uncoil\uncoild.exe` | install script | The installed daemon. |
+| `%ProgramFiles%\uncoil\uncoild.exe` | install script | The installed daemon (`install.log` next to it says what the last install did). |
+| `%ProgramData%\uncoil\openrgb` | OpenRGB | OpenRGB's settings for the hand-off; administrators only. Created by `-OpenRgb` or `-Elevated` installs. |

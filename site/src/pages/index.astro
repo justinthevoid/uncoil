@@ -15,7 +15,7 @@ const ledger = [
 	{ k: 'Processes', uncoil: '1', unit: '', synapse: '17' },
 	{ k: 'Memory', uncoil: '~3', unit: 'MB', synapse: '~1.4 GB at start, leaking' },
 	{ k: 'CPU while animating', uncoil: '<1%', unit: 'of one core', synapse: '~7% of one core' },
-	{ k: 'Install size', uncoil: '1.2', unit: 'MB', synapse: '~500 MB' },
+	{ k: 'Install size', uncoil: '1.3', unit: 'MB', synapse: '~500 MB' },
 ];
 
 const features = [
@@ -60,11 +60,11 @@ const faq = [
 	},
 	{
 		q: 'Does it work alongside OpenRGB, SignalRGB or iCUE?',
-		a: `Leave the Razer devices to uncoil; any other app driving them will fight it for the LEDs. For the rest of the PC, uncoil can run OpenRGB once at start (on by default, if OpenRGB is installed) to put the motherboard, GPU and RAM on their own hardware rainbow, and skips the RAM while iCUE is running because they share the SMBus. Which devices it targets is fixed in the code today; see <a href="${url('docs/configuration/#openrgb_hardware_rainbow')}">configuration</a>.`,
+		a: `Leave the Razer devices to uncoil; any other app driving them will fight it for the LEDs. For the rest of the PC, uncoil can run OpenRGB once at logon (off by default; you list the devices in the config and install with <code>-OpenRgb</code>) to put the motherboard, GPU and RAM on their own hardware modes, and skips the RAM while iCUE is running because they share the SMBus. See <a href="${url('docs/configuration/#openrgb_hardware_rainbow')}">configuration</a>.`,
 	},
 	{
-		q: 'Why does the logon task run elevated?',
-		a: 'Only so the optional OpenRGB hand-off can reach RAM over SMBus. The daemon itself talks to Razer devices as plain user-mode HID. There is no service and no kernel driver.',
+		q: 'Does it need administrator rights?',
+		a: 'Once, to copy the executable into Program Files. The daemon runs as you, unelevated, and talks to Razer devices as plain user-mode HID. Only the optional OpenRGB hand-off runs elevated, from its own one-shot logon task, because RAM lighting sits on the SMBus. There is no service and no kernel driver.',
 	},
 	{
 		q: 'Does it phone home?',
@@ -82,12 +82,12 @@ const shotAlt =
 ---
 
 <Base
-	title="uncoil: a 1.2 MB replacement for Razer Synapse"
+	title="uncoil: a 1.3 MB replacement for Razer Synapse"
 	description="uncoil runs the lighting on Razer keyboards, mice and mats from one small background process on Windows. Open source, GPL-3.0. Measured on one PC: ~3 MB RAM, under 1% of one core."
 >
 	<section id="top" class="hero wrap" aria-labelledby="hero-title">
 		<div class="hero-top">
-			<h1 id="hero-title">A 1.2&nbsp;MB replacement for Razer Synapse.</h1>
+			<h1 id="hero-title">A 1.3&nbsp;MB replacement for Razer Synapse.</h1>
 			<div class="hero-side">
 				<p class="lede">
 					uncoil runs the lighting on your Razer keyboard, mouse and mat from one small background process on Windows.
@@ -136,7 +136,7 @@ const shotAlt =
 			</dl>
 			<p class="fine">
 				A Ryzen desktop with a BlackWidow V4 Pro 75%, Basilisk V3 Pro and Goliathus Chroma Extended, where Synapse’s
-				memory grew to several GB over a few days. Memory and CPU were measured on an earlier build. One machine; yours will differ.
+				memory grew to several GB over a few days. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-03 (1,257,472 bytes). One machine; yours will differ.
 			</p>
 		</div>
 	</section>
@@ -176,7 +176,7 @@ const shotAlt =
 			</div>
 			<p class="prose-ink also">
 				Also: a command line, <code>uncoil</code>, for everything the app does with devices; and an optional one-shot
-				hand-off (on by default) of motherboard, GPU and RAM lighting to their own hardware rainbow via OpenRGB, so the
+				hand-off (off by default) of motherboard, GPU and RAM lighting to their own hardware modes via OpenRGB, so the
 				rest of the case matches without anything else running.
 			</p>
 		</div>

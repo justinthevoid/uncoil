@@ -25,10 +25,11 @@ Chroma Extended):
 | Processes | 17 | 1 |
 | Memory | ~1.4 GB at start, leaking to several GB over days | ~3 MB |
 | CPU, idle animation | ~7% of one core | under 1% of one core |
-| On disk | ~500 MB | 1.2 MB, one executable |
+| On disk | ~500 MB | 1.3 MB, one executable |
 | Kernel drivers | yes | none |
 
-That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-03.
+That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-03
+(1,257,472 bytes).
 uncoild measures itself and writes the numbers to `%LOCALAPPDATA%\uncoil\status.json` (`uncoil status` prints
 them), so you can check yours.
 
@@ -57,7 +58,7 @@ the above occasionally, you can install Synapse, make the change, quit it proper
 If it is a Razer device that OpenRGB or OpenRazer already knows, probably, and adding it is mostly a
 [data file](/docs/devices/#adding-a-device). 29 such devices already have an
 [experimental](/docs/devices/#experimental) file waiting for someone with the hardware to confirm it. Anything else is out of scope: uncoil drives Razer devices, and
-hands the rest of the PC to OpenRGB once at start.
+can hand the rest of the PC to OpenRGB once at logon if you set that up.
 
 ## Does it collect anything?
 
@@ -65,10 +66,13 @@ No. There is no account, no telemetry, no network access and no updater. It read
 writes a status file, a small log and a record of writes to device memory under your profile, talks to USB
 devices, and answers the app and the CLI over a local named pipe that only your user account can open.
 
-## Why is the logon task elevated?
+## Does it need administrator rights?
 
-Only for the optional OpenRGB hand-off, which needs administrator rights to reach RAM lighting over SMBus.
-uncoild's own device access is plain user-mode HID.
+Once, to install: the executable goes to `%ProgramFiles%\uncoil`, where only administrators can write. The
+daemon itself runs as you, unelevated; its device access is plain user-mode HID. Only the optional OpenRGB
+hand-off runs elevated, from its own one-shot task (`install-task.ps1 -OpenRgb`), because RAM lighting sits on
+the SMBus, which needs administrator rights. `-Elevated` runs the whole daemon elevated, as a fallback for a
+PC where it cannot open its devices otherwise.
 
 ## Windows only?
 

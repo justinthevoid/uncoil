@@ -1,7 +1,7 @@
 # uncoil
 
 **A small, open-source lighting daemon for Razer peripherals on Windows. It does the part of Synapse you
-actually use, in one 1.2 MB process.**
+actually use, in one 1.3 MB process.**
 
 [![CI](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml/badge.svg)](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-f2f2f2?style=flat-square&labelColor=0b0b0b)](LICENSE)
@@ -17,12 +17,12 @@ actually use, in one 1.2 MB process.**
 | Processes | 17 | **1** |
 | Memory | ~1.4 GB at start, leaking to multiple GB over days | **~3 MB** private |
 | CPU, idle after startup | ~7% of a core | **<1%** of one core |
-| Install size | ~500 MB | **1.2 MB**, single executable |
+| Install size | ~500 MB | **1.3 MB**, single executable |
 | Kernel drivers | yes | **none**, plain user-mode HID |
 
 <sub>Measured on the maintainer's PC (Windows 11, BlackWidow V4 Pro 75%, Basilisk V3 Pro, Goliathus Chroma
 Extended, rainbow wave running); memory and CPU on an earlier build, size on the build of 2026-10-03
-(1,208,320 bytes). One machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
+(1,257,472 bytes). One machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
 and size in `status.json`, so you can check yours.</sub>
 
 No services, no account, no telemetry; the daemon makes no network connections. The optional desktop app
@@ -52,11 +52,11 @@ app is opened when you want to change something and closed again. The daemon doe
   dial work even when uncoil isn't running.
 - **A command line,** `uncoil`, for status, devices, key maps (with TOML backups), the dial, the screen,
   firmware effects, DPI, polling rate and power. Run `uncoil help` for the full list.
-- **Optional, on by default:** a one-shot hand-off of motherboard, GPU and RAM RGB to their own hardware
-  rainbow via [OpenRGB](https://openrgb.org), if it is installed at `C:\Program Files\OpenRGB`. The device
-  names it targets are fixed in `apps/uncoild/src/openrgb.rs` today (an ASUS ROG Strix board, a GeForce card,
-  Corsair Vengeance RAM), and it closes a running OpenRGB first. Turn it off with
-  `"openrgb_hardware_rainbow": false` in the config.
+- **Optional, off by default:** a one-shot hand-off of motherboard, GPU and RAM RGB to their own hardware
+  modes via [OpenRGB](https://openrgb.org), if it is installed at `C:\Program Files\OpenRGB`. You list the
+  devices and modes in the config (`openrgb.devices`; there are no built-in names) and install with
+  `-OpenRgb`, which adds a small elevated task that runs it once at logon. It closes a running OpenRGB in
+  your session first. See [configuration](site/src/content/docs/docs/configuration.md#openrgb_hardware_rainbow).
 
 ## Screenshots
 
@@ -109,19 +109,30 @@ in normal mode when it connects, so the dial and media keys come back.
 powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
 ```
 
-The script self-elevates (one UAC prompt), copies `uncoild.exe` to `%ProgramFiles%\uncoil` (admin-only,
-because the task runs elevated), registers a logon task named `uncoil` and starts it. The task runs elevated
-so OpenRGB can reach RAM lighting over SMBus; see [SECURITY.md](SECURITY.md) for what that implies. The
-script installs only the daemon: the `uncoil` CLI (`target\release\uncoil.exe`) runs from wherever you put
-it, and the desktop app has its own installer.
+The daemon runs as you, **unelevated**. The script asks for one UAC prompt only to copy `uncoild.exe` to
+`%ProgramFiles%\uncoil`, where only administrators can write (so no program running as you can swap it); it
+checks the copy's SHA-256, registers a logon task named `uncoil` and starts it. Two options:
+
+- `-OpenRgb` also registers `uncoil-openrgb`, an elevated task that runs once at logon to hand motherboard,
+  GPU and RAM lighting to OpenRGB (RAM sits on the SMBus, which needs administrator rights), and creates the
+  admin-only folder `%ProgramData%\uncoil\openrgb` for OpenRGB's settings. It does nothing until you turn
+  the hand-off on in the config.
+- `-Elevated` runs the daemon itself elevated, as older installs did. It is a fallback for a PC where the
+  daemon cannot open its devices unelevated (none seen so far).
+
+See [SECURITY.md](SECURITY.md) for what runs elevated and why. The script installs only the daemon: the
+`uncoil` CLI (`target\release\uncoil.exe`) runs from wherever you put it, and the desktop app has its own
+installer.
 
 To remove it:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # task and binary
+powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # both tasks, the binary, %ProgramData%\uncoil
 Remove-Item -Recurse "$env:LOCALAPPDATA\uncoil"   # status, log and the onboard-write journal
 Remove-Item -Recurse "$env:APPDATA\uncoil"        # your settings and extra device files
 ```
+
+The uninstaller removes nothing in your user profile; the last two lines are for a clean slate.
 
 Anything uncoil wrote into a device's own memory (key maps, a saved firmware effect, DPI stages) stays there.
 
@@ -134,7 +145,8 @@ Anything uncoil wrote into a device's own memory (key maps, a saved firmware eff
 | `%LOCALAPPDATA%\uncoil\status.json` | live device and engine status, read by the app |
 | `%LOCALAPPDATA%\uncoil\uncoild.log` | daemon log, trimmed at 256 KB |
 | `%LOCALAPPDATA%\uncoil\onboard-writes.jsonl` | one line per write to a device's memory; `keymap reset` restores from it |
-| `%ProgramFiles%\uncoil\uncoild.exe` | the installed daemon |
+| `%ProgramFiles%\uncoil\uncoild.exe` | the installed daemon (and `install.log`, what the last install did) |
+| `%ProgramData%\uncoil\openrgb` | OpenRGB's settings for the hand-off, administrators only (`-OpenRgb` or `-Elevated` installs) |
 
 ## Build from source
 
@@ -165,7 +177,7 @@ for design work without hardware.
 ```
 crates/uncoil-core    protocol, colour, effects, device definitions, desk layout, pipe types (pure, unit-tested)
 crates/uncoil-hid     USB HID transport with per-device quirks; display-power watcher; key and audio listeners
-apps/uncoild          background daemon (no window); serves the control pipe \.\pipe\uncoil
+apps/uncoild          background daemon (no window); serves the control pipe \\.\pipe\uncoil
 apps/uncoil-cli       the `uncoil` command line, a client of that pipe
 apps/uncoil           desktop app: Tauri 2 + SvelteKit + Tailwind; its preview runs the real effect code
 devices/*.toml        one data file per device: USB endpoints, quirks, LED matrix, physical layout

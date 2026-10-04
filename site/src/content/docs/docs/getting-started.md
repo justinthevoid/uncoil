@@ -10,7 +10,8 @@ start it at logon. This page does both, and covers the one step that can go wron
 
 - Windows 10 or 11.
 - At least one [supported or experimental device](/docs/devices/), on its cable or dongle.
-- PowerShell (part of Windows) and administrator rights once, to register the logon task.
+- PowerShell (part of Windows) and administrator rights once, to copy the executable to `%ProgramFiles%`.
+  The daemon itself runs as you, unelevated.
 - Until there is a release: Git and [Rust](https://rustup.rs) with the Visual Studio C++ build tools.
 
 ## 1. Get uncoild
@@ -64,14 +65,29 @@ With no arguments it installs `target\release\uncoild.exe`. To install an `uncoi
 
 The script asks for elevation (one UAC prompt), then:
 
-- stops any running `uncoild` and copies the executable to `%ProgramFiles%\uncoil\uncoild.exe`, a folder only
-  administrators can write (the task runs elevated, so its binary must not be swappable by other programs);
-- registers a scheduled task named **uncoil** that starts it at your logon (after a 5 second delay), with no
-  time limit, restarting it up to five times a minute apart if it exits;
+- stops any running `uncoild` in your session and copies the executable to `%ProgramFiles%\uncoil\uncoild.exe`,
+  a folder only administrators can write, so no program running as you can swap it; it checks the copy's
+  SHA-256 against the original;
+- registers a scheduled task named **uncoil** that starts it at your logon (after a 5 second delay),
+  **unelevated**, with no time limit, restarting it up to five times a minute apart if it exits;
 - starts the task straight away.
 
-The task runs elevated only so the optional [OpenRGB hand-off](/docs/configuration/#openrgb_hardware_rainbow)
-can reach RAM lighting over SMBus. uncoild itself talks to Razer devices as ordinary user-mode HID.
+What it did is written to `%ProgramFiles%\uncoil\install.log` and shown at the end.
+
+uncoild talks to Razer devices as ordinary user-mode HID and needs no administrator rights. Two options
+change that:
+
+- **`-OpenRgb`** also registers **uncoil-openrgb**, an elevated task that runs `uncoild --openrgb-once`
+  once at logon (after 10 seconds) for the [OpenRGB hand-off](/docs/configuration/#openrgb_hardware_rainbow),
+  which needs administrator rights to reach RAM lighting over SMBus. It also creates
+  `%ProgramData%\uncoil\openrgb`, an administrators-only folder for OpenRGB's settings. The task does nothing
+  until the hand-off is turned on in the config. Running the script again without `-OpenRgb` removes it.
+- **`-Elevated`** runs the daemon itself elevated, as installs before this option did. It is a fallback for
+  a PC where uncoild cannot open its devices unelevated; none has been seen so far.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1 -OpenRgb
+```
 
 ## 4. First run
 
@@ -106,17 +122,22 @@ runs the defaults. Every key is listed under [Configuration](/docs/configuration
 
 ## Update
 
-Run the install script again with the new `uncoild.exe`. It stops the running copy before replacing it.
+Run the install script again with the new `uncoild.exe`. It stops the running copy before replacing it. Pass
+the same options as before: without `-OpenRgb`, an existing **uncoil-openrgb** task is removed.
 
 ## Uninstall
 
 From the source checkout (or the folder with a release's `uninstall-task.ps1`, once there is one):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # task and executable (asks for elevation)
+powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # tasks and executable (asks for elevation)
 Remove-Item -Recurse "$env:LOCALAPPDATA\uncoil"   # status file, log and the onboard-write journal
 Remove-Item -Recurse "$env:APPDATA\uncoil"        # your settings and any extra device files
 ```
+
+The uninstall script removes both tasks (**uncoil** and **uncoil-openrgb**), `%ProgramFiles%\uncoil` and
+OpenRGB's settings folder `%ProgramData%\uncoil`. It deletes nothing in your user profile: the two
+`Remove-Item` lines are for a clean slate, and you run them yourself.
 
 uncoil leaves devices in normal mode, so the keys, dial and media controls keep working afterwards. Anything
 written to a device's own memory (key remaps, a saved firmware effect, DPI stages) stays there until
