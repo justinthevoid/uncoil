@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 uncoil-core.workspace = true
 uncoil-hid.workspace = true
+uncoil-openrgb.workspace = true
 hidapi.workspace = true
 anyhow.workspace = true
 serde.workspace = true
@@ -29,4 +30,6 @@ windows-sys = { version = "0.59", features = [
   "Win32_Storage_FileSystem",
   "Win32_System_RemoteDesktop",
   "Win32_System_SystemInformation",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_JobObjects",
 ] }

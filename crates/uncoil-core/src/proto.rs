@@ -218,7 +218,9 @@ pub enum CommandGroup {
     Power,
     /// `07/01`, `07/81`.
     LowBattery,
-    /// `00/04`, `00/84`, `00/81`, `00/82`.
+    /// `02/14`, `02/94`, `02/16`, `02/96`, `02/17`, `02/97` (scroll wheel).
+    Scroll,
+    /// `00/04`, `00/84`, `00/81`, `00/82`, `00/86`.
     Device,
     /// Anything else: always the endpoint's `transaction_id`.
     Other,
@@ -231,12 +233,13 @@ impl CommandGroup {
             (0x0F, 0x02) if r.args.get(2) == Some(&0x08) => CommandGroup::Frame,
             (0x0F, _) => CommandGroup::Effect,
             (0x02, 0x0D | 0x8D | 0x0C | 0x8C | 0x84) => CommandGroup::Keymap,
+            (0x02, 0x14 | 0x94 | 0x16 | 0x96 | 0x17 | 0x97) => CommandGroup::Scroll,
             (0x05, _) => CommandGroup::Profile,
             (0x04, 0x05 | 0x85 | 0x06 | 0x86) => CommandGroup::Dpi,
             (0x00, 0x05 | 0x85 | 0x40 | 0xC0) => CommandGroup::Poll,
             (0x07, 0x01 | 0x81) => CommandGroup::LowBattery,
             (0x07, 0x80 | 0x84 | 0x03 | 0x83) => CommandGroup::Power,
-            (0x00, 0x04 | 0x84 | 0x81 | 0x82) => CommandGroup::Device,
+            (0x00, 0x04 | 0x84 | 0x81 | 0x82 | 0x86) => CommandGroup::Device,
             _ => CommandGroup::Other,
         }
     }
@@ -339,7 +342,9 @@ mod tests {
         assert_eq!(G::of(&effect_wave(1, 1, 0x28)), G::Effect);
         assert_eq!(G::of(&Report::new(1, 0x0F, 0x80, &[])), G::Effect);
         assert_eq!(G::of(&Report::new(1, 0x02, 0x8D, &[1, 26, 0])), G::Keymap);
-        assert_eq!(G::of(&Report::new(1, 0x02, 0x14, &[1, 0])), G::Other, "scroll mode is not a key map command");
+        assert_eq!(G::of(&Report::new(1, 0x02, 0x14, &[1, 0])), G::Scroll, "scroll mode is not a key map command");
+        assert_eq!(G::of(&Report::new(1, 0x02, 0x97, &[1])), G::Scroll);
+        assert_eq!(G::of(&Report::new(1, 0x00, 0x86, &[])), G::Device);
         assert_eq!(G::of(&Report::new(1, 0x05, 0x81, &[])), G::Profile);
         assert_eq!(G::of(&Report::new(1, 0x04, 0x86, &[1])), G::Dpi);
         assert_eq!(G::of(&Report::new(1, 0x00, 0xC0, &[])), G::Poll);

@@ -19,19 +19,69 @@ pub struct Config {
     pub display: DisplayPolicy,
     /// Desk position per device id; missing devices use `layout::default_placement`.
     pub desk: HashMap<String, Placement>,
-    /// Hand non-Razer RGB (motherboard, GPU, RAM) to OpenRGB once at logon: OpenRGB puts each device in
-    /// `openrgb.devices` on its own hardware mode and exits. Off by default. Needs OpenRGB installed and, for
-    /// RAM over SMBus, the elevated `uncoil-openrgb` task (`scripts\install-task.ps1 -OpenRgb`).
+    /// Older configs' switch for the hardware hand-off: `true` means `openrgb.mode = "hardware"` when
+    /// `openrgb.mode` is not set. Use [`Config::openrgb_mode`]; `openrgb.mode` wins when both are there.
     pub openrgb_hardware_rainbow: bool,
-    /// What the OpenRGB hand-off sets. Empty by default: there is no built-in device list.
+    /// What uncoil does with OpenRGB (motherboard, GPU, RAM). Off by default, with no built-in device list.
     pub openrgb: OpenRgb,
 }
 
-/// `openrgb` in `config.json`.
+/// How uncoil uses OpenRGB for the PC's other lighting.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OpenRgbMode {
+    #[default]
+    Off,
+    /// Once at logon, OpenRGB puts each device in `openrgb.devices` on its own hardware mode and exits.
+    Hardware,
+    /// OpenRGB runs as a local SDK server and the daemon sends it the desk effect, frame by frame.
+    Live,
+}
+
+/// `openrgb` in `config.json`. Both modes need OpenRGB installed and the elevated `uncoil-openrgb` task
+/// (`scripts\install-task.ps1 -OpenRgb`): RAM and many boards sit on the SMBus, which needs administrator
+/// rights.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OpenRgb {
+    /// Not set: "off", or "hardware" for an older config with `openrgb_hardware_rainbow: true`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<OpenRgbMode>,
+    /// Hardware mode: the devices and the hardware mode for each.
     pub devices: Vec<OpenRgbDevice>,
+    /// Live mode settings; defaults when not set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live: Option<OpenRgbLive>,
+}
+
+/// `openrgb.live`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OpenRgbLive {
+    /// The SDK server's port on 127.0.0.1 (1024-65535). uncoil's task starts OpenRGB on it; the daemon
+    /// connects to it.
+    pub port: u16,
+    /// OpenRGB devices to leave alone: any whose name contains one of these (ignoring case).
+    pub exclude: Vec<String>,
+}
+
+impl Default for OpenRgbLive {
+    fn default() -> Self {
+        OpenRgbLive { port: 6742, exclude: Vec::new() }
+    }
+}
+
+impl OpenRgbLive {
+    /// The port, if it is one OpenRGB accepts (1024-65535).
+    pub fn valid_port(&self) -> Option<u16> {
+        (self.port >= 1024).then_some(self.port)
+    }
+
+    /// Is this OpenRGB device excluded by name?
+    pub fn excludes(&self, name: &str) -> bool {
+        let name = name.to_lowercase();
+        self.exclude.iter().map(|e| e.trim().to_lowercase()).any(|e| !e.is_empty() && name.contains(&e))
+    }
 }
 
 /// One OpenRGB device and the hardware mode to put it in, e.g.
@@ -96,6 +146,20 @@ impl Default for Config {
 }
 
 impl Config {
+    /// What uncoil does with OpenRGB: `openrgb.mode`, else the older `openrgb_hardware_rainbow` switch.
+    pub fn openrgb_mode(&self) -> OpenRgbMode {
+        match self.openrgb.mode {
+            Some(m) => m,
+            None if self.openrgb_hardware_rainbow => OpenRgbMode::Hardware,
+            None => OpenRgbMode::Off,
+        }
+    }
+
+    /// `openrgb.live`, or its defaults.
+    pub fn openrgb_live(&self) -> OpenRgbLive {
+        self.openrgb.live.clone().unwrap_or_default()
+    }
+
     pub fn dir() -> PathBuf {
         let base = std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
         base.join("uncoil")
@@ -161,6 +225,12 @@ pub struct Status {
     /// Razer devices (vendor 0x1532) on the bus that no device definition knows.
     #[serde(default)]
     pub unknown_devices: Vec<UnknownDevice>,
+    /// Other programs running that drive the same devices (known program names only).
+    #[serde(default)]
+    pub conflicts: Vec<crate::ipc::Conflict>,
+    /// The live OpenRGB client.
+    #[serde(default)]
+    pub openrgb: crate::ipc::OpenRgbStatus,
 }
 
 /// A Razer device uncoil has no definition for: its product id and the HID interface numbers it shows.
@@ -228,6 +298,33 @@ mod tests {
         );
         let back = serde_json::to_string(&new.openrgb.devices[0]).unwrap();
         assert_eq!(back, r#"{"match":"GeForce","mode":"wave"}"#);
+    }
+
+    #[test]
+    fn openrgb_mode_reads_old_and_new_configs() {
+        let mode = |json: &str| serde_json::from_str::<Config>(json).unwrap().openrgb_mode();
+        assert_eq!(Config::default().openrgb_mode(), OpenRgbMode::Off);
+        assert_eq!(mode(r#"{"openrgb_hardware_rainbow": true}"#), OpenRgbMode::Hardware);
+        assert_eq!(mode(r#"{"openrgb": {"mode": "live"}}"#), OpenRgbMode::Live);
+        // an explicit mode wins over the old switch, both ways
+        assert_eq!(mode(r#"{"openrgb_hardware_rainbow": true, "openrgb": {"mode": "off"}}"#), OpenRgbMode::Off);
+        assert_eq!(
+            mode(r#"{"openrgb_hardware_rainbow": false, "openrgb": {"mode": "hardware"}}"#),
+            OpenRgbMode::Hardware
+        );
+        assert!(serde_json::from_str::<Config>(r#"{"openrgb": {"mode": "loud"}}"#).is_err());
+        // the default config writes nothing new (the app's mock mirrors it)
+        let json = serde_json::to_value(Config::default()).unwrap();
+        assert_eq!(json["openrgb"], serde_json::json!({"devices": []}));
+        // live settings: defaults, port check, exclusions by part of the name
+        let c: Config =
+            serde_json::from_str(r#"{"openrgb": {"mode": "live", "live": {"exclude": ["vengeance", " "]}}}"#).unwrap();
+        let live = c.openrgb_live();
+        assert_eq!(live.port, 6742);
+        assert!(live.excludes("Corsair Vengeance Pro RGB"));
+        assert!(!live.excludes("ASUS ROG STRIX B550-F GAMING (WI-FI)"));
+        assert_eq!(OpenRgbLive { port: 80, exclude: vec![] }.valid_port(), None);
+        assert_eq!(Config::default().openrgb_live(), OpenRgbLive::default());
     }
 
     #[test]

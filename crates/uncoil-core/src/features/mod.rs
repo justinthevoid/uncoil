@@ -11,11 +11,13 @@
 
 pub mod dial;
 pub mod hw_effect;
+pub mod info;
 pub mod keymap;
 pub mod oled;
 pub mod performance;
 pub mod power;
 pub mod profile;
+pub mod scroll;
 
 use serde::{Deserialize, Serialize};
 
@@ -41,10 +43,12 @@ pub enum Feature {
     PollRate,
     /// Battery, charging, sleep timer and low-battery threshold (`[power]`).
     Power,
+    /// Scroll wheel: tactile / free spin, acceleration, Smart Reel (`[scroll]`).
+    Scroll,
 }
 
 impl Feature {
-    pub const ALL: [Feature; 9] = [
+    pub const ALL: [Feature; 10] = [
         Feature::Lighting,
         Feature::HwEffects,
         Feature::Keymap,
@@ -54,6 +58,7 @@ impl Feature {
         Feature::Dpi,
         Feature::PollRate,
         Feature::Power,
+        Feature::Scroll,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -67,6 +72,7 @@ impl Feature {
             Feature::Dpi => "dpi",
             Feature::PollRate => "poll_rate",
             Feature::Power => "power",
+            Feature::Scroll => "scroll",
         }
     }
 }

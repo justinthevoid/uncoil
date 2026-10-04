@@ -9,6 +9,8 @@ use uncoil_core::config::UnknownDevice;
 use uncoil_core::device::{DeviceDef, UsbEndpoint};
 use uncoil_core::proto::{self, DeviceMode, Reply, Report, Status, Transport, WIRE_LEN};
 
+use crate::guard;
+
 /// Razer's USB vendor id.
 pub use uncoil_core::device::RAZER_VID;
 
@@ -143,8 +145,13 @@ impl LiveDevice {
         self.endpoint.reply_wait_us.map_or(default, |us| Duration::from_micros(us as u64))
     }
 
-    /// Send a report and read the device's reply status.
+    /// Send a report and read the device's reply status (under the Razer device lock).
     pub fn ask(&mut self, r: &Report) -> Result<Status> {
+        let def = self.def.clone();
+        guard::razer().for_command(&def.name, || self.ask_unlocked(r))
+    }
+
+    fn ask_unlocked(&mut self, r: &Report) -> Result<Status> {
         self.dev.send_feature_report(&self.endpoint.wire(r))?;
         sleep(self.reply_wait(Duration::from_millis(2)));
         let mut buf = [0u8; WIRE_LEN];
@@ -152,8 +159,9 @@ impl LiveDevice {
         Ok(proto::reply_status(&buf))
     }
 
-    /// Send a report the way this device needs it: fire-and-forget, or acknowledged with busy-retry.
-    pub fn send(&mut self, r: &Report) -> Result<()> {
+    /// Send a report the way this device needs it: fire-and-forget, or acknowledged with busy-retry. The
+    /// caller holds the Razer device lock.
+    fn send(&mut self, r: &Report) -> Result<()> {
         let wire = self.endpoint.wire(r);
         if !self.def.quirks.ack_every_report {
             self.dev.send_feature_report(&wire)?;
@@ -180,12 +188,17 @@ impl LiveDevice {
         Ok(())
     }
 
-    /// Upload one full frame. `color(row, col)` returns the colour for that matrix slot. Sends nothing to a
-    /// device that does not stream frames.
-    pub fn send_frame(&mut self, mut color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<()> {
-        if !self.def.streams_frames() {
-            return Ok(());
+    /// Upload one full frame under the Razer device lock. `color(row, col)` returns the colour for that
+    /// matrix slot. `Ok(false)`: nothing sent, because the device does not stream frames or another
+    /// program held the lock (the frame is skipped).
+    pub fn send_frame(&mut self, color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<bool> {
+        if !self.def.streams_frames() || self.def.matrix.is_none() {
+            return Ok(false);
         }
+        Ok(guard::razer().for_frame(|| self.send_frame_unlocked(color))?.is_some())
+    }
+
+    fn send_frame_unlocked(&mut self, mut color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<()> {
         let Some(m) = self.def.matrix.as_ref() else { return Ok(()) };
         let (rows, cols) = (m.rows, m.cols);
         let tid = self.tid();
@@ -206,8 +219,14 @@ impl LiveDevice {
     ///
     /// Busy / not-yet-processed replies and replies to a different command are re-read with growing pauses;
     /// after six reads the request is sent again (all commands uncoil sends are idempotent). Within uncoild
-    /// only the device's own thread calls this, between frames.
+    /// only the device's own thread calls this, between frames. The whole exchange runs under the Razer
+    /// device lock, so another program's reports cannot land between the request and its reply.
     pub fn query(&mut self, r: &Report) -> Result<Reply> {
+        let def = self.def.clone();
+        guard::razer().for_command(&def.name, || self.query_unlocked(r))
+    }
+
+    fn query_unlocked(&mut self, r: &Report) -> Result<Reply> {
         let wire = self.endpoint.wire(r);
         let mut buf = [0u8; WIRE_LEN];
         let mut last = None;
@@ -238,9 +257,13 @@ impl LiveDevice {
         }
     }
 
-    /// Put the device back in firmware mode (best effort; used on shutdown).
+    /// Put the device back in firmware mode (best effort; used on shutdown). Sent even when the Razer
+    /// device lock stays busy: leaving the device in driver mode is worse.
     pub fn release(&mut self) {
-        let _ = self.ask(&proto::set_device_mode(self.tid(), DeviceMode::Normal));
+        let r = proto::set_device_mode(self.tid(), DeviceMode::Normal);
+        if self.ask(&r).is_err() {
+            let _ = self.ask_unlocked(&r);
+        }
     }
 }
 

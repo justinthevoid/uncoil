@@ -35,11 +35,11 @@ OPENRAZER_COMMIT = "a84cd0ae"
 OPENRGB_COMMIT = "df3024be"
 
 # Contract section 2 command groups, in file order. frame/effect are "lighting" groups.
-GROUPS = ["frame", "effect", "keymap", "profile", "dpi", "poll", "power", "low_battery", "device"]
+GROUPS = ["frame", "effect", "keymap", "profile", "dpi", "poll", "power", "low_battery", "scroll", "device"]
 LIGHTING_GROUPS = {"frame", "effect"}
 
 EFFECT_ORDER = ["off", "static", "breathing", "spectrum", "wave", "wheel", "reactive", "starlight"]
-FEATURE_ORDER = ["lighting", "hw_effects", "keymap", "profiles", "dpi", "poll_rate", "power"]
+FEATURE_ORDER = ["lighting", "hw_effects", "keymap", "profiles", "dpi", "poll_rate", "power", "scroll"]
 
 HYPERPOLLING_CODES = {8000, 4000, 2000, 1000, 500, 250, 125}
 CLASSIC_CODES = {1000, 500, 125}
@@ -124,6 +124,8 @@ def group_of(fn: str) -> str | None:
         return "power"
     if fn == "charge_low_threshold":
         return "low_battery"
+    if fn in ("scroll_mode", "scroll_acceleration", "scroll_smart_reel"):
+        return "scroll"
     if fn in ("device_mode", "device_serial", "firmware_version"):
         return "device"
     return None
@@ -470,6 +472,11 @@ def generate(dev: dict, ov: dict, tables: dict, cfg: dict, keyids: dict) -> str:
     idle = bool(mouse.get("idle_timer") or feats_or.get("idle_timer"))
     low = bool(mouse.get("low_battery_threshold") or feats_or.get("low_battery_threshold"))
     power = battery or idle or low
+    # the scroll wheel commands (02/14, 02/16, 02/17): OpenRazer lists them for the Basilisk V3 family
+    scroll_mode = is_mouse and bool(feats_or.get("scroll_mode"))
+    scroll_accel = is_mouse and bool(feats_or.get("scroll_acceleration"))
+    scroll_reel = is_mouse and bool(feats_or.get("scroll_smart_reel"))
+    scroll = scroll_mode or scroll_accel or scroll_reel
 
     features = []
     if lighting_feature:
@@ -484,6 +491,8 @@ def generate(dev: dict, ov: dict, tables: dict, cfg: dict, keyids: dict) -> str:
         features.append("poll_rate")
     if power:
         features.append("power")
+    if scroll:
+        features.append("scroll")
     features = [f for f in FEATURE_ORDER if f in features]
 
     used_groups = set()
@@ -499,6 +508,8 @@ def generate(dev: dict, ov: dict, tables: dict, cfg: dict, keyids: dict) -> str:
         used_groups.add("poll")
     if "power" in features:
         used_groups |= {"power", "low_battery"}
+    if "scroll" in features:
+        used_groups.add("scroll")
     used_groups.add("device")
 
     # ---- header
@@ -747,6 +758,16 @@ def generate(dev: dict, ov: dict, tables: dict, cfg: dict, keyids: dict) -> str:
         emit(f"battery = {'true' if battery else 'false'}")
         emit(f"idle = {'true' if idle else 'false'}")
         emit(f"low_battery = {'true' if low else 'false'}")
+        emit("")
+
+    # ---- scroll wheel
+    if scroll:
+        emit("[scroll]")
+        emit("# From OpenRazer's feature attributes for this device (scroll mode, acceleration, Smart Reel); stored in")
+        emit("# the mouse (VARSTORE).")
+        emit(f"mode = {'true' if scroll_mode else 'false'}")
+        emit(f"acceleration = {'true' if scroll_accel else 'false'}")
+        emit(f"smart_reel = {'true' if scroll_reel else 'false'}")
         emit("")
 
     # ---- keymap

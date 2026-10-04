@@ -100,13 +100,15 @@ pub fn arrange<'a>(
             out[i] = place(d, at).map(|p| (at, p));
         }
     }
+    // the top of the next auto-placed external device in the PC column
+    let mut column_y: Option<f32> = None;
     for (i, d) in devices.iter().enumerate() {
         if out[i].is_some() || configured.contains_key(&d.id) {
             continue;
         }
         let placed: Vec<(Kind, &PlacedDevice)> =
             devices.iter().zip(&out).filter_map(|(d, o)| o.as_ref().map(|(_, p)| (d.kind, p))).collect();
-        let at = auto_place(d, &placed);
+        let at = if is_external(&d.id) { column_place(d, &placed, &mut column_y) } else { auto_place(d, &placed) };
         out[i] = place(d, at).map(|p| (at, p));
     }
     devices.iter().zip(out).filter_map(|(d, o)| o.map(|(at, p)| (*d, at, p))).collect()
@@ -128,6 +130,177 @@ fn auto_place(def: &DeviceDef, placed: &[(Kind, &PlacedDevice)]) -> Placement {
         }
     };
     Placement { x: bx - origin.x, y: by - origin.y }
+}
+
+/// External devices (driven through OpenRGB) have ids starting with this.
+pub const EXTERNAL_PREFIX: &str = "openrgb:";
+
+pub fn is_external(id: &str) -> bool {
+    id.starts_with(EXTERNAL_PREFIX)
+}
+
+/// Space between devices stacked in the PC column.
+const COLUMN_GAP: f32 = 0.5;
+
+/// "The PC": a column left of the first keyboard, top-aligned with it; external devices stack top to bottom
+/// in desk order (the daemon lists motherboards, then RAM, GPUs and the rest).
+fn column_place(def: &DeviceDef, placed: &[(Kind, &PlacedDevice)], column_y: &mut Option<f32>) -> Placement {
+    let Some(body) = place(def, Placement { x: 0.0, y: 0.0 }) else { return default_placement(def) };
+    // the keyboard's body; the default keyboard's when the desk has none
+    let (kx, ky) = placed.iter().find(|(k, _)| *k == Kind::Keyboard).map_or((-0.3, -0.3), |(_, p)| (p.x, p.y));
+    let top = column_y.unwrap_or(ky);
+    *column_y = Some(top + body.h + COLUMN_GAP);
+    // body top-left at (kx - GAP - w, top); for a points layout `at` is the body's centre
+    Placement { x: kx - GAP - body.w - body.x, y: top - body.y }
+}
+
+/// How a zone's LEDs are laid out (OpenRGB zone types: single, linear, matrix).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ZoneKind {
+    Single,
+    #[default]
+    Linear,
+    Matrix,
+}
+
+/// A matrix zone's grid: the zone's LED index in each cell, row by row (`None` where there is no LED).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ZoneMatrix {
+    pub width: u32,
+    pub height: u32,
+    pub map: Vec<Option<u32>>,
+}
+
+/// One zone of an external device: its LEDs are the next `leds` in the device's LED order.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalZone {
+    pub name: String,
+    pub kind: ZoneKind,
+    pub leds: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub matrix: Option<ZoneMatrix>,
+}
+
+/// `name` as an id part: lowercase `[a-z0-9-]`, no repeated or edge dashes, at most 48 characters.
+pub fn slug(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars().flat_map(char::to_lowercase) {
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+        } else if !out.is_empty() && !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    out.truncate(48);
+    let out = out.trim_end_matches('-');
+    if out.is_empty() {
+        "device".into()
+    } else {
+        out.into()
+    }
+}
+
+/// LED names of an external device, from its zones: a zone's only LED takes the zone's name, others the
+/// zone's name and a number from 1; a name used twice gets " (2)", " (3)", ...
+pub fn external_led_names(zones: &[ExternalZone]) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for z in zones {
+        let zone = if z.name.is_empty() { "LED" } else { z.name.as_str() };
+        for i in 0..z.leds {
+            let base = if z.leds == 1 { zone.to_string() } else { format!("{zone} {}", i + 1) };
+            let mut name = base.clone();
+            let mut n = 2;
+            while names.contains(&name) {
+                name = format!("{base} ({n})");
+                n += 1;
+            }
+            names.push(name);
+        }
+    }
+    names
+}
+
+/// LED pitch in a strip or grid, the width of a strip (or a single LED's column), the tallest and shortest
+/// a device's LED area gets, the widest a grid gets, and the margin around the LEDs (key units).
+const PITCH: f32 = 0.3;
+const STRIP_W: f32 = 0.6;
+const MAX_H: f32 = 3.0;
+const MIN_H: f32 = 0.6;
+const MAX_GRID_W: f32 = 6.0;
+const PAD: f32 = 0.3;
+
+/// A desk device for an external device: one row of LEDs (in LED order) on a points layout. Zones sit side
+/// by side, left to right: a single LED as a point, a linear zone as a vertical strip, a matrix zone as its
+/// grid. Kind `other`, no USB endpoints: only the desk and the effects ever see it.
+pub fn external_def(id: &str, name: &str, zones: &[ExternalZone]) -> DeviceDef {
+    // per zone with LEDs: its column's width and its points relative to the column's top-left
+    let mut columns: Vec<(f32, Vec<(f32, f32)>)> = Vec::new();
+    for z in zones.iter().filter(|z| z.leds > 0) {
+        let n = z.leds as usize;
+        let col = match (&z.kind, &z.matrix) {
+            (ZoneKind::Matrix, Some(m)) if m.width > 0 && m.height > 0 => {
+                let cell = PITCH.min(MAX_H / m.height as f32).min(MAX_GRID_W / m.width as f32);
+                // LEDs the map leaves out sit in the first cell
+                let mut pts = vec![(cell / 2.0, cell / 2.0); n];
+                for (i, led) in m.map.iter().enumerate() {
+                    if let Some(led) = led.filter(|&l| (l as usize) < n) {
+                        let (r, c) = (i / m.width as usize, i % m.width as usize);
+                        pts[led as usize] = (cell * (c as f32 + 0.5), cell * (r as f32 + 0.5));
+                    }
+                }
+                (cell * m.width as f32, pts)
+            }
+            _ => {
+                let step = if n > 1 { PITCH.min(MAX_H / n as f32) } else { PITCH };
+                (STRIP_W, (0..n).map(|i| (STRIP_W / 2.0, step * (i as f32 + 0.5))).collect())
+            }
+        };
+        columns.push(col);
+    }
+    let height = |pts: &[(f32, f32)]| pts.iter().map(|p| p.1).fold(0.0f32, f32::max) + PITCH / 2.0;
+    let inner_h = columns.iter().map(|(_, p)| height(p)).fold(0.0f32, f32::max).clamp(MIN_H, MAX_H);
+    let inner_w = columns.iter().map(|(w, _)| *w).sum::<f32>().max(STRIP_W);
+    let (width, depth) = (inner_w + 2.0 * PAD, inner_h + 2.0 * PAD);
+    let mut points = Vec::new();
+    let mut x0 = PAD;
+    for (w, pts) in &columns {
+        // each column centred vertically
+        let y0 = PAD + (inner_h - height(pts).min(inner_h)) / 2.0;
+        points.extend(pts.iter().map(|(x, y)| [x0 + x - width / 2.0, y0 + y - depth / 2.0]));
+        x0 += w;
+    }
+    let mut names = external_led_names(zones);
+    names.truncate(points.len());
+    // through the device-file parser the daemon already has (no second deserialiser in the binary)
+    let list = |items: Vec<String>| items.join(", ");
+    let src = format!(
+        "id = {}\nname = {}\nkind = \"other\"\nvendor_id = 0\nusb = []\n\
+         [matrix]\nrows = 1\ncols = {}\nnames = [[{}]]\n\
+         [layout]\ntype = \"points\"\nwidth = {width:?}\ndepth = {depth:?}\npoints = [{}]\n",
+        toml_str(id),
+        toml_str(name),
+        names.len(),
+        list(names.iter().map(|n| toml_str(n)).collect()),
+        list(points.iter().map(|[x, y]| format!("[{x:?}, {y:?}]")).collect()),
+    );
+    toml::from_str(&src).expect("an external device definition")
+}
+
+/// `s` as a TOML basic string.
+fn toml_str(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04X}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }
 
 fn parse_key(spec: &str) -> (&str, f32) {
@@ -472,5 +645,102 @@ mod tests {
         let d = DeviceDef::from_toml(src).unwrap();
         assert!(place(&d, Placement { x: 0.0, y: 0.0 }).is_none());
         assert!(desk_devices([&d], &HashMap::new(), |_| true).is_empty());
+    }
+
+    fn zone(name: &str, kind: ZoneKind, leds: u32) -> ExternalZone {
+        ExternalZone { name: name.into(), kind, leds, matrix: None }
+    }
+
+    /// A board like the maintainer's: a strip, a single LED, a 2x3 grid with two empty cells, an empty header.
+    fn board() -> DeviceDef {
+        let grid = ZoneMatrix { width: 3, height: 2, map: vec![Some(0), Some(1), None, Some(2), Some(3), None] };
+        let zones = [
+            zone("Aura Mainboard", ZoneKind::Linear, 3),
+            zone("Logo", ZoneKind::Single, 1),
+            ExternalZone { matrix: Some(grid), ..zone("Panel", ZoneKind::Matrix, 4) },
+            zone("Addressable 1", ZoneKind::Linear, 0),
+        ];
+        external_def("openrgb:asus-rog-strix", "ASUS ROG STRIX", &zones)
+    }
+
+    #[test]
+    fn external_ids_and_led_names() {
+        assert_eq!(slug("ASUS ROG STRIX B550-F GAMING (WI-FI)"), "asus-rog-strix-b550-f-gaming-wi-fi");
+        assert_eq!(slug("  GeForce   RTX 4070  "), "geforce-rtx-4070");
+        assert_eq!(slug("¿¿"), "device");
+        assert!(slug(&"Ab ".repeat(40)).len() <= 48 && !slug(&"Ab ".repeat(40)).ends_with('-'));
+        let names = external_led_names(&[zone("DRAM", ZoneKind::Linear, 2), zone("DRAM 1", ZoneKind::Single, 1)]);
+        assert_eq!(names, ["DRAM 1", "DRAM 2", "DRAM 1 (2)"]);
+        // any name survives the trip through the device-file parser
+        let odd = "Odd \"quoted\" \\ name \u{7} [x] = 1";
+        let d = external_def("openrgb:odd", odd, &[zone(odd, ZoneKind::Linear, 2)]);
+        assert_eq!(d.name, odd);
+        assert_eq!(d.matrix.unwrap().names[0][1], format!("{odd} 2"));
+    }
+
+    #[test]
+    fn external_devices_lay_out_their_zones() {
+        let d = board();
+        assert_eq!((d.kind, d.usb.len(), d.vendor_id), (Kind::Other, 0, 0));
+        let p = place(&d, Placement { x: 0.0, y: 0.0 }).unwrap();
+        let names: Vec<&str> = p.shapes.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                "Aura Mainboard 1",
+                "Aura Mainboard 2",
+                "Aura Mainboard 3",
+                "Logo",
+                "Panel 1",
+                "Panel 2",
+                "Panel 3",
+                "Panel 4"
+            ]
+        );
+        for s in &p.shapes {
+            assert!(s.x > p.x && s.x < p.x + p.w && s.y > p.y && s.y < p.y + p.h, "{} outside its box", s.name);
+        }
+        let at = |n: &str| p.shape_position(n).unwrap();
+        // the strip runs top to bottom, zones run left to right, the grid keeps its rows and columns
+        assert!(at("Aura Mainboard 1").1 < at("Aura Mainboard 3").1);
+        assert!((at("Aura Mainboard 1").0 - at("Aura Mainboard 3").0).abs() < 1e-5);
+        assert!(at("Logo").0 > at("Aura Mainboard 1").0 && at("Panel 1").0 > at("Logo").0);
+        assert!((at("Panel 1").1 - at("Panel 2").1).abs() < 1e-5 && at("Panel 2").0 > at("Panel 1").0);
+        assert!((at("Panel 1").0 - at("Panel 3").0).abs() < 1e-5 && at("Panel 3").1 > at("Panel 1").1);
+        // long strips stay within the height limit
+        let strip = external_def("openrgb:strip", "Strip", &[zone("Strip", ZoneKind::Linear, 300)]);
+        let p = place(&strip, Placement { x: 0.0, y: 0.0 }).unwrap();
+        assert_eq!(p.shapes.len(), 300);
+        assert!(p.h <= MAX_H + 2.0 * PAD + 1e-4);
+    }
+
+    #[test]
+    fn external_devices_stack_left_of_the_keyboard() {
+        let mut defs = builtin();
+        defs.push(board());
+        defs.push(external_def("openrgb:vengeance", "Corsair Vengeance", &[zone("DRAM", ZoneKind::Linear, 10)]));
+        let desk = Desk::new(&defs, &HashMap::new(), |_| false);
+        let get = |id: &str| &desk.devices.iter().find(|(_, d)| d.id == id).unwrap().1;
+        let (kb, mb, ram) =
+            (get("razer-blackwidow-v4-pro-75"), get("openrgb:asus-rog-strix"), get("openrgb:vengeance"));
+        // the Razer devices keep their places
+        let plain = Desk::new(&builtin(), &HashMap::new(), |_| false);
+        for (_, d) in &plain.devices {
+            let now = get(&d.id);
+            assert_eq!((now.x, now.y), (d.x, d.y), "{} moved", d.id);
+        }
+        // a column left of the keyboard: right edges one gap left of it, the board on top, RAM below
+        for d in [mb, ram] {
+            assert!((d.x + d.w - (kb.x - GAP)).abs() < 1e-4, "{d:?}");
+        }
+        assert!((mb.y - kb.y).abs() < 1e-4);
+        assert!((ram.y - (mb.y + mb.h + COLUMN_GAP)).abs() < 1e-4);
+        // the desk now reaches the column; a configured place wins
+        assert!(desk.bounds.unwrap().min_x <= ram.x);
+        let mut cfg = HashMap::new();
+        cfg.insert("openrgb:vengeance".to_string(), Placement { x: 30.0, y: 2.0 });
+        let desk = Desk::new(&defs, &cfg, |_| false);
+        let ram = &desk.devices.iter().find(|(_, d)| d.id == "openrgb:vengeance").unwrap().1;
+        assert!((ram.center().0 - 30.0).abs() < 1e-4 && (ram.center().1 - 2.0).abs() < 1e-4);
     }
 }

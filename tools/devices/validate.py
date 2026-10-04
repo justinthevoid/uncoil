@@ -31,10 +31,10 @@ EXPERIMENTAL = ROOT / "devices/experimental"
 KEYIDS = ROOT / "docs/blackwidow-keyids.json"
 
 KINDS = {"keyboard", "mouse", "mousemat", "headset", "other"}
-FEATURES = {"lighting", "hw_effects", "keymap", "profiles", "dial", "oled", "dpi", "poll_rate", "power"}
+FEATURES = {"lighting", "hw_effects", "keymap", "profiles", "dial", "oled", "dpi", "poll_rate", "power", "scroll"}
 CONNECTIONS = {"wired", "dongle", "bluetooth"}
 TXN = {0x1F, 0x3F, 0x9F, 0xFF}
-GROUPS = {"frame", "effect", "keymap", "profile", "dpi", "poll", "power", "low_battery", "device"}
+GROUPS = {"frame", "effect", "keymap", "profile", "dpi", "poll", "power", "low_battery", "scroll", "device"}
 EFFECTS = {"off", "static", "breathing", "spectrum", "wave", "wheel", "reactive", "starlight"}
 CLASSIC = {125, 500, 1000}
 HYPERPOLLING = {125, 250, 500, 1000, 2000, 4000, 8000}
@@ -117,7 +117,14 @@ def check(path: Path, d: dict, experimental: bool, keyids: dict, err) -> None:
                 e(f"lighting / hw_effects need [{k}]")
     elif experimental and ("matrix" in d or "layout" in d):
         e("[matrix] / [layout] without lighting or hw_effects")
-    need = {"hw_effects": "hw_effects", "dpi": "dpi", "poll_rate": "poll_rate", "power": "power", "keymap": "keymap"}
+    need = {
+        "hw_effects": "hw_effects",
+        "dpi": "dpi",
+        "poll_rate": "poll_rate",
+        "power": "power",
+        "keymap": "keymap",
+        "scroll": "scroll",
+    }
     for f, sec in need.items():
         if f in feats and sec not in d:
             e(f"feature {f} needs [{sec}]")
@@ -154,6 +161,12 @@ def check(path: Path, d: dict, experimental: bool, keyids: dict, err) -> None:
         p = d["power"]
         if not any(p.get(k) for k in ("battery", "idle", "low_battery")):
             e("[power] with nothing in it")
+    if "scroll" in d:
+        p = d["scroll"]
+        if set(p) - {"mode", "acceleration", "smart_reel"}:
+            e(f"[scroll]: unknown keys {sorted(set(p) - {'mode', 'acceleration', 'smart_reel'})}")
+        if not any(p.get(k) for k in ("mode", "acceleration", "smart_reel")):
+            e("[scroll] with nothing in it")
 
     # ---- matrix / layout
     names: list[str] = []

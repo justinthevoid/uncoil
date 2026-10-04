@@ -4,10 +4,10 @@ id = "razer-basilisk-v3-pro"
 name = "Razer Basilisk V3 Pro"
 kind = "mouse"
 vendor_id = 0x1532
-features = ["lighting", "hw_effects", "keymap", "profiles", "dpi", "poll_rate", "power"]
-# dpi, poll_rate and power come from OpenRazer and have not been read on this mouse yet: their writes wait
-# for uncoil's read-only checks (`uncoil check mouse`) like an experimental device's.
-unverified = ["dpi", "poll_rate", "power"]
+features = ["lighting", "hw_effects", "keymap", "profiles", "dpi", "poll_rate", "power", "scroll"]
+# dpi, poll_rate, power and scroll come from OpenRazer and have not been read on this mouse yet: their writes
+# wait for uncoil's read-only checks (`uncoil check mouse`) like an experimental device's.
+unverified = ["dpi", "poll_rate", "power", "scroll"]
 
 [[usb]]
 product_id = 0x00AA
@@ -106,3 +106,9 @@ rates = [125, 500, 1000]
 battery = true        # 07/80 level, 07/84 charging
 idle = true           # 07/03, 07/83: 60-900 s
 low_battery = true    # 07/01, 07/81 (transaction id 0xFF, see [usb.transaction_ids])
+
+[scroll]
+# Stored in the mouse (VARSTORE); OpenRazer sends all three with 0x1F, the endpoint default.
+mode = true           # 02/14, 02/94: tactile / free spin
+acceleration = true   # 02/16, 02/96
+smart_reel = true     # 02/17, 02/97

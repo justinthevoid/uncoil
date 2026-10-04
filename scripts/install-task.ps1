@@ -6,16 +6,18 @@
 # prompt (the script asks for it), because the binary goes to %ProgramFiles%\uncoil, where only
 # administrators can write, so no program running as you can swap it.
 #
-#   -OpenRgb   Also register "uncoil-openrgb": an elevated one-shot logon task that runs
-#              `uncoild.exe --openrgb-once`, which hands motherboard, GPU and RAM lighting to OpenRGB and
-#              exits (RAM sits on the SMBus, which needs administrator rights). Turn it on and list the
-#              devices in %APPDATA%\uncoil\config.json ("openrgb_hardware_rainbow": true and
-#              "openrgb": {"devices": [...]}). OpenRGB then keeps its settings in %ProgramData%\uncoil\openrgb,
-#              which only administrators can change. Without -OpenRgb, an existing uncoil-openrgb task is
-#              removed.
+#   -OpenRgb   Also register "uncoil-openrgb": an elevated logon task that runs `uncoild.exe --openrgb-once`
+#              for motherboard, GPU and RAM lighting through OpenRGB (RAM sits on the SMBus, which needs
+#              administrator rights). What it does follows "openrgb" in %APPDATA%\uncoil\config.json:
+#              "mode": "hardware" hands each device in "devices" to its own hardware mode and exits;
+#              "mode": "live" starts OpenRGB as an SDK server on 127.0.0.1 (Razer detection off) and keeps
+#              running while OpenRGB does, so the daemon can send it the desk effect (the task has no time
+#              limit; stopping it stops that OpenRGB). OpenRGB keeps its settings in
+#              %ProgramData%\uncoil\openrgb, which only administrators can change. Without -OpenRgb, an
+#              existing uncoil-openrgb task is removed.
 #   -Elevated  Fallback: run the daemon itself elevated ("highest privileges"), as installs before this
 #              script did. Only for PCs where uncoild cannot open its devices unelevated (not seen yet). An
-#              elevated daemon does the OpenRGB hand-off itself and refuses to write through junctions.
+#              elevated daemon runs the OpenRGB hand-off or server itself and refuses to write through junctions.
 param(
     [string]$Exe = "$PSScriptRoot\..\target\release\uncoild.exe",
     [string]$User = "$env:USERDOMAIN\$env:USERNAME",
@@ -135,10 +137,11 @@ try {
         $t = New-ScheduledTaskTrigger -AtLogOn -User $User
         $t.Delay = 'PT10S'
         $p = New-ScheduledTaskPrincipal -UserId $User -LogonType Interactive -RunLevel Highest
-        $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
-        Register-ScheduledTask -TaskName $openrgbTask -Description 'uncoil: hand motherboard, GPU and RAM lighting to OpenRGB once at logon' `
+        # no time limit: in live mode the task runs as long as OpenRGB's SDK server does
+        $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
+        Register-ScheduledTask -TaskName $openrgbTask -Description 'uncoil: motherboard, GPU and RAM lighting through OpenRGB (hand-off or live SDK server on 127.0.0.1)' `
             -Action $a -Trigger $t -Principal $p -Settings $s -Force | Out-Null
-        Say "task '$openrgbTask' registered (elevated, runs once at logon; last result 0 = done, 1 = off or nothing configured, 2 = failed)"
+        Say "task '$openrgbTask' registered (elevated, at logon; last result 0 = done, 1 = off or nothing configured, 2 = failed)"
     } elseif (Get-ScheduledTask -TaskName $openrgbTask -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $openrgbTask -Confirm:$false
         Say "task '$openrgbTask' removed (install with -OpenRgb to keep it)"

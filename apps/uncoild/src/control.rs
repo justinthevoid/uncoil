@@ -379,7 +379,12 @@ mod tests {
         for d in crate::fake::connected_fakes(&defs) {
             spawn_fake(&registry, d, journal.clone());
         }
-        let status = Status { pid: 42, unknown_devices: crate::fake::unknown_devices(), ..Default::default() };
+        let status = Status {
+            pid: 42,
+            unknown_devices: crate::fake::unknown_devices(),
+            conflicts: crate::fake::conflicts(),
+            ..Default::default()
+        };
         Control { registry, defs, status: Arc::new(Mutex::new(status)) }
     }
 
@@ -393,6 +398,8 @@ mod tests {
         let r: Value = c.handle(req("status", None, Value::Null)).into_result().unwrap();
         assert_eq!(r["pid"], 42);
         assert_eq!(r["unknown_devices"], json!([{"product_id": 0x0FFE, "interfaces": [0, 1, 2]}]));
+        assert_eq!(r["conflicts"][0]["app"], "Razer Synapse");
+        assert_eq!(r["openrgb"]["state"], "off");
         assert!(c.defs.iter().all(|d| d.endpoint_for(0x0FFE).is_none()), "the fake unknown device must be unknown");
         let devs: Vec<DeviceInfo> = c.handle(req("devices", None, Value::Null)).into_result().unwrap();
         assert_eq!(devs.len(), 3);
@@ -410,7 +417,7 @@ mod tests {
         assert!(!all.iter().find(|c| c.id == "razer-goliathus-chroma-extended").unwrap().connected);
         // the Basilisk's unverified features and the experimental mouse start untested
         let b: Capabilities = c.handle(req("capabilities", Some("basilisk"), Value::Null)).into_result().unwrap();
-        assert_eq!(b.unverified, vec![Feature::Dpi, Feature::PollRate, Feature::Power]);
+        assert_eq!(b.unverified, vec![Feature::Dpi, Feature::PollRate, Feature::Power, Feature::Scroll]);
         let state = |caps: &Capabilities, f: Feature| caps.checks.iter().find(|c| c.feature == f).unwrap().state;
         assert_eq!(state(&b, Feature::Dpi), ipc::CheckState::Untested);
         assert_eq!(state(&b, Feature::Keymap), ipc::CheckState::NotNeeded);
@@ -493,7 +500,7 @@ mod tests {
         let kb = "razer-blackwidow-v4-pro-75";
         let mouse = "razer-basilisk-v3-pro";
         let da = crate::fake::DEATHADDER_ID;
-        let files: [(&str, Option<&str>, &str, Value); 19] = [
+        let files: [(&str, Option<&str>, &str, Value); 23] = [
             ("devices", None, "devices", Value::Null),
             ("caps-keyboard", Some(kb), "capabilities", Value::Null),
             ("caps-mouse", Some(mouse), "capabilities", Value::Null),
@@ -513,6 +520,10 @@ mod tests {
             ("performance-deathadder", Some(da), "performance.get", Value::Null),
             ("power-mouse", Some(mouse), "power.get", Value::Null),
             ("power-deathadder", Some(da), "power.get", Value::Null),
+            ("scroll-mouse", Some(mouse), "scroll.get", Value::Null),
+            ("info-keyboard", Some(kb), "info.get", Value::Null),
+            ("info-mouse", Some(mouse), "info.get", Value::Null),
+            ("info-deathadder", Some(da), "info.get", Value::Null),
         ];
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../uncoil/src/lib/mock/daemon");
         let write = std::env::var_os("UNCOIL_UPDATE_MOCK").is_some();

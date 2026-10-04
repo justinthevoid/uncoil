@@ -23,15 +23,17 @@ use std::path::PathBuf;
 use uncoil_core::device::{DeviceDef, Kind};
 use uncoil_core::features::dial::{self, DialMode, DialState};
 use uncoil_core::features::hw_effect::{self, HwEffect, Storage};
+use uncoil_core::features::info::{self, DeviceDetails};
 use uncoil_core::features::keymap::{self, Function, KeyDef, KeymapDef, Layer};
 use uncoil_core::features::oled::{self, OledState};
 use uncoil_core::features::performance::{self as perf, DpiStorage, PerformanceState};
 use uncoil_core::features::power::{self, PowerState};
 use uncoil_core::features::profile::{self, ProfileInfo};
+use uncoil_core::features::scroll::{self, ScrollState, Setting};
 use uncoil_core::features::Feature;
 use uncoil_core::ipc::{
     self, coded, codes, Command, EffectState, KeyMapping, LightingProbe, PerformanceSetArgs, PowerSetArgs, Raw,
-    WriteResult,
+    ScrollSetArgs, WriteResult,
 };
 use uncoil_core::proto::{self, query_ok, query_read, DeviceMode, Report, Transport};
 
@@ -312,6 +314,19 @@ pub fn run(
         Command::PerformanceSet(a) => set_performance(t, def, tid, a, journal),
         Command::PowerGet => Ok(Outcome::value(ipc::raw(&read_power(t, def, tid)))),
         Command::PowerSet(a) => set_power(t, def, tid, a, journal),
+        Command::ScrollGet => Ok(Outcome::value(ipc::raw(&read_scroll(t, def, tid)))),
+        Command::ScrollSet(a) => set_scroll(t, def, tid, a, journal),
+        Command::InfoGet => {
+            if checks.details.is_none() {
+                let d = read_details(t, def, tid);
+                // a device that did not answer is asked again next time
+                if d.firmware.is_some() {
+                    checks.details = Some(d.clone());
+                }
+                return Ok(Outcome::value(ipc::raw(&d)));
+            }
+            Ok(Outcome::value(ipc::raw(&checks.details)))
+        }
         Command::Status | Command::Devices | Command::Capabilities(_) => bail!("{:?} is answered by the daemon", cmd),
     }
 }
@@ -477,6 +492,78 @@ fn set_power(t: &mut dyn Transport, def: &DeviceDef, tid: u8, a: &PowerSetArgs, 
         Ok(steps)
     };
     verified_write(t, journal, w, steps, |_, _, labels| labels.join(", "))
+}
+
+/// The scroll wheel settings the device file enables; `None` where it lacks one or did not answer.
+fn read_scroll(t: &mut dyn Transport, def: &DeviceDef, tid: u8) -> ScrollState {
+    let mut s = ScrollState::default();
+    let Some(d) = &def.scroll else { return s };
+    for setting in Setting::ALL.into_iter().filter(|x| d.has(*x)) {
+        if let Ok(v) = query_read(t, &scroll::get(tid, setting)).and_then(|r| scroll::parse(&r, setting)) {
+            s.apply(setting, v);
+        }
+    }
+    s
+}
+
+fn set_scroll(
+    t: &mut dyn Transport,
+    def: &DeviceDef,
+    tid: u8,
+    a: &ScrollSetArgs,
+    journal: &Journal,
+) -> Result<Outcome> {
+    let d = def.scroll.clone().unwrap_or_default();
+    let wanted: Vec<(Setting, u8)> = [
+        (Setting::Mode, a.mode.map(|m| m.byte())),
+        (Setting::Acceleration, a.acceleration.map(u8::from)),
+        (Setting::SmartReel, a.smart_reel.map(u8::from)),
+    ]
+    .into_iter()
+    .filter_map(|(s, v)| Some((s, v?)))
+    .collect();
+    if wanted.is_empty() {
+        bail!("nothing to set (mode, acceleration, smart_reel)");
+    }
+    if let Some((s, _)) = wanted.iter().find(|(s, _)| !d.has(*s)) {
+        return Err(not_supported(def, s.name()));
+    }
+    let read = |t: &mut dyn Transport| -> Result<ScrollState> { Ok(read_scroll(t, def, tid)) };
+    let wants = |s: &ScrollState| wanted.iter().all(|(setting, v)| s.byte(*setting) == Some(*v));
+    let w = OnboardWrite {
+        entry: JournalEntry::new(def, "scroll"),
+        requested: None,
+        tag: "",
+        read: &read,
+        wants: &wants,
+        show: &|s: &ScrollState| serde_json::to_string(s).unwrap_or_default(),
+    };
+    let steps = |_: &mut dyn Transport, before: &ScrollState| -> Result<Vec<Step>> {
+        Ok(wanted
+            .iter()
+            .filter(|(s, v)| before.byte(*s) != Some(*v))
+            .map(|&(s, v)| {
+                let mut after = before.clone();
+                after.apply(s, v);
+                (format!("{} {} -> {}", s.name(), before.words(s), after.words(s)), vec![scroll::set(tid, s, v)])
+            })
+            .collect())
+    };
+    verified_write(t, journal, w, steps, |_, _, labels| labels.join(", "))
+}
+
+/// Firmware version (every device) and, on keyboards, layout and colour variant. Never the serial number.
+fn read_details(t: &mut dyn Transport, def: &DeviceDef, tid: u8) -> DeviceDetails {
+    let mut d = DeviceDetails {
+        firmware: query_read(t, &info::get_firmware(tid)).ok().and_then(|r| info::parse_firmware(&r)),
+        ..Default::default()
+    };
+    if def.kind == Kind::Keyboard {
+        if let Ok(r) = query_read(t, &info::get_keyboard_info(tid)) {
+            d.apply_keyboard_info(&r);
+        }
+    }
+    d
 }
 
 /// One labelled part of an onboard write: its reports, sent in order.
@@ -1017,6 +1104,8 @@ mod tests {
                 cmd("check.run", json!({})),
                 cmd("performance.get", json!({})),
                 cmd("power.get", json!({})),
+                cmd("scroll.get", json!({})),
+                cmd("info.get", json!({})),
             ] {
                 let _ = run(&mut dev, &def, 0x1F, &c, &j, &mut checks);
             }
@@ -1024,6 +1113,95 @@ mod tests {
             assert!(!dev.sent().is_empty());
             assert!(dev.sent().iter().all(|(_, id, _)| id & 0x80 != 0), "{}: {:?}", def.id, dev.sent());
         }
+    }
+
+    #[test]
+    fn scroll_get_and_set_wait_for_the_check_and_journal() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        let (j, path) = journal();
+        let mut checks = Checks::new(&def);
+        let s: ScrollState =
+            from_raw(run(&mut dev, &def, 0x1F, &Command::ScrollGet, &j, &mut checks).unwrap().result).unwrap();
+        assert_eq!(
+            s,
+            ScrollState { mode: Some(scroll::ScrollMode::Tactile), acceleration: Some(true), smart_reel: Some(false) }
+        );
+        // stored in the mouse: needs write
+        let c = cmd("scroll.set", json!({"mode": "free_spin", "smart_reel": true}));
+        assert!(run(&mut dev, &def, 0x1F, &c, &j, &mut checks).unwrap_err().to_string().contains("write=true"));
+        assert!(dev.setters().is_empty());
+        // the scroll check runs first (the mouse lists scroll as unverified), then only what differs is sent
+        let c =
+            cmd("scroll.set", json!({"mode": "free_spin", "acceleration": true, "smart_reel": true, "write": true}));
+        let out = run(&mut dev, &def, 0x1F, &c, &j, &mut checks).unwrap();
+        let w: WriteResult<ScrollState> = from_raw(out.result).unwrap();
+        assert!(w.verified && !w.unchanged);
+        assert_eq!(w.after.mode, Some(scroll::ScrollMode::FreeSpin));
+        assert_eq!(dev.writes(), vec![(0x02, 0x14, vec![1, 1]), (0x02, 0x17, vec![1, 1])]);
+        assert!(checks.list().iter().any(|c| c.feature == Feature::Scroll && c.state == ipc::CheckState::Passed));
+        assert_eq!(
+            out.log,
+            ["ONBOARD WRITE razer-basilisk-v3-pro: scroll mode tactile -> free spin, Smart Reel off -> on (verified true)"]
+        );
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("\"cmd\":\"scroll\"") && text.contains("\"state\":\"done\""), "{text}");
+        // again: nothing sent
+        let again: WriteResult<ScrollState> =
+            from_raw(run(&mut dev, &def, 0x1F, &c, &j, &mut checks).unwrap().result).unwrap();
+        assert!(again.unchanged);
+        assert!(run(&mut dev, &def, 0x1F, &cmd("scroll.set", json!({"write": true})), &j, &mut checks).is_err());
+        // the keyboard has no scroll wheel
+        let e = go(&mut FakeDevice::keyboard(), &kb(), 0x1F, &Command::ScrollGet, &j).unwrap_err();
+        assert_eq!(code(&e), Some(codes::NOT_SUPPORTED));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_failing_scroll_check_refuses_the_write() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        dev.fail_on(0x02, 0x96);
+        let j = Journal { path: None };
+        let c = cmd("scroll.set", json!({"mode": "free_spin", "write": true}));
+        let e = run(&mut dev, &def, 0x1F, &c, &j, &mut Checks::new(&def)).unwrap_err();
+        assert_eq!(code(&e), Some(codes::CHECK_FAILED), "{e}");
+        assert!(e.to_string().contains("won't change its scroll wheel settings"), "{e}");
+        assert!(dev.setters().is_empty());
+    }
+
+    #[test]
+    fn device_info_reads_once_per_connection_and_never_the_serial() {
+        let j = Journal { path: None };
+        let def = kb();
+        let mut dev = FakeDevice::keyboard();
+        let mut checks = Checks::new(&def);
+        let d: DeviceDetails =
+            from_raw(run(&mut dev, &def, 0x1F, &Command::InfoGet, &j, &mut checks).unwrap().result).unwrap();
+        assert_eq!(
+            d,
+            DeviceDetails {
+                firmware: Some("1.03".into()),
+                layout: Some("US (ANSI)".into()),
+                layout_code: Some(1),
+                variant: Some("Black".into())
+            }
+        );
+        let n = dev.sent().len();
+        let again: DeviceDetails =
+            from_raw(run(&mut dev, &def, 0x1F, &Command::InfoGet, &j, &mut checks).unwrap().result).unwrap();
+        assert_eq!((again, dev.sent().len()), (d, n), "cached for this connection");
+        // a mouse: firmware only; the device group's transaction id; never 00/82
+        let m = mouse();
+        let mut dev = FakeDevice::for_def(&m);
+        let d: DeviceDetails = from_raw(go(&mut dev, &m, 0x1F, &Command::InfoGet, &j).unwrap().result).unwrap();
+        assert_eq!((d.firmware.as_deref(), d.layout_code), (Some("1.04"), None));
+        assert_eq!(dev.sent_tids(), vec![(0x00, 0x81, 0x1F)]);
+        // an experimental device with no checks run: still answered (never gated)
+        let da = crate::fake::deathadder();
+        let mut dev = FakeDevice::for_def(&da);
+        assert!(go(&mut dev, &da, 0x1F, &Command::InfoGet, &j).is_ok());
+        assert!(!dev.sent().iter().any(|(c, i, _)| (*c, *i) == (0x00, 0x82)));
     }
 
     #[test]

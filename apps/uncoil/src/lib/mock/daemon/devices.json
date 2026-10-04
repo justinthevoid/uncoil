@@ -8,7 +8,8 @@
       "profiles",
       "dpi",
       "poll_rate",
-      "power"
+      "power",
+      "scroll"
     ],
     "hw_effect": null,
     "id": "razer-basilisk-v3-pro",

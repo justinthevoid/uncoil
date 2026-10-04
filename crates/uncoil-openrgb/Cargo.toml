@@ -1,0 +1,9 @@
+[package]
+name = "uncoil-openrgb"
+description = "A small OpenRGB SDK client for uncoil (std only, 127.0.0.1 only)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# No dependencies on purpose: the daemon runs all day, and this is plain TCP.
+[dependencies]

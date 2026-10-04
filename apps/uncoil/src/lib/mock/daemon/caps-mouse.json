@@ -34,6 +34,11 @@
       "detail": null,
       "feature": "power",
       "state": "untested"
+    },
+    {
+      "detail": null,
+      "feature": "scroll",
+      "state": "untested"
     }
   ],
   "connected": true,
@@ -45,7 +50,8 @@
     "profiles",
     "dpi",
     "poll_rate",
-    "power"
+    "power",
+    "scroll"
   ],
   "hw_effects": [
     "off",
@@ -134,6 +140,7 @@
   "unverified": [
     "dpi",
     "poll_rate",
-    "power"
+    "power",
+    "scroll"
   ]
 }

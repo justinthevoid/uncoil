@@ -20,6 +20,7 @@ use crate::features::dial::DialMode;
 use crate::features::hw_effect::{HwEffect, Region, Storage};
 use crate::features::keymap::{Function, Layer};
 use crate::features::performance::{Dpi, DpiStages, DpiStorage};
+use crate::features::scroll::ScrollMode;
 use crate::features::Feature;
 use anyhow::{anyhow, bail, Result};
 use serde::de::DeserializeOwned;
@@ -267,6 +268,19 @@ pub struct PowerSetArgs {
     pub write: bool,
 }
 
+/// `scroll.set`: stored in the mouse, so it needs `write: true`. Settings left out stay as they are.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ScrollSetArgs {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<ScrollMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub acceleration: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub smart_reel: Option<bool>,
+    #[serde(default)]
+    pub write: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EffectHwArgs {
     /// Spec string, e.g. `"wave left"`, `"static #ff0000"`.
@@ -346,6 +360,11 @@ commands! {
     PerformanceSet(PerformanceSetArgs) = "performance.set",
     PowerGet = "power.get",
     PowerSet(PowerSetArgs) = "power.set",
+    ScrollGet = "scroll.get",
+    ScrollSet(ScrollSetArgs) = "scroll.set",
+    /// Firmware version and, on keyboards, layout and colour variant (`DeviceDetails`); read once per
+    /// connection.
+    InfoGet = "info.get",
 }
 
 fn args<T: DeserializeOwned>(cmd: &str, a: Option<&str>) -> Result<T> {
@@ -393,6 +412,8 @@ impl Command {
         };
         match self {
             Command::Status | Command::Devices | Command::Capabilities(_) | Command::CheckRun => p(&[], false, &[]),
+            // every Razer device answers these reads; never gated
+            Command::InfoGet => p(&[], false, &[]),
             Command::KeymapGet(_) | Command::KeymapDump(_) => p(&[Keymap], false, &[]),
             Command::KeymapSet(_) | Command::KeymapReset(_) => p(&[Keymap], true, &[Keymap]),
             Command::ProfileList => p(&[Profiles], false, &[]),
@@ -426,6 +447,8 @@ impl Command {
             }
             Command::PowerGet => p(&[Power], false, &[]),
             Command::PowerSet(_) => p(&[Power], true, &[Power]),
+            Command::ScrollGet => p(&[Scroll], false, &[]),
+            Command::ScrollSet(_) => p(&[Scroll], true, &[Scroll]),
         }
     }
 
@@ -439,6 +462,7 @@ impl Command {
             Command::EffectHw(a) => a.write,
             Command::PerformanceSet(a) => a.write,
             Command::PowerSet(a) => a.write,
+            Command::ScrollSet(a) => a.write,
             _ => false,
         }
     }
@@ -562,6 +586,63 @@ pub struct WriteResult<T> {
     /// Nothing was sent because the device already held the requested value.
     #[serde(default)]
     pub unchanged: bool,
+}
+
+/// A program that drives the same devices as uncoil, seen running (`status.conflicts`). Only known program
+/// names are looked for; nothing else about other processes is read.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Conflict {
+    /// The program's name ("Razer Synapse").
+    pub app: String,
+    /// A plain sentence: what it means and what to do.
+    pub detail: String,
+}
+
+/// The live OpenRGB connection (`status.openrgb.state`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OpenRgbState {
+    /// Live mode is not configured.
+    #[default]
+    Off,
+    /// Configured, no OpenRGB SDK server answering yet.
+    Waiting,
+    Connected,
+    Error,
+}
+
+/// `status.openrgb`: the live OpenRGB client's state and the devices it drives.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpenRgbStatus {
+    pub state: OpenRgbState,
+    /// Plain words about the state (why it failed, what it waits for).
+    #[serde(default)]
+    pub detail: Option<String>,
+    #[serde(default)]
+    pub devices: Vec<OpenRgbDeviceStatus>,
+    /// The SDK server was started by uncoil's own `uncoil-openrgb` task.
+    #[serde(default)]
+    pub ours: bool,
+}
+
+/// One device driven through OpenRGB.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpenRgbDeviceStatus {
+    /// `openrgb:<slug of the name>`, the id the desk uses.
+    pub id: String,
+    pub name: String,
+    pub leds: u32,
+    /// Its zones, which place its LEDs on the desk (`layout::external_def`); the app's desk preview builds
+    /// the same device from them.
+    #[serde(default)]
+    pub zones: Vec<crate::layout::ExternalZone>,
+}
+
+impl OpenRgbDeviceStatus {
+    /// The desk device for it.
+    pub fn def(&self) -> crate::device::DeviceDef {
+        crate::layout::external_def(&self.id, &self.name, &self.zones)
+    }
 }
 
 // ---- device selection ---------------------------------------------------------------------------
@@ -818,6 +899,14 @@ mod tests {
             }),
             Command::PowerGet,
             Command::PowerSet(PowerSetArgs { idle_s: Some(300), low_battery_pct: Some(15), write: true }),
+            Command::ScrollGet,
+            Command::ScrollSet(ScrollSetArgs {
+                mode: Some(ScrollMode::FreeSpin),
+                acceleration: Some(true),
+                smart_reel: Some(false),
+                write: true,
+            }),
+            Command::InfoGet,
         ];
         let mut names = std::collections::HashSet::new();
         for c in cmds {
@@ -869,6 +958,22 @@ mod tests {
         assert_eq!(Command::PerformanceGet.policy(&kb).unsupported(&kb).as_deref(), Some("dpi or poll_rate"));
         assert_eq!(Command::PerformanceGet.policy(&mouse).unsupported(&mouse), None);
         assert_eq!(set.policy(&mouse).unsupported(&mouse).as_deref(), Some("oled"));
+        // the scroll wheel is stored in the mouse and checked first; device info is a plain read anywhere
+        let scroll = Command::from_parts("scroll.set", Some(r#"{"mode": "tactile", "write": true}"#)).unwrap();
+        assert_eq!(
+            scroll.policy(&mouse),
+            Policy {
+                required_features: vec![&[Feature::Scroll]],
+                missing: None,
+                needs_write: true,
+                gated: vec![Feature::Scroll]
+            }
+        );
+        assert!(scroll.write_confirmed());
+        assert_eq!(scroll.policy(&kb).unsupported(&kb).as_deref(), Some("scroll"));
+        assert!(Command::from_parts("scroll.set", Some(r#"{"mode": "wobbly"}"#)).is_err());
+        assert_eq!(Command::InfoGet.policy(&kb), Policy::default());
+        assert_eq!(Command::InfoGet.policy(&mouse).unsupported(&mouse), None);
     }
 
     #[test]
@@ -891,7 +996,14 @@ mod tests {
             "effect": "spectrum", "storage": "onboard", "dpi": {"x": 800, "y": 800},
             "stages": {"active": 1, "list": [{"x": 800, "y": 800}]}, "poll_hz": 1000, "idle_s": 300,
             "low_battery_pct": 15, "write": true}"##;
-        let mut v: Vec<Command> = Command::NAMES.iter().map(|n| Command::from_parts(n, Some(all)).unwrap()).collect();
+        // `mode` above is a dial mode; the scroll wheel's comes separately
+        let mut v: Vec<Command> = Command::NAMES
+            .iter()
+            .filter(|n| **n != "scroll.set")
+            .map(|n| Command::from_parts(n, Some(all)).unwrap())
+            .collect();
+        let scroll = r#"{"mode": "free_spin", "acceleration": true, "smart_reel": true, "write": true}"#;
+        v.push(Command::from_parts("scroll.set", Some(scroll)).unwrap());
         // and the session effect / live DPI variants
         v.push(Command::from_parts("effect.hw", Some(r#"{"effect": "spectrum"}"#)).unwrap());
         v.push(Command::from_parts("performance.set", Some(r#"{"dpi": {"x": 800, "y": 800}}"#)).unwrap());

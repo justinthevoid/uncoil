@@ -1,5 +1,6 @@
-# Removes the uncoil logon tasks ("uncoil" and "uncoil-openrgb"), the binary in %ProgramFiles%\uncoil and
-# OpenRGB's settings folder %ProgramData%\uncoil. Your settings in %APPDATA%\uncoil and the log, status and
+# Removes the uncoil logon tasks ("uncoil" and "uncoil-openrgb"; stopping the latter also ends the OpenRGB
+# server it started in live mode), the binary in %ProgramFiles%\uncoil and OpenRGB's settings folder
+# %ProgramData%\uncoil. Your settings in %APPDATA%\uncoil and the log, status and
 # journal in %LOCALAPPDATA%\uncoil are kept; delete those folders yourself for a clean slate.
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   (asks for elevation)
 $ErrorActionPreference = 'Stop'

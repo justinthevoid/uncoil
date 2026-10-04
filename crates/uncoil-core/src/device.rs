@@ -66,6 +66,9 @@ pub struct TransactionIds {
     /// Basilisk V3 Pro, Viper V2 Pro and Cobra Pro.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub low_battery: Option<u8>,
+    /// Scroll wheel settings (`02/14`, `02/16`, `02/17` and their gets).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scroll: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device: Option<u8>,
 }
@@ -81,6 +84,7 @@ impl TransactionIds {
             CommandGroup::Poll => self.poll,
             CommandGroup::Power => self.power,
             CommandGroup::LowBattery => self.low_battery.or(self.power),
+            CommandGroup::Scroll => self.scroll,
             CommandGroup::Device => self.device,
             CommandGroup::Other => None,
         }
@@ -231,6 +235,32 @@ pub struct PollRateDef {
     pub set_twice: bool,
 }
 
+/// `[scroll]`: required with the `scroll` feature. Each flag enables one setting.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScrollDef {
+    /// Tactile / free spin (`02/14` / `02/94`).
+    #[serde(default)]
+    pub mode: bool,
+    /// Scroll acceleration (`02/16` / `02/96`).
+    #[serde(default)]
+    pub acceleration: bool,
+    /// Smart Reel (`02/17` / `02/97`).
+    #[serde(default)]
+    pub smart_reel: bool,
+}
+
+impl ScrollDef {
+    pub fn has(&self, s: crate::features::scroll::Setting) -> bool {
+        use crate::features::scroll::Setting;
+        match s {
+            Setting::Mode => self.mode,
+            Setting::Acceleration => self.acceleration,
+            Setting::SmartReel => self.smart_reel,
+        }
+    }
+}
+
 /// `[power]`: required with the `power` feature. Each flag enables one part.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -284,6 +314,8 @@ pub struct DeviceDef {
     pub poll_rate: Option<PollRateDef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub power: Option<PowerDef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scroll: Option<ScrollDef>,
 }
 
 fn default_features() -> Vec<Feature> {
@@ -429,7 +461,8 @@ impl DeviceDef {
                 bail!("[[usb]]: reply_wait_us is above {MAX_REPLY_WAIT_US}");
             }
             let t = &e.transaction_ids;
-            let groups = [t.frame, t.effect, t.keymap, t.profile, t.dpi, t.poll, t.power, t.low_battery, t.device];
+            let groups =
+                [t.frame, t.effect, t.keymap, t.profile, t.dpi, t.poll, t.power, t.low_battery, t.scroll, t.device];
             for tid in std::iter::once(Some(e.transaction_id)).chain(groups).flatten() {
                 if !TRANSACTION_IDS.contains(&tid) {
                     bail!("[[usb]]: transaction id 0x{tid:02X} is not one Razer devices use ({TRANSACTION_IDS:02X?})");
@@ -550,6 +583,13 @@ impl DeviceDef {
             None if self.has(Feature::Power) => bail!("features has \"power\" but there is no [power] section"),
             Some(p) if !(p.battery || p.idle || p.low_battery) => {
                 bail!("[power]: enable at least one of battery, idle, low_battery")
+            }
+            _ => {}
+        }
+        match &self.scroll {
+            None if self.has(Feature::Scroll) => bail!("features has \"scroll\" but there is no [scroll] section"),
+            Some(s) if !(s.mode || s.acceleration || s.smart_reel) => {
+                bail!("[scroll]: enable at least one of mode, acceleration, smart_reel")
             }
             _ => {}
         }
@@ -792,7 +832,9 @@ mod tests {
         assert_eq!((p.kind, p.rates.as_slice(), p.set_twice), (PollKind::Classic, &[125, 500, 1000][..], false));
         assert_eq!(m.power, Some(PowerDef { battery: true, idle: true, low_battery: true }));
         // supported device, but its new features wait for a read-only check
-        assert_eq!(m.unverified, vec![Feature::Dpi, Feature::PollRate, Feature::Power]);
+        assert_eq!(m.unverified, vec![Feature::Dpi, Feature::PollRate, Feature::Power, Feature::Scroll]);
+        assert_eq!(m.scroll, Some(ScrollDef { mode: true, acceleration: true, smart_reel: true }));
+        assert!(m.needs_check(Feature::Scroll));
         assert!(m.needs_check(Feature::Dpi) && m.needs_check(Feature::Power));
         assert!(!m.needs_check(Feature::Keymap));
         // OpenRazer sends only the low-battery pair with 0xFF on this mouse, on both endpoints
@@ -801,6 +843,7 @@ mod tests {
             assert_eq!(e.tid_for(&crate::features::power::set_low_battery(0, 0x20)), 0xFF);
             assert_eq!(e.tid_for(&crate::features::power::get_battery(0)), 0x1F);
             assert_eq!(e.tid_for(&crate::features::performance::get_stages(0)), 0x1F);
+            assert_eq!(e.tid_for(&crate::features::scroll::get(0, crate::features::scroll::Setting::Mode)), 0x1F);
         }
     }
 
@@ -898,6 +941,17 @@ mod tests {
             "features = [\"dpi\"]\nunverified = [\"power\"]",
         ));
         assert!(e.contains("unverified"), "{e}");
+        let scroll = |section: &str| {
+            MINIMAL.replace("\"power\"]", "\"power\", \"scroll\"]").replace("[power]\n", &format!("{section}[power]\n"))
+        };
+        assert!(err(&scroll("")).contains("no [scroll] section"));
+        assert!(err(&scroll("[scroll]\n")).contains("[scroll]: enable at least one"));
+        assert!(err(&scroll("[scroll]\nwobble = true\n")).contains("wobble"));
+        let d =
+            DeviceDef::from_toml(&scroll("[scroll]\nmode = true\n").replace("power = 0x9F", "scroll = 0xFF")).unwrap();
+        assert_eq!(d.scroll, Some(ScrollDef { mode: true, ..Default::default() }));
+        use crate::features::scroll::{self, Setting};
+        assert_eq!(d.usb[0].tid_for(&scroll::set(0x1F, Setting::SmartReel, 1)), 0xFF, "the scroll group");
     }
 
     /// One with a key map and lighting, for the untrusted-input checks.

@@ -11,6 +11,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod checks;
+mod conflicts;
 mod control;
 mod exec;
 #[cfg(any(test, feature = "fake"))]
@@ -18,6 +19,7 @@ mod fake;
 mod inputs;
 mod log;
 mod openrgb;
+mod openrgb_live;
 mod pipe;
 mod selfstat;
 mod winsec;
@@ -53,6 +55,8 @@ struct Shared {
     desk_generation: AtomicU32,
     /// Razer devices on the bus with no definition (for status).
     unknown: Mutex<Vec<UnknownDevice>>,
+    /// Other programs running that drive the same devices (for status).
+    conflicts: Mutex<Vec<ipc::Conflict>>,
     /// Current brightness multiplier from the display fade (f32 bits).
     level: AtomicU32,
     /// Bumped when the display wakes: devices may have reset during sleep, so re-prepare them.
@@ -67,6 +71,8 @@ struct Shared {
     status: Arc<Mutex<Status>>,
     /// Key presses (positions only), audio level and desk geometry for the effects.
     inputs: Arc<inputs::Inputs>,
+    /// Live OpenRGB: its state and the external devices it puts on the desk.
+    openrgb: openrgb_live::Live,
 }
 
 impl Shared {
@@ -80,9 +86,11 @@ impl Shared {
         self.config.read().unwrap().clone()
     }
 
-    /// Rebuild the desk from the config and the connected devices. Returns whether any device moved.
+    /// Rebuild the desk from the config, the connected devices and the OpenRGB devices being driven. Returns
+    /// whether any device moved.
     fn rearrange(&self, defs: &[Arc<DeviceDef>]) -> bool {
-        let desk = inputs::desk(defs, &self.config(), &self.registry.connected_ids());
+        let all: Vec<Arc<DeviceDef>> = defs.iter().cloned().chain(self.openrgb.defs()).collect();
+        let desk = inputs::desk(&all, &self.config(), &self.registry.connected_ids());
         let moved = !desk.same_places(&self.inputs.desk());
         self.inputs.set_desk(desk);
         moved
@@ -141,18 +149,30 @@ fn main() -> Result<()> {
         Some(Ok(())) => log::line("elevated: junctions made by non-administrators are not followed"),
         None => {}
     }
-    if config.openrgb_hardware_rainbow {
-        if elevated {
+    match config.openrgb_mode() {
+        uncoil_core::config::OpenRgbMode::Off => {}
+        _ if !elevated => log::line(
+            "OpenRGB: the hand-off or server is left to the elevated uncoil-openrgb task (install-task.ps1 -OpenRgb)",
+        ),
+        uncoil_core::config::OpenRgbMode::Hardware => {
             let cfg = config.clone();
             thread::spawn(move || match openrgb::hand_off(&cfg) {
                 Ok(s) => log::line(&s),
                 Err(e) => log::line(&format!("OpenRGB hand-off: {e}")),
             });
-        } else {
-            log::line("OpenRGB hand-off is left to the elevated uncoil-openrgb task (install-task.ps1 -OpenRgb)");
+        }
+        uncoil_core::config::OpenRgbMode::Live => {
+            let cfg = config.clone();
+            thread::spawn(move || match openrgb::serve(&cfg) {
+                Ok(()) => log::line("OpenRGB's SDK server ended"),
+                Err(e) => log::line(&format!("OpenRGB server: {e}")),
+            });
         }
     }
     display::spawn_watcher();
+    if let uncoil_hid::guard::Opened::Without(why) = uncoil_hid::guard::razer().opened() {
+        log::line(&format!("Razer device lock unavailable ({why}); running without it"));
+    }
     if let Some(p) = config_problem {
         log::line(&p);
     }
@@ -168,6 +188,7 @@ fn main() -> Result<()> {
         generation: AtomicU32::new(0),
         desk_generation: AtomicU32::new(0),
         unknown: Mutex::new(Vec::new()),
+        conflicts: Mutex::new(Vec::new()),
         level: AtomicU32::new(1.0f32.to_bits()),
         wake: AtomicU32::new(0),
         t0: Instant::now(),
@@ -177,7 +198,9 @@ fn main() -> Result<()> {
         journal: Arc::new(exec::Journal { path: Some(exec::Journal::default_path()) }),
         status,
         inputs: Arc::new(inputs::Inputs::new()),
+        openrgb: openrgb_live::Live::default(),
     });
+    openrgb_live::spawn(shared.clone());
     let mut listeners = inputs::Listeners::default();
     {
         let cfg = shared.config();
@@ -185,7 +208,9 @@ fn main() -> Result<()> {
         listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
     }
     let mut connected = shared.registry.connected_ids();
+    let mut openrgb_gen = shared.openrgb.generation();
     let mut logged_unknown: HashSet<u16> = HashSet::new();
+    let mut seen_conflicts = conflicts::Seen::default();
 
     let mut api = HidApi::new()?;
     let mut cfg_mtime = mtime(&Config::path());
@@ -218,6 +243,15 @@ fn main() -> Result<()> {
             log::line("config reloaded");
         }
         let cfg = shared.config();
+
+        // OpenRGB devices came or went: they join or leave the desk
+        let g = shared.openrgb.generation();
+        if g != openrgb_gen {
+            openrgb_gen = g;
+            if shared.rearrange(&defs) {
+                shared.desk_generation.fetch_add(1, Ordering::Relaxed);
+            }
+        }
 
         // display fade: off -> 0, dimmed -> dim_level, on -> 1
         let ds = display::current();
@@ -263,6 +297,13 @@ fn main() -> Result<()> {
                 }
             }
             *shared.unknown.lock().unwrap() = unknown;
+            // other programs driving the same devices (uncoil's own OpenRGB server does not count)
+            let ours = shared.status.lock().unwrap().openrgb.ours;
+            let found = conflicts::scan(ours);
+            for l in seen_conflicts.update(&found) {
+                log::line(&l);
+            }
+            *shared.conflicts.lock().unwrap() = found;
             // connected devices with a layout join the desk; ones that left free their spot
             let now_connected = shared.registry.connected_ids();
             if now_connected != connected {
@@ -355,9 +396,13 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                     // no frames go out, so check now and then that the device is still there
                     if last_ping.elapsed() >= Duration::from_secs(2) {
                         last_ping = Instant::now();
-                        if let Err(e) = dev.query(&uncoil_core::proto::get_device_mode(dev.tid())) {
-                            log::line(&format!("lost {} ({e:#})", dev.def.name));
-                            break;
+                        match dev.query(&uncoil_core::proto::get_device_mode(dev.tid())) {
+                            // another program held the Razer device lock: the device is still there
+                            Err(e) if !uncoil_hid::guard::is_busy(&e) => {
+                                log::line(&format!("lost {} ({e:#})", dev.def.name));
+                                break;
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -381,11 +426,13 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                             Some((x, y)) => frame.color_led(&def.id, &names[r][c], x, y).bytes(),
                             None => [0, 0, 0],
                         });
-                    if let Err(e) = res {
-                        log::line(&format!("lost {} ({e:#})", dev.def.name));
-                        break;
+                    match res {
+                        Ok(sent) => frames += sent as u32,
+                        Err(e) => {
+                            log::line(&format!("lost {} ({e:#})", dev.def.name));
+                            break;
+                        }
                     }
-                    frames += 1;
                 }
                 dark_frames = if dark { dark_frames + 1 } else { 0 };
 
@@ -471,6 +518,7 @@ fn fake_mode() -> Result<()> {
     let status = Status {
         version: env!("CARGO_PKG_VERSION").into(),
         unknown_devices: fake::unknown_devices(),
+        conflicts: fake::conflicts(),
         ..Default::default()
     };
     let ctl = Arc::new(control::Control { registry, defs, status: Arc::new(Mutex::new(status)) });
@@ -503,6 +551,8 @@ fn write_status(shared: &Shared, started: u64, ds: DisplayState, me: &mut selfst
         cpu_percent,
         exe_bytes: me.exe_bytes,
         unknown_devices: shared.unknown.lock().unwrap().clone(),
+        conflicts: shared.conflicts.lock().unwrap().clone(),
+        openrgb: shared.openrgb.status(),
     };
     *shared.status.lock().unwrap() = st.clone();
     let path = Status::path();

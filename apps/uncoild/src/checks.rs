@@ -10,17 +10,21 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use uncoil_core::device::{DeviceDef, Kind};
+use uncoil_core::features::info::DeviceDetails;
 use uncoil_core::features::keymap::{self, Function, Layer};
 use uncoil_core::features::performance as perf;
+use uncoil_core::features::scroll::{self, Setting};
 use uncoil_core::features::{dial, hw_effect, oled, power, profile, Feature};
 use uncoil_core::ipc::{coded, codes, CheckState, FeatureCheck};
 use uncoil_core::proto::{query_read as query_ok, Transport};
 
-/// Check results for one connected device.
+/// Check results for one connected device, plus what else is read once per connection.
 pub struct Checks {
     states: BTreeMap<Feature, (CheckState, Option<String>)>,
     /// Copy of [`Checks::list`] for the control channel (`capabilities` is answered off the device thread).
     mirror: Arc<Mutex<Vec<FeatureCheck>>>,
+    /// `info.get`: firmware and keyboard info do not change while the device stays plugged in.
+    pub details: Option<DeviceDetails>,
 }
 
 /// What a device's checks look like before any has run: `untested` where a check is needed, else
@@ -40,7 +44,7 @@ impl Checks {
     pub fn new(def: &DeviceDef) -> Checks {
         let list = initial(def);
         let states = list.iter().map(|c| (c.feature, (c.state, None))).collect();
-        Checks { states, mirror: Arc::new(Mutex::new(list)) }
+        Checks { states, mirror: Arc::new(Mutex::new(list)), details: None }
     }
 
     pub fn mirror(&self) -> Arc<Mutex<Vec<FeatureCheck>>> {
@@ -69,8 +73,11 @@ impl Checks {
     }
 
     fn run(&mut self, t: &mut dyn Transport, def: &DeviceDef, tid: u8, f: Feature) {
-        let (state, detail) = match check(t, def, tid, f) {
+        let mut watch = LockWatch { t, busy: false };
+        let (state, detail) = match check(&mut watch, def, tid, f) {
             Ok(d) => (CheckState::Passed, Some(d)),
+            // another program held the Razer device lock: not a verdict on the device, so try again next time
+            Err(d) if watch.busy => (CheckState::Untested, Some(d)),
             Err(d) => (CheckState::Failed, Some(d)),
         };
         self.states.insert(f, (state, detail));
@@ -89,9 +96,27 @@ impl Checks {
         }
         match self.states.get(&f) {
             Some((CheckState::Passed | CheckState::NotNeeded, _)) => Ok(()),
+            // the check could not run (the device lock was busy): say that, not that the device failed it
+            Some((CheckState::Untested, Some(why))) => Err(anyhow::anyhow!("{why}")),
             Some((_, detail)) => Err(refusal(def, f, detail.as_deref().unwrap_or("not checked"))),
             None => Err(refusal(def, f, "not checked")),
         }
+    }
+}
+
+/// Notes whether a read gave up waiting for the Razer device lock (`uncoil_hid::guard`).
+struct LockWatch<'a> {
+    t: &'a mut dyn Transport,
+    busy: bool,
+}
+
+impl Transport for LockWatch<'_> {
+    fn query(&mut self, request: &uncoil_core::proto::Report) -> anyhow::Result<uncoil_core::proto::Reply> {
+        let r = self.t.query(request);
+        if let Err(e) = &r {
+            self.busy |= uncoil_hid::guard::is_busy(e);
+        }
+        r
     }
 }
 
@@ -106,6 +131,7 @@ fn what(f: Feature) -> &'static str {
         Feature::Oled => "display settings",
         Feature::Lighting => "lighting",
         Feature::HwEffects => "saved lighting effects",
+        Feature::Scroll => "scroll wheel settings",
     }
 }
 
@@ -218,6 +244,17 @@ fn check(t: &mut dyn Transport, def: &DeviceDef, tid: u8, f: Feature) -> Result<
                 None => Err(format!("dial reads unknown mode {}", s.mode_id)),
             }
         }
+        Feature::Scroll => {
+            let s = def.scroll.as_ref().ok_or("no [scroll] section")?;
+            let mut state = scroll::ScrollState::default();
+            let mut read = vec![];
+            for setting in Setting::ALL.into_iter().filter(|x| s.has(*x)) {
+                let v = scroll::parse(&query_ok(t, &scroll::get(tid, setting)).map_err(e)?, setting).map_err(e)?;
+                state.apply(setting, v);
+                read.push(format!("{} {}", setting.name(), state.words(setting)));
+            }
+            Ok(read.join(", "))
+        }
         Feature::Oled => {
             let b = query_ok(t, &oled::get(tid, oled::BRIGHTNESS)).map_err(e)?.raw[0];
             if b > 100 {
@@ -270,6 +307,10 @@ mod tests {
         assert_eq!(get(Feature::Dpi).state, CheckState::Passed, "{:?}", get(Feature::Dpi));
         assert_eq!(get(Feature::PollRate).detail.as_deref(), Some("1000 Hz"));
         assert_eq!(get(Feature::Power).state, CheckState::Passed, "{:?}", get(Feature::Power));
+        assert_eq!(
+            get(Feature::Scroll).detail.as_deref(),
+            Some("scroll mode tactile, scroll acceleration on, Smart Reel off")
+        );
         assert_eq!(get(Feature::Keymap).state, CheckState::NotNeeded);
         assert!(dev.setters().is_empty(), "checks never write");
         assert_eq!(*c.mirror().lock().unwrap(), list);
@@ -292,6 +333,37 @@ mod tests {
         assert!(coded.message.ends_with("Lighting still works."));
         // lighting is never refused
         c.require(&mut dev, &def, 0x1F, Feature::Lighting).unwrap();
+    }
+
+    /// A fake whose reads give up on the Razer device lock while `busy` is set.
+    struct Contended {
+        dev: FakeDevice,
+        busy: bool,
+    }
+
+    impl Transport for Contended {
+        fn query(&mut self, r: &uncoil_core::proto::Report) -> anyhow::Result<uncoil_core::proto::Reply> {
+            if self.busy {
+                return Err(anyhow::Error::new(uncoil_hid::guard::Busy("Razer Basilisk V3 Pro".into())));
+            }
+            self.dev.query(r)
+        }
+    }
+
+    #[test]
+    fn a_busy_device_lock_leaves_the_check_untested_not_failed() {
+        let def = builtin().into_iter().find(|d| d.id == "razer-basilisk-v3-pro").unwrap();
+        let mut t = Contended { dev: FakeDevice::for_def(&def), busy: true };
+        let mut c = Checks::new(&def);
+        let e = c.require(&mut t, &def, 0x1F, Feature::Dpi).unwrap_err();
+        assert!(e.to_string().starts_with("another program is talking to"), "{e}");
+        assert!(e.downcast_ref::<uncoil_core::ipc::CodedError>().is_none(), "not a check_failed refusal");
+        let state = |c: &Checks| c.list().into_iter().find(|x| x.feature == Feature::Dpi).unwrap().state;
+        assert_eq!(state(&c), CheckState::Untested);
+        // once the lock is free, the next write's check runs and passes
+        t.busy = false;
+        c.require(&mut t, &def, 0x1F, Feature::Dpi).unwrap();
+        assert_eq!(state(&c), CheckState::Passed);
     }
 
     #[test]

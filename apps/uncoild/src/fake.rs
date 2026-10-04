@@ -1,6 +1,7 @@
 //! A fake BlackWidow V4 Pro 75% / Basilisk V3 Pro that answers the feature commands the way the real ones
-//! did in read-only probes (2026-10-03), plus an experimental DeathAdder V3 Pro. DPI, poll rate and power
-//! answers are made-up but plausible values (nobody has read them on these devices yet). Used by the tests
+//! did in read-only probes (2026-10-03), plus an experimental DeathAdder V3 Pro. DPI, poll rate, power,
+//! scroll wheel, firmware version and keyboard layout answers are made-up but plausible values (nobody has
+//! read them on these devices yet). Used by the tests
 //! and by `uncoild --fake` (cargo feature `fake`), which serves the control pipe without touching any
 //! hardware.
 
@@ -90,6 +91,12 @@ pub fn unknown_devices() -> Vec<uncoil_core::config::UnknownDevice> {
     vec![uncoil_core::config::UnknownDevice { product_id: 0x0FFE, interfaces: vec![0, 1, 2] }]
 }
 
+/// What `uncoild --fake` reports in `status.conflicts`: Razer Synapse running, so the app's notice can be
+/// tried.
+pub fn conflicts() -> Vec<uncoil_core::ipc::Conflict> {
+    crate::conflicts::found(["RazerAppEngine.exe"], false)
+}
+
 /// Performance and power values the fake answers with.
 struct Perf {
     dpi: Dpi,
@@ -114,6 +121,12 @@ pub struct FakeDevice {
     poll: Option<PollKind>,
     power: bool,
     perf: Perf,
+    /// Scroll wheel: (mode, acceleration, smart reel) when the file has `scroll`.
+    scroll: Option<[u8; 3]>,
+    /// Firmware version `[major, minor]`.
+    firmware: [u8; 2],
+    /// Keyboards: `00/86` layout code and variant.
+    keyboard_info: Option<[u8; 2]>,
     endpoint: UsbEndpoint,
     /// (class, id, args, transaction id as the real transport would send it)
     sent: Vec<(u8, u8, Vec<u8>, u8)>,
@@ -192,6 +205,17 @@ impl FakeDevice {
             poll: def.poll_rate.as_ref().filter(|_| def.has(Feature::PollRate)).map(|p| p.kind),
             power: def.has(Feature::Power),
             perf,
+            // tactile, acceleration on, Smart Reel off
+            scroll: def.has(Feature::Scroll).then_some([0, 1, 0]),
+            firmware: if keyboard {
+                [1, 3]
+            } else if def.id == DEATHADDER_ID {
+                [1, 2]
+            } else {
+                [1, 4]
+            },
+            // US layout, black
+            keyboard_info: keyboard.then_some([1, 0x00]),
             endpoint: def.usb[0].clone(),
             sent: vec![],
             fail: None,
@@ -329,8 +353,32 @@ impl FakeDevice {
         })
     }
 
+    fn scroll_answer(&mut self, r: &Report) -> Option<(Status, Vec<u8>)> {
+        let s = self.scroll.as_mut()?;
+        let i = match r.id & 0x7F {
+            0x14 => 0,
+            0x16 => 1,
+            0x17 => 2,
+            _ => return None,
+        };
+        if r.class != 0x02 {
+            return None;
+        }
+        let a = |i: usize| r.args.get(i).copied().unwrap_or(0);
+        if r.id & 0x80 == 0 {
+            if a(1) > 1 {
+                return Some((Status::Fail, vec![]));
+            }
+            s[i] = a(1);
+        }
+        Some((Status::Ok, vec![a(0), s[i]]))
+    }
+
     fn answer(&mut self, r: &Report) -> (Status, Vec<u8>) {
         if let Some(ans) = self.perf_answer(r) {
+            return ans;
+        }
+        if let Some(ans) = self.scroll_answer(r) {
             return ans;
         }
         let a = |i: usize| r.args.get(i).copied().unwrap_or(0);
@@ -339,6 +387,10 @@ impl FakeDevice {
             (0x00, 0x04) => (Status::Ok, r.args.clone()),
             (0x0F, 0x02) if !self.regions.is_empty() => (Status::Ok, r.args.clone()),
             (0x00, 0x84) => (Status::Ok, vec![0, 0]),
+            (0x00, 0x81) => (Status::Ok, self.firmware.to_vec()),
+            (0x00, 0x86) if self.keyboard_info.is_some() => {
+                (Status::Ok, self.keyboard_info.unwrap_or_default().to_vec())
+            }
             (0x0F, 0x80) if !self.regions.is_empty() => (Status::Ok, self.regions.clone()),
             (0x0F, 0x81) if !self.regions.is_empty() => {
                 let mut v = vec![a(0)];

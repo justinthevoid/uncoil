@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/uncoil-core", "crates/uncoil-hid", "apps/uncoild", "apps/uncoil-cli", "apps/uncoil/src-tauri"]
+members = ["crates/uncoil-core", "crates/uncoil-hid", "crates/uncoil-openrgb", "apps/uncoild", "apps/uncoil-cli", "apps/uncoil/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,6 +12,7 @@ rust-version = "1.85"
 [workspace.dependencies]
 uncoil-core = { path = "crates/uncoil-core" }
 uncoil-hid = { path = "crates/uncoil-hid" }
+uncoil-openrgb = { path = "crates/uncoil-openrgb" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"

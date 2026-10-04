@@ -8,12 +8,14 @@ use uncoil_core::config::Status;
 use uncoil_core::device::{Kind, Support};
 use uncoil_core::features::dial::{DialMode, DialState};
 use uncoil_core::features::hw_effect::{parse_color, Direction, HwEffect, Storage, DEFAULT_WAVE_SPEED};
+use uncoil_core::features::info::DeviceDetails;
 use uncoil_core::features::keymap::{Function, KeymapFile, Layer};
 use uncoil_core::features::oled::OledState;
 use uncoil_core::features::parse_u8;
 use uncoil_core::features::performance::{Dpi, DpiStages, PerformanceState};
 use uncoil_core::features::power::PowerState;
 use uncoil_core::features::profile::ProfileInfo;
+use uncoil_core::features::scroll::{ScrollMode, ScrollState, Setting};
 use uncoil_core::ipc::{self, *};
 
 const HELP: &str = "\
@@ -58,6 +60,10 @@ usage: uncoil [--json] [--pipe NAME] <command>
   power DEVICE                         battery, charging, sleep timer, low-battery warning
   power DEVICE [--idle SECONDS] [--low-battery PERCENT] --write
                                        store the sleep timer (60-900 s) / warning level (5-25 %)
+  scroll DEVICE                        scroll wheel: tactile or free spin, acceleration, Smart Reel
+  scroll DEVICE [tactile|free-spin] [--acceleration on|off] [--smart-reel on|off] --write
+                                       store scroll wheel settings in the mouse
+  info DEVICE                          firmware version; keyboards: layout and colour
   check DEVICE                         run the read-only checks now (experimental devices and
                                        features not yet confirmed: their writes wait for these)
 
@@ -91,6 +97,8 @@ struct Opts {
     active: Option<u8>,
     idle: Option<u16>,
     low_battery: Option<u8>,
+    acceleration: Option<bool>,
+    smart_reel: Option<bool>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -136,6 +144,8 @@ fn parse(argv: &[String]) -> Result<(Opts, Action)> {
             "--active" => o.active = Some(byte(&val(a)?)?),
             "--idle" => o.idle = Some(number(&val(a)?)?),
             "--low-battery" => o.low_battery = Some(byte(val(a)?.trim_end_matches('%'))?),
+            "--acceleration" => o.acceleration = Some(on_off(a, &val(a)?)?),
+            "--smart-reel" => o.smart_reel = Some(on_off(a, &val(a)?)?),
             "-h" | "--help" | "help" => return Ok((o, Action::Help)),
             s if s.starts_with("--") => bail!("unknown option {s}"),
             _ => pos.push(a.clone()),
@@ -238,6 +248,20 @@ fn parse(argv: &[String]) -> Result<(Opts, Action)> {
             Command::PowerSet(PowerSetArgs { idle_s: o.idle, low_battery_pct: o.low_battery, write: o.write }),
         ),
         ["check" | "checks", d, ..] => call(d.to_string(), Command::CheckRun),
+        ["scroll", d, rest @ ..] => {
+            let mode = match rest {
+                [] => None,
+                [m] => Some(ScrollMode::parse(m).ok_or_else(|| anyhow!("scroll mode is tactile or free-spin, not {m}"))?),
+                _ => bail!("usage: uncoil scroll DEVICE [tactile|free-spin] [--acceleration on|off] [--smart-reel on|off] --write"),
+            };
+            if mode.is_none() && o.acceleration.is_none() && o.smart_reel.is_none() {
+                call(d.to_string(), Command::ScrollGet)
+            } else {
+                let (acceleration, smart_reel, write) = (o.acceleration, o.smart_reel, o.write);
+                call(d.to_string(), Command::ScrollSet(ScrollSetArgs { mode, acceleration, smart_reel, write }))
+            }
+        }
+        ["info", d, ..] => call(d.to_string(), Command::InfoGet),
         other => bail!("unknown command `{}` (see `uncoil help`)", other.join(" ")),
     };
     Ok((o, action))
@@ -245,6 +269,14 @@ fn parse(argv: &[String]) -> Result<(Opts, Action)> {
 
 fn byte(s: &str) -> Result<u8> {
     parse_u8(s).ok_or_else(|| anyhow!("not a number 0-255: {s}"))
+}
+
+fn on_off(option: &str, s: &str) -> Result<bool> {
+    match s.to_ascii_lowercase().as_str() {
+        "on" | "true" | "yes" | "1" => Ok(true),
+        "off" | "false" | "no" | "0" => Ok(false),
+        _ => bail!("{option} is on or off, not {s}"),
+    }
 }
 
 fn number(s: &str) -> Result<u16> {
@@ -298,6 +330,22 @@ fn print_power(s: &PowerState) {
     }
     if s.low_battery_range.is_some() {
         println!("low battery   {}%", s.low_battery_pct.map_or("?".into(), |v| v.to_string()));
+    }
+}
+
+fn print_scroll(s: &ScrollState) {
+    // only the settings the device answered (or has) show; a setting it lacks reads null
+    for (setting, shown) in [
+        (Setting::Mode, s.mode.is_some()),
+        (Setting::Acceleration, s.acceleration.is_some()),
+        (Setting::SmartReel, s.smart_reel.is_some()),
+    ] {
+        if shown {
+            println!("{:<20} {}", setting.name(), s.words(setting));
+        }
+    }
+    if *s == ScrollState::default() {
+        println!("no answer from the scroll wheel settings");
     }
 }
 
@@ -511,6 +559,9 @@ fn show(cmd: &Command, v: Value) -> Result<()> {
             for u in &s.unknown_devices {
                 println!("  a Razer device uncoil doesn't know yet (product ID 0x{:04X})", u.product_id);
             }
+            for c in &s.conflicts {
+                println!("  {}", c.detail);
+            }
             println!(
                 "footprint: {:.1} MB private memory, {:.2}% of one core, {:.2} MB executable",
                 s.memory_bytes as f64 / 1e6,
@@ -683,6 +734,27 @@ fn show(cmd: &Command, v: Value) -> Result<()> {
             print_power(&r.after);
             print_verified(&r);
         }
+        Command::ScrollGet => print_scroll(&serde_json::from_value(v)?),
+        Command::ScrollSet(_) => {
+            let r: WriteResult<ScrollState> = serde_json::from_value(v)?;
+            println!("before:");
+            print_scroll(&r.before);
+            println!("after:");
+            print_scroll(&r.after);
+            print_verified(&r);
+        }
+        Command::InfoGet => {
+            let d: DeviceDetails = serde_json::from_value(v)?;
+            println!("firmware   {}", d.firmware.as_deref().unwrap_or("? (no answer)"));
+            match (&d.layout, d.layout_code) {
+                (Some(name), _) => println!("layout     {name}"),
+                (None, Some(code)) => println!("layout     unknown (code {code})"),
+                (None, None) => {}
+            }
+            if let Some(v) = &d.variant {
+                println!("colour     {v}");
+            }
+        }
     }
     Ok(())
 }
@@ -791,6 +863,33 @@ mod tests {
             )
         ));
         assert!(matches!(p("check deathadder").unwrap().1, Action::Call(Some(_), Command::CheckRun)));
+    }
+
+    #[test]
+    fn scroll_and_info() {
+        assert!(matches!(p("scroll mouse").unwrap().1, Action::Call(_, Command::ScrollGet)));
+        assert_eq!(
+            p("scroll mouse free-spin --smart-reel on --write").unwrap().1,
+            Action::Call(
+                Some("mouse".into()),
+                Command::ScrollSet(ScrollSetArgs {
+                    mode: Some(ScrollMode::FreeSpin),
+                    acceleration: None,
+                    smart_reel: Some(true),
+                    write: true
+                })
+            )
+        );
+        match p("scroll mouse --acceleration off").unwrap().1 {
+            Action::Call(_, Command::ScrollSet(a)) => {
+                assert_eq!((a.mode, a.acceleration, a.write), (None, Some(false), false));
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(p("scroll mouse wobbly").is_err());
+        assert!(p("scroll mouse --acceleration maybe").is_err());
+        assert!(p("scroll mouse tactile free-spin").is_err());
+        assert!(matches!(p("info keyboard").unwrap().1, Action::Call(Some(_), Command::InfoGet)));
     }
 
     fn row(name: &str, f: &str) -> KeyMapping {
