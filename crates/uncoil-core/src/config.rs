@@ -94,6 +94,16 @@ pub struct Status {
     pub cpu_percent: f32,
     #[serde(default)]
     pub exe_bytes: u64,
+    /// Razer devices (vendor 0x1532) on the bus that no device definition knows.
+    #[serde(default)]
+    pub unknown_devices: Vec<UnknownDevice>,
+}
+
+/// A Razer device uncoil has no definition for: its product id and the HID interface numbers it shows.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnknownDevice {
+    pub product_id: u16,
+    pub interfaces: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

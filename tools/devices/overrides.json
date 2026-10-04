@@ -1,0 +1,312 @@
+{
+  "_about": "Hand-written inputs for gen_experimental.py: everything the research JSON (tools/reference/device-research/razer-devices.json) does not say, or where its sources disagree and a choice had to be made. Each choice carries a 'why' that the generator copies into the device file as a comment. Change values here (or in the research JSON), then re-run the generator; never hand-edit devices/experimental/*.toml.",
+
+  "skip": {
+    "razer-chroma-addressable-rgb-controller": "Per-LED frames go to a second interface (1) as a ~320-byte ARGB report that uncoil does not speak, and LED positions depend on whatever strips are plugged in. A file that only sent normal frames would light nothing, so it is left out until the ARGB transport exists."
+  },
+
+  "assumed_usage": {
+    "value": [1, 2],
+    "why": "OpenRazer matches by interface only and OpenRGB does not list this mouse (no RGB). Page 0x01 / usage 0x02 is what every other interface-0 Razer mouse here registers (OpenRGB detectors, uncoil's Basilisk V3 Pro). Confidence: medium."
+  },
+
+  "reply_wait_us": {
+    "_why": "OpenRazer wait macros (razer*_driver.h) as summarised in razer-devices-notes.md Q3. Set for dongle connections only; OpenRazer also uses the receiver wait on some wired PIDs, uncoil's default works there.",
+    "RAZER_NEW_MOUSE_RECEIVER_WAIT_US": 31000,
+    "RAZER_VIPER_MOUSE_RECEIVER_WAIT_US": 59900,
+    "RAZER_BLACKWIDOW_V3_WIRELESS_WAIT_US": 4900
+  },
+
+  "dpi_min": {
+    "value": 100,
+    "why": "Neither source gives a minimum; 100 is the floor uncoil uses for the Basilisk V3 Pro and what Synapse offers on current mice."
+  },
+
+  "key_names": {
+    "_why": "OpenRGB key names -> uncoil LED names (the style of devices/razer-blackwidow-v4-pro-75.toml).",
+    "\\ (ANSI)": "\\",
+    "Pause/Break": "Pause",
+    "Number Pad /": "Numpad /",
+    "Number Pad *": "Numpad *",
+    "Number Pad -": "Numpad -",
+    "Number Pad +": "Numpad +",
+    "Number Pad .": "Numpad .",
+    "Number Pad Enter": "Numpad Enter",
+    "Number Pad 0": "Numpad 0",
+    "Number Pad 1": "Numpad 1",
+    "Number Pad 2": "Numpad 2",
+    "Number Pad 3": "Numpad 3",
+    "Number Pad 4": "Numpad 4",
+    "Number Pad 5": "Numpad 5",
+    "Number Pad 6": "Numpad 6",
+    "Number Pad 7": "Numpad 7",
+    "Number Pad 8": "Numpad 8",
+    "Number Pad 9": "Numpad 9",
+    "Media group": "Media Keys",
+    "Media: Volume Dial": "Volume Dial",
+    "Xbox Game Bar": "Game Bar",
+    "Left Underglow 0": "LU0", "Left Underglow 1": "LU1", "Left Underglow 2": "LU2",
+    "Left Underglow 3": "LU3", "Left Underglow 4": "LU4", "Left Underglow 5": "LU5",
+    "Left Underglow 6": "LU6", "Left Underglow 7": "LU7", "Left Underglow 8": "LU8",
+    "Right Underglow 0": "RU0", "Right Underglow 1": "RU1", "Right Underglow 2": "RU2",
+    "Right Underglow 3": "RU3", "Right Underglow 4": "RU4", "Right Underglow 5": "RU5",
+    "Right Underglow 6": "RU6", "Right Underglow 7": "RU7", "Right Underglow 8": "RU8"
+  },
+
+  "keymap_keys": {
+    "_why": "uncoil LED name -> [AT-101 key id, factory default]. Ids are the table in docs/blackwidow-keyids.json (Synapse names come from there too); defaults = the key itself, in the spec format of devices/razer-blackwidow-v4-pro-75.toml. Left Windows (AT-101 127, predicted but untested) and Fn have no id in that table, so they are left out, as on the BlackWidow V4 Pro 75%.",
+    "Escape": [110, "key ESCAPE"],
+    "F1": [112, "key F1"], "F2": [113, "key F2"], "F3": [114, "key F3"], "F4": [115, "key F4"],
+    "F5": [116, "key F5"], "F6": [117, "key F6"], "F7": [118, "key F7"], "F8": [119, "key F8"],
+    "F9": [120, "key F9"], "F10": [121, "key F10"], "F11": [122, "key F11"], "F12": [123, "key F12"],
+    "Print Screen": [124, "key PRINT_SCREEN"], "Scroll Lock": [125, "key SCROLL_LOCK"], "Pause": [126, "key PAUSE"],
+    "`": [1, "key GRAVE"],
+    "1": [2, "key 1"], "2": [3, "key 2"], "3": [4, "key 3"], "4": [5, "key 4"], "5": [6, "key 5"],
+    "6": [7, "key 6"], "7": [8, "key 7"], "8": [9, "key 8"], "9": [10, "key 9"], "0": [11, "key 0"],
+    "-": [12, "key MINUS"], "=": [13, "key EQUAL"], "Backspace": [15, "key BACKSPACE"],
+    "Insert": [75, "key INSERT"], "Home": [80, "key HOME"], "Page Up": [85, "key PAGE_UP"],
+    "Num Lock": [90, "key NUM_LOCK"], "Numpad /": [95, "key KP_SLASH"], "Numpad *": [100, "key KP_ASTERISK"], "Numpad -": [105, "key KP_MINUS"],
+    "Tab": [16, "key TAB"],
+    "Q": [17, "key Q"], "W": [18, "key W"], "E": [19, "key E"], "R": [20, "key R"], "T": [21, "key T"],
+    "Y": [22, "key Y"], "U": [23, "key U"], "I": [24, "key I"], "O": [25, "key O"], "P": [26, "key P"],
+    "[": [27, "key LEFT_BRACKET"], "]": [28, "key RIGHT_BRACKET"], "\\": [29, "key BACKSLASH"],
+    "Delete": [76, "key DELETE"], "End": [81, "key END"], "Page Down": [86, "key PAGE_DOWN"],
+    "Numpad 7": [91, "key KP_7"], "Numpad 8": [96, "key KP_8"], "Numpad 9": [101, "key KP_9"], "Numpad +": [106, "key KP_PLUS"],
+    "Caps Lock": [30, "key CAPS_LOCK"],
+    "A": [31, "key A"], "S": [32, "key S"], "D": [33, "key D"], "F": [34, "key F"], "G": [35, "key G"],
+    "H": [36, "key H"], "J": [37, "key J"], "K": [38, "key K"], "L": [39, "key L"],
+    ";": [40, "key SEMICOLON"], "'": [41, "key APOSTROPHE"], "Enter": [43, "key ENTER"],
+    "Numpad 4": [92, "key KP_4"], "Numpad 5": [97, "key KP_5"], "Numpad 6": [102, "key KP_6"],
+    "Left Shift": [44, "key +lshift"],
+    "Z": [46, "key Z"], "X": [47, "key X"], "C": [48, "key C"], "V": [49, "key V"], "B": [50, "key B"],
+    "N": [51, "key N"], "M": [52, "key M"], ",": [53, "key COMMA"], ".": [54, "key PERIOD"], "/": [55, "key SLASH"],
+    "Right Shift": [57, "key +rshift"], "Up Arrow": [83, "key UP"],
+    "Numpad 1": [93, "key KP_1"], "Numpad 2": [98, "key KP_2"], "Numpad 3": [103, "key KP_3"], "Numpad Enter": [108, "key KP_ENTER"],
+    "Left Control": [58, "key +lctrl"], "Left Alt": [60, "key +lalt"], "Space": [61, "key SPACE"],
+    "Right Alt": [62, "key +ralt"], "Menu": [129, "key APPLICATION"], "Right Control": [64, "key +rctrl"],
+    "Left Arrow": [79, "key LEFT"], "Down Arrow": [84, "key DOWN"], "Right Arrow": [89, "key RIGHT"],
+    "Numpad 0": [99, "key KP_0"], "Numpad .": [104, "key KP_PERIOD"]
+  },
+
+  "mouse_buttons": {
+    "_why": "Contract section 2: experimental mice list only the common buttons; extra buttons wait for a hardware read (02/84). Ids and defaults as devices/razer-basilisk-v3-pro.toml (read from that mouse 2026-10-03).",
+    "common": [
+      [1, "LEFT_CLICK", "button 1"],
+      [2, "RIGHT_CLICK", "button 2"],
+      [3, "WHEEL_CLICK", "button 3"],
+      [4, "BACK", "button 4"],
+      [5, "FORWARD", "button 5"],
+      [9, "WHEEL_UP", "button 9"],
+      [10, "WHEEL_DOWN", "button 10"]
+    ],
+    "tilt": [
+      [52, "WHEEL_LEFT", "button 104"],
+      [53, "WHEEL_RIGHT", "button 105"]
+    ]
+  },
+
+  "devices": {
+    "razer-blackwidow-v3": {
+      "layout": {"form": "full", "extras": {"Logo": [3, 16.25, 1.0]}},
+      "layout_why": "The Logo LED sits in OpenRGB's table at row 5 col 11; it is drawn in the blank space above the arrow keys, where the BlackWidow V3 has its logo. Position approximate."
+    },
+    "razer-blackwidow-v3-pro": {
+      "layout": {"form": "full", "extras": {"Logo": [3, 16.25, 1.0], "Media Previous": [0, 18.5, 1.0], "Media Play/Pause": [0, 19.5, 1.0], "Media Next": [0, 20.5, 1.0], "Media Mute": [0, 21.5, 1.0]}},
+      "layout_why": "Logo drawn above the arrow keys and the four media keys above the number pad. Positions approximate.",
+      "usb": {
+        "0x025C": {
+          "transaction_id": "0x9F",
+          "lighting_txn": "0x9F",
+          "why": "OpenRazer 0x9F, OpenRGB 0x3F. The research favours 0x9F: OpenRGB's own other HyperSpeed keyboards (V3 Mini, V4 TKL wireless) use 0x9F. Interface 3 with page 0x0C / usage 0x01 is OpenRGB's detector (OpenRazer uses wIndex 2); uncoil opens HID collections the way OpenRGB does. Confidence: low."
+        }
+      }
+    },
+    "razer-blackwidow-v3-tkl": {
+      "layout": {"form": "tkl"}
+    },
+    "razer-blackwidow-v4": {
+      "layout": {"form": "full", "macro_col": true,
+                 "extras": {"Media Previous": [0, 18.5, 1.0], "Media Play/Pause": [0, 19.5, 1.0], "Media Next": [0, 20.5, 1.0], "Media Mute": [0, 21.5, 1.0]},
+                 "underglow": true},
+      "extra_matrix_rows": [[["LU", 9], ["RU", 9]]],
+      "matrix_why": "OpenRazer and OpenRGB both say 8x23. OpenRGB fills rows 0-5 from razer_blackwidow_v4_layout and then appends its 'Underglow Left' (9) and 'Underglow Right' (9) zones, which land in row 6 cols 0-8 and 9-17 of the firmware matrix; row 7 is unused. Which end of each strip is LED 0 is not known: drawn back to front like the V4 Pro 75%.",
+      "layout_why": "Macro keys M1-M6 drawn as a column left of the main block, media keys above the number pad. Positions approximate.",
+      "quirks": {"ack_every_report": true, "why": "The BlackWidow V4 Pro 75% stops applying frames unless every reply is read; assumed for the rest of the V4 family. Reading replies only costs time."}
+    },
+    "razer-blackwidow-v4-pro": {
+      "layout": {"form": "full", "macro_col": true,
+                 "extras": {"Media Previous": [0, 18.5, 1.0], "Media Play/Pause": [0, 19.5, 1.0], "Media Next": [0, 20.5, 1.0], "Media Mute": [0, 21.5, 1.0]},
+                 "underglow": true,
+                 "wrist_rest": {"prefix": "WR", "count": 20, "y": 6.75, "x0": 0.0, "w": 1.05}},
+      "extra_matrix_rows": [[["LU", 9], ["RU", 9]], [["WR", 20]]],
+      "matrix_why": "8x23 in both sources. OpenRGB appends zones 'Underglow Left' (9), 'Underglow Right' (9), 'Void' (5 placeholder slots, no LEDs) and 'Underglow Wrist Rest' (20) after the 6x23 keyboard zone, so row 6 = left 0-8, right 9-17, nothing in 18-22; row 7 = wrist rest 0-19. Strip directions are not known.",
+      "layout_why": "Command dial and M1-M5 drawn as a column left of the main block; the wrist-rest strip is drawn as a row of thin segments in front of the keyboard. Positions approximate.",
+      "quirks": {"ack_every_report": true, "why": "The BlackWidow V4 Pro 75% stops applying frames unless every reply is read; assumed for the rest of the V4 family. Reading replies only costs time."}
+    },
+    "razer-blackwidow-v4-x": {
+      "layout": {"form": "full", "macro_col": true},
+      "layout_why": "Macro keys M1-M6 drawn as a column left of the main block. Positions approximate.",
+      "quirks": {"ack_every_report": true, "why": "The BlackWidow V4 Pro 75% stops applying frames unless every reply is read; assumed for the rest of the V4 family. Reading replies only costs time."}
+    },
+    "razer-blackwidow-v4-75": {
+      "layout": {"form": "75", "underglow": true},
+      "matrix_why": "OpenRGB 6x18 (it reuses the V4 Pro 75% table, underglow packed into spare slots as on uncoil's verified V4 Pro 75%); OpenRazer says 6x16, which the research reads as the same board without the underglow columns. Using 6x18.",
+      "usb": {
+        "0x02A5": {
+          "alt_usages": [[12, 1]],
+          "why": "OpenRGB registers only page 0x01 / usage 0x00; uncoil's V4 Pro 75% answers on 0x0C / 0x01 and the V4 / V4 Pro moved to 0x0C / 0x01 at firmware 1.5, so both are accepted on interface 3."
+        }
+      },
+      "quirks": {"ack_every_report": true, "why": "Same keyboard family and matrix as the BlackWidow V4 Pro 75%, which stops applying frames unless every reply is read."}
+    },
+    "razer-huntsman-v2": {
+      "layout": {"form": "full", "extras": {"Media Previous": [0, 18.5, 1.0], "Media Play/Pause": [0, 19.5, 1.0], "Media Next": [0, 20.5, 1.0], "Media Mute": [0, 21.5, 1.0]}},
+      "layout_why": "Media keys drawn above the number pad. Positions approximate.",
+      "usb": {
+        "0x026C": {
+          "transaction_id": "0x1F",
+          "lighting_txn": "0x1F",
+          "why": "OpenRazer 0x1F, OpenRGB 0x3F. The research recommends trying 0x1F first (OpenRazer sets it per command; Synapse uses a rolling counter, so the firmware may accept either). Confidence: low."
+        }
+      }
+    },
+    "razer-huntsman-v2-tkl": {
+      "layout": {"form": "tkl"},
+      "matrix_why": "OpenRGB 6x17 with a per-key table; OpenRazer 6x18. Using OpenRGB's (also the smaller of the two).",
+      "usb": {
+        "0x026B": {
+          "transaction_id": "0x1F",
+          "lighting_txn": "0x1F",
+          "why": "OpenRazer 0x1F, OpenRGB 0x3F; as the Huntsman V2, the research recommends 0x1F first. Confidence: low."
+        }
+      }
+    },
+    "razer-huntsman-v3-pro": {
+      "layout": {"form": "full", "extras": {"Media Keys": [0, 18.5, 2.0], "Volume Dial": [0, 20.75, 1.5]}},
+      "extra_cells": [[5, 17, "Right Arrow"]],
+      "matrix_why": "OpenRGB's table loses Right Arrow (its last edit removes the slot at row 5 col 17, which holds Right Arrow at that point). The board has a right-arrow key and col 17 is the only free slot between Down Arrow and the number pad, so it goes back there. Confidence: low.",
+      "layout_why": "OpenRGB's 'Media group' and 'Volume Dial' are drawn above the number pad. Positions approximate."
+    },
+    "razer-huntsman-v3-pro-tkl": {
+      "layout": {"form": "tkl", "extras": {"Game Bar": [0, 15.25, 1.0], "Media Play/Pause": [0, 16.25, 1.0], "Volume Dial": [0, 17.25, 1.0]}},
+      "matrix_why": "OpenRGB 6x19 with a per-key table; OpenRazer 6x22, which the research says looks copied from the full-size board. Using 6x19.",
+      "layout_why": "OpenRGB puts the Game Bar key, play/pause and the dial where Print Screen / Scroll Lock / Pause would be. Positions approximate."
+    },
+    "razer-huntsman-mini": {
+      "layout": {"form": "60"}
+    },
+    "razer-ornata-v3": {
+      "matrix": [["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5", "Zone 6", "Zone 7", "Zone 8", "Zone 9", "Zone 10"]],
+      "matrix_why": "Zone-lit membrane board: both sources say 1x10 and OpenRGB has no per-key table (one linear 'KEYBOARD' zone).",
+      "points": {"width": 22.5, "depth": 6.25,
+                 "points": [[-10.0, 0.0], [-7.78, 0.0], [-5.56, 0.0], [-3.33, 0.0], [-1.11, 0.0], [1.11, 0.0], [3.33, 0.0], [5.56, 0.0], [7.78, 0.0], [10.0, 0.0]]},
+      "layout_why": "Ten zones spread evenly left to right across a full-size board. Which part of the board each zone covers is not documented; approximate.",
+      "keymap_layout": "full"
+    },
+
+    "razer-deathadder-v3": {
+      "poll_set_twice": {"value": true, "why": "OpenRazer sends the HyperPolling rate twice on this mouse, first with argument 0x00, then 0x01."}
+    },
+    "razer-deathadder-v3-pro": {},
+    "razer-viper-v2-pro": {},
+    "razer-viper-v3-pro": {
+      "poll_rate": {"kind": "classic", "rates": [125, 500, 1000], "set_twice": false,
+                    "why": "Wired 0x00C0 uses classic 00/05 (125/500/1000); the wireless 0x00C1 uses HyperPolling 00/40 up to 8000 Hz, sent twice. The file format has one poll setting per device, so this uses the classic one; on the dongle the read-only check will tell."}
+    },
+    "razer-deathadder-v2": {
+      "matrix": [["Scroll Wheel", "Logo"]],
+      "matrix_why": "OpenRGB 1x2 (scroll wheel, logo, in that order); OpenRazer MATRIX_DIMS 1x1 but with separate scroll (0x01) and logo (0x04) zone commands, so the mouse has two LEDs. Using 1x2.",
+      "points": {"width": 2.6, "depth": 6.4, "points": [[0.0, -2.2], [0.0, 1.6]]},
+      "hw_effects_led": {"led": "0x00", "why": "OpenRGB sends effects to LED 0x00; OpenRazer only has per-zone effects (logo 0x04, scroll 0x01)."},
+      "usb": {
+        "0x0084": {
+          "transaction_id": "0x3F",
+          "lighting_txn": "0x1F",
+          "why": "OpenRazer 0x3F, OpenRGB 0x1F, no recommendation: lighting (custom frames, effects) uses OpenRGB's 0x1F, everything else OpenRazer's 0x3F. Confidence: low."
+        }
+      }
+    },
+    "razer-viper-mini": {
+      "matrix": [["Logo"]],
+      "points": {"width": 2.4, "depth": 6.0, "points": [[0.0, 1.6]]},
+      "hw_effects_led": {"led": "0x04", "why": "OpenRazer drives this logo with LOGO_LED 0x04; OpenRGB sends effects to 0x05 (its default branch). Using OpenRazer's explicit per-device value."}
+    },
+    "razer-basilisk-v3": {
+      "matrix": [["Logo", "Scroll Wheel", "Strip 1", "Strip 2", "Strip 3", "Strip 4", "Strip 5", "Strip 6", "Strip 7", "Strip 8", "Strip 9"]],
+      "matrix_why": "Both sources 1x11. Order from OpenRGB's zones: Logo, Scroll Wheel, then the 9-LED strip (note: the Basilisk V3 Pro is scroll wheel first).",
+      "points": {"width": 2.8, "depth": 6.4,
+                 "points": [[0.0, 1.8], [0.0, -2.2], [-1.4, -2.4], [-1.4, -0.9], [-1.4, 0.6], [-1.3, 2.1], [0.0, 3.0], [1.3, 2.1], [1.4, 0.6], [1.4, -0.9], [1.4, -2.4]]},
+      "layout_why": "Strip drawn down the left side, around the back and up the right side, as on the Basilisk V3 Pro. Approximate.",
+      "tilt": true
+    },
+    "razer-basilisk-v3-35k": {
+      "matrix": [["Logo", "Scroll Wheel", "Strip 1", "Strip 2", "Strip 3", "Strip 4", "Strip 5", "Strip 6", "Strip 7", "Strip 8", "Strip 9"]],
+      "matrix_why": "OpenRGB 1x11 (logo, scroll wheel, 9-LED strip, same as the Basilisk V3); OpenRazer 1x13. Using OpenRGB's, which comes with LED names and is the smaller of the two.",
+      "points": {"width": 2.8, "depth": 6.4,
+                 "points": [[0.0, 1.8], [0.0, -2.2], [-1.4, -2.4], [-1.4, -0.9], [-1.4, 0.6], [-1.3, 2.1], [0.0, 3.0], [1.3, 2.1], [1.4, 0.6], [1.4, -0.9], [1.4, -2.4]]},
+      "layout_why": "Strip drawn down the left side, around the back and up the right side. Approximate.",
+      "tilt": true
+    },
+    "razer-basilisk-v3-x-hyperspeed": {
+      "matrix": [["Scroll Wheel"]],
+      "points": {"width": 2.7, "depth": 6.2, "points": [[0.0, -2.2]]},
+      "lighting": false,
+      "lighting_why": "OpenRGB drives a 1x1 custom frame; OpenRazer has no matrix and only scroll-wheel zone effects (LED 0x01). Taking the conservative side: firmware effects only, no per-LED frames, until a report says frames work.",
+      "hw_effects_led": {"led": "0x01", "why": "OpenRazer's scroll-wheel zone (0x01); OpenRGB uses 0x00."}
+    },
+    "razer-cobra": {
+      "matrix": [["Logo"]],
+      "points": {"width": 2.4, "depth": 5.8, "points": [[0.0, 1.6]]},
+      "lighting": false,
+      "lighting_why": "OpenRGB drives a 1x1 custom frame; OpenRazer has no matrix and only logo effects (LOGO_LED 0x04). Taking the conservative side: firmware effects only, until a report says frames work.",
+      "hw_effects_led": {"led": "0x04", "why": "OpenRazer's logo LED 0x04; OpenRGB sends effects to 0x05 (its default branch)."}
+    },
+    "razer-cobra-pro": {
+      "matrix": [["Logo", "Scroll Wheel", "Underglow 1", "Underglow 2", "Underglow 3", "Underglow 4", "Underglow 5", "Underglow 6", "Underglow 7", "Underglow 8", "Underglow 9"]],
+      "matrix_why": "OpenRGB's 1x11: logo, scroll wheel, 9-LED underglow, in that order.",
+      "points": {"width": 2.5, "depth": 6.0,
+                 "points": [[0.0, 1.6], [0.0, -2.0], [-1.3, -2.2], [-1.3, -0.8], [-1.3, 0.6], [-1.2, 2.0], [0.0, 2.8], [1.2, 2.0], [1.3, 0.6], [1.3, -0.8], [1.3, -2.2]]},
+      "layout_why": "Underglow drawn around the edge of the mouse. Approximate.",
+      "lighting": false,
+      "lighting_why": "OpenRGB drives it as a 1x11 per-LED matrix; OpenRazer has no matrix or custom frame for the Cobra Pro, only zone effects. Taking the conservative side: firmware effects only, until a report says frames work.",
+      "hw_effects_led": {"led": "0x00", "why": "OpenRazer's whole-device effects (LED 0x00), which OpenRGB also uses."}
+    },
+    "razer-naga-v2-pro": {
+      "matrix": [["Logo", "Numpad"]],
+      "matrix_why": "OpenRGB 1x2 (logo, side number pad); OpenRazer 1x3. Using OpenRGB's, which names the LEDs and is the smaller of the two; a scroll-wheel LED may be the missing third.",
+      "points": {"width": 2.8, "depth": 6.4, "points": [[0.0, 1.8], [-1.5, -0.6]]},
+      "dpi_storage": {"value": "varstore", "why": "04/05 storage byte VARSTORE: OpenRazer sends set-DPI with VARSTORE on the Naga group, this mouse included (razermouse_driver.c), where most mice use NOSTORE."}
+    },
+
+    "razer-firefly-v2": {
+      "matrix_prefix": "Edge",
+      "points": {"width": 18.6, "depth": 13.4,
+                 "points": [[-9.2, -5.4], [-9.2, -3.3], [-9.2, -1.2], [-9.2, 0.9], [-9.2, 3.0], [-9.2, 5.1],
+                            [-7.5, 6.6], [-5.0, 6.6], [-2.5, 6.6], [0.0, 6.6], [2.5, 6.6], [5.0, 6.6], [7.5, 6.6],
+                            [9.2, 5.1], [9.2, 3.0], [9.2, 0.9], [9.2, -1.2], [9.2, -3.3], [9.2, -5.4]]},
+      "layout_why": "355 x 255 mm. The 19 LEDs are drawn down the left edge, along the front and up the right edge; the real order is not documented. Approximate."
+    },
+    "razer-strider-chroma": {
+      "matrix_prefix": "Edge",
+      "points": {"width": 47.2, "depth": 19.4,
+                 "points": [[-23.4, -8.0], [-23.4, -4.8], [-23.4, -1.6], [-23.4, 1.6], [-23.4, 4.8], [-23.4, 8.0],
+                            [-19.5, 9.5], [-13.0, 9.5], [-6.5, 9.5], [0.0, 9.5], [6.5, 9.5], [13.0, 9.5], [19.5, 9.5],
+                            [23.4, 8.0], [23.4, 4.8], [23.4, 1.6], [23.4, -1.6], [23.4, -4.8], [23.4, -8.0]]},
+      "layout_why": "900 x 370 mm desk mat. The 19 LEDs are drawn down the left edge, along the front and up the right edge; the real order is not documented. Approximate."
+    },
+    "razer-base-station-v2-chroma": {
+      "matrix_prefix": "Base",
+      "points": {"width": 5.0, "depth": 5.0,
+                 "points": [[0.0, -2.2], [1.56, -1.56], [2.2, 0.0], [1.56, 1.56], [0.0, 2.2], [-1.56, 1.56], [-2.2, 0.0], [-1.56, -1.56]]},
+      "layout_why": "Headset stand: 8 LEDs drawn as a ring around the base. Approximate."
+    },
+    "razer-mouse-dock-pro": {
+      "matrix_prefix": "Base",
+      "matrix_cols": 8,
+      "matrix_why": "OpenRazer 1x8, OpenRGB 1x9 ('Base'). No recommendation; using the smaller one, so no frame byte goes to a slot that may not exist.",
+      "points": {"width": 3.6, "depth": 3.6,
+                 "points": [[0.0, -1.4], [0.99, -0.99], [1.4, 0.0], [0.99, 0.99], [0.0, 1.4], [-0.99, 0.99], [-1.4, 0.0], [-0.99, -0.99]]},
+      "layout_why": "Wireless charging puck: 8 LEDs drawn as a ring. Approximate."
+    }
+  }
+}

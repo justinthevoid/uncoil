@@ -6,7 +6,7 @@ tableOfContents: false
 
 uncoil is a background daemon, `uncoild`, plus an optional desktop app. The daemon drives the lighting on
 supported Razer keyboards, mice and mats from one shared effect, fades with the display, and leaves each
-device's firmware in charge of its keys. It is one 651 KB executable that used about 3 MB of RAM and under
+device's firmware in charge of its keys. It is one 1.2 MB executable that used about 3 MB of RAM and under
 1% of one core on the maintainer's PC.
 
 Not affiliated with or endorsed by Razer Inc.

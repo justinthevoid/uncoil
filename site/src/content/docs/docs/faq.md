@@ -25,7 +25,7 @@ Chroma Extended):
 | Processes | 17 | 1 |
 | Memory | ~1.4 GB at start, leaking to several GB over days | ~3 MB |
 | CPU, idle animation | ~7% of one core | under 1% of one core |
-| On disk | ~500 MB | 651 KB, one executable |
+| On disk | ~500 MB | 1.2 MB, one executable |
 | Kernel drivers | yes | none |
 
 That is one machine. uncoild measures itself and writes the numbers to `%LOCALAPPDATA%\uncoil\status.json`,

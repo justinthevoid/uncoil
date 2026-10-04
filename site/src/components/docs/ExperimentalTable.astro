@@ -1,0 +1,42 @@
+---
+// Experimental devices, generated at build time from devices/experimental/*.toml (same data the daemon compiles in).
+import { experimentalDevices } from '../../lib/devices';
+import { blob } from '../../lib/url';
+---
+
+<table>
+	<thead>
+		<tr>
+			<th scope="col">Device</th>
+			<th scope="col">Kind</th>
+			<th scope="col">Lighting</th>
+			<th scope="col">USB (VID:PID, connection)</th>
+			<th scope="col">File</th>
+		</tr>
+	</thead>
+	<tbody>
+		{
+			experimentalDevices.map((d) => (
+				<tr>
+					<td>{d.name}</td>
+					<td>{d.kind}</td>
+					<td>
+						{d.lighting}
+						{d.effectsOnly && <>, device effects only</>}
+					</td>
+					<td>
+						{d.usb.map((u, i) => (
+							<>
+								{i > 0 && <br />}
+								<code>{u.pid}</code> {u.connection}
+							</>
+						))}
+					</td>
+					<td>
+						<a href={blob(d.file)}>{d.file.replace('devices/experimental/', '')}</a>
+					</td>
+				</tr>
+			))
+		}
+	</tbody>
+</table>

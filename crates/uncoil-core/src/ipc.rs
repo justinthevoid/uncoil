@@ -10,11 +10,16 @@
 //!
 //! Types here are shared by uncoild (server), the `uncoil` CLI and the GUI. Commands that write a device's
 //! onboard memory must carry `"write": true`; the daemon refuses them otherwise and logs every write.
+//!
+//! A failed request carries a plain-words `error` and, for the cases a client may want to treat specially,
+//! a machine-readable `code` (see [`codes`]).
 
-use crate::device::Kind;
+pub use crate::config::UnknownDevice;
+use crate::device::{Kind, Support};
 use crate::features::dial::DialMode;
 use crate::features::hw_effect::{HwEffect, Region, Storage};
 use crate::features::keymap::{Function, Layer};
+use crate::features::performance::{Dpi, DpiStages};
 use crate::features::Feature;
 use anyhow::{anyhow, bail, Result};
 use serde::de::DeserializeOwned;
@@ -64,6 +69,38 @@ impl Request {
     }
 }
 
+/// Error codes a failed [`Response`] may carry next to its message.
+pub mod codes {
+    /// A read-only check failed (or could not run), so the device's settings were not changed. The message
+    /// carries the check's detail.
+    pub const CHECK_FAILED: &str = "check_failed";
+    /// The key map change would leave no button that left-clicks.
+    pub const LEFT_CLICK_GUARD: &str = "left_click_guard";
+    /// The device does not have the feature the command needs.
+    pub const NOT_SUPPORTED: &str = "not_supported";
+}
+
+/// An error with a [`codes`] code; the daemon puts the code in the response. Build one with
+/// [`coded`] and return it through `anyhow`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodedError {
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl std::fmt::Display for CodedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for CodedError {}
+
+/// An `anyhow` error carrying `code`.
+pub fn coded(code: &'static str, message: impl Into<String>) -> anyhow::Error {
+    anyhow::Error::new(CodedError { code, message: message.into() })
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -73,15 +110,22 @@ pub struct Response {
     pub result: Option<Raw>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// One of [`codes`], for errors a client may treat specially.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
 }
 
 impl Response {
     pub fn ok(id: Option<Raw>, result: Raw) -> Response {
-        Response { id, ok: true, result: Some(result), error: None }
+        Response { id, ok: true, result: Some(result), error: None, code: None }
     }
 
     pub fn err(id: Option<Raw>, error: impl Into<String>) -> Response {
-        Response { id, ok: false, result: None, error: Some(error.into()) }
+        Response { id, ok: false, result: None, error: Some(error.into()), code: None }
+    }
+
+    pub fn err_code(id: Option<Raw>, code: Option<&str>, error: impl Into<String>) -> Response {
+        Response { id, ok: false, result: None, error: Some(error.into()), code: code.map(String::from) }
     }
 
     /// The id as JSON text (`"7"`), if any.
@@ -184,6 +228,33 @@ pub struct OledSetArgs {
     pub write: bool,
 }
 
+/// `performance.set`. `dpi` alone is live and not stored (like pressing the DPI button) and needs no
+/// `write`; `stages` and `poll_hz` are stored in the device and need `write: true`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PerformanceSetArgs {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dpi: Option<Dpi>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stages: Option<DpiStages>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub poll_hz: Option<u16>,
+    #[serde(default)]
+    pub write: bool,
+}
+
+/// `power.set`: stored in the device, so it needs `write: true`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PowerSetArgs {
+    /// Seconds before the mouse sleeps (60–900).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idle_s: Option<u16>,
+    /// Low-battery warning threshold in percent (5–25).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub low_battery_pct: Option<u8>,
+    #[serde(default)]
+    pub write: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EffectHwArgs {
     /// Spec string, e.g. `"wave left"`, `"static #ff0000"`.
@@ -213,6 +284,12 @@ pub enum Command {
     EffectHw(EffectHwArgs),
     /// Drop a firmware effect and go back to the configured software effect.
     EffectSoftware,
+    /// Run every read-only check now; returns `Vec<FeatureCheck>`.
+    CheckRun,
+    PerformanceGet,
+    PerformanceSet(PerformanceSetArgs),
+    PowerGet,
+    PowerSet(PowerSetArgs),
 }
 
 fn args<T: DeserializeOwned>(cmd: &str, a: Option<&str>) -> Result<T> {
@@ -228,7 +305,7 @@ fn to_value<T: Serialize>(t: &T) -> Option<Raw> {
 }
 
 impl Command {
-    pub const NAMES: [&'static str; 14] = [
+    pub const NAMES: [&'static str; 19] = [
         "status",
         "devices",
         "capabilities",
@@ -243,6 +320,11 @@ impl Command {
         "oled.set",
         "effect.hw",
         "effect.software",
+        "check.run",
+        "performance.get",
+        "performance.set",
+        "power.get",
+        "power.set",
     ];
 
     pub fn from_parts(cmd: &str, a: Option<&str>) -> Result<Command> {
@@ -261,6 +343,11 @@ impl Command {
             "oled.set" => Command::OledSet(args(cmd, a)?),
             "effect.hw" => Command::EffectHw(args(cmd, a)?),
             "effect.software" => Command::EffectSoftware,
+            "check.run" => Command::CheckRun,
+            "performance.get" => Command::PerformanceGet,
+            "performance.set" => Command::PerformanceSet(args(cmd, a)?),
+            "power.get" => Command::PowerGet,
+            "power.set" => Command::PowerSet(args(cmd, a)?),
             other => bail!("unknown command `{other}` (known: {})", Command::NAMES.join(", ")),
         })
     }
@@ -281,6 +368,11 @@ impl Command {
             Command::OledSet(a) => ("oled.set", to_value(a)),
             Command::EffectHw(a) => ("effect.hw", to_value(a)),
             Command::EffectSoftware => ("effect.software", None),
+            Command::CheckRun => ("check.run", None),
+            Command::PerformanceGet => ("performance.get", None),
+            Command::PerformanceSet(a) => ("performance.set", to_value(a)),
+            Command::PowerGet => ("power.get", None),
+            Command::PowerSet(a) => ("power.set", to_value(a)),
         }
     }
 
@@ -295,6 +387,8 @@ impl Command {
             Command::KeymapSet(_) | Command::KeymapReset(_) | Command::DialSet(_) => true,
             Command::OledSet(a) => a.brightness.is_some(),
             Command::EffectHw(a) => a.storage == Storage::Onboard,
+            Command::PerformanceSet(a) => a.stages.is_some() || a.poll_hz.is_some(),
+            Command::PowerSet(_) => true,
             _ => false,
         }
     }
@@ -307,11 +401,14 @@ impl Command {
             Command::DialSet(a) => a.write,
             Command::OledSet(a) => a.write,
             Command::EffectHw(a) => a.write,
+            Command::PerformanceSet(a) => a.write,
+            Command::PowerSet(a) => a.write,
             _ => false,
         }
     }
 
-    /// Feature a device must declare for this command.
+    /// Feature a device must declare for this command. `performance.*` needs `dpi` or `poll_rate`, which
+    /// the daemon checks itself.
     pub fn feature(&self) -> Option<Feature> {
         Some(match self {
             Command::KeymapGet(_) | Command::KeymapSet(_) | Command::KeymapReset(_) | Command::KeymapDump(_) => {
@@ -322,6 +419,7 @@ impl Command {
             Command::OledGet | Command::OledSet(_) => Feature::Oled,
             Command::EffectHw(_) => Feature::HwEffects,
             Command::EffectSoftware => Feature::Lighting,
+            Command::PowerGet | Command::PowerSet(_) => Feature::Power,
             _ => return None,
         })
     }
@@ -341,6 +439,30 @@ pub struct DeviceInfo {
     /// A firmware effect is showing instead of the software effect.
     #[serde(default)]
     pub hw_effect: Option<HwEffect>,
+    #[serde(default)]
+    pub support: Support,
+}
+
+/// Result of a read-only check (`check.run`, `Capabilities::checks`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckState {
+    Passed,
+    Failed,
+    /// Not run yet on this connection.
+    Untested,
+    /// Confirmed on hardware already (supported devices).
+    NotNeeded,
+}
+
+/// One feature's read-only check.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeatureCheck {
+    pub feature: Feature,
+    pub state: CheckState,
+    /// What was read, or why the check failed.
+    #[serde(default)]
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -369,6 +491,14 @@ pub struct Capabilities {
     pub dial_modes: Vec<DialMode>,
     #[serde(default)]
     pub probed: Option<LightingProbe>,
+    #[serde(default)]
+    pub support: Support,
+    /// One entry per declared feature.
+    #[serde(default)]
+    pub checks: Vec<FeatureCheck>,
+    /// Features of a supported device not yet confirmed on it (their writes wait for a check).
+    #[serde(default)]
+    pub unverified: Vec<Feature>,
 }
 
 /// Read from the device: `0F/80` regions and `0F/81` firmware effects per region.
@@ -557,6 +687,16 @@ mod tests {
                 write: true,
             }),
             Command::EffectSoftware,
+            Command::CheckRun,
+            Command::PerformanceGet,
+            Command::PerformanceSet(PerformanceSetArgs {
+                dpi: Some(Dpi { x: 800, y: 800 }),
+                stages: Some(DpiStages { active: 1, list: vec![Dpi { x: 400, y: 400 }] }),
+                poll_hz: Some(1000),
+                write: true,
+            }),
+            Command::PowerGet,
+            Command::PowerSet(PowerSetArgs { idle_s: Some(300), low_battery_pct: Some(15), write: true }),
         ];
         let mut names = std::collections::HashSet::new();
         for c in cmds {
@@ -580,6 +720,26 @@ mod tests {
         assert!(Command::from_parts("nope", None).is_err());
         assert!(Command::from_parts("keymap.get", None).is_err(), "key is required");
         assert!(Command::from_parts("status", Some("null")).is_ok());
+        // dpi alone is live; stages and poll rate are stored
+        let dpi = Command::from_parts("performance.set", Some(r#"{"dpi": {"x": 800, "y": 800}}"#)).unwrap();
+        assert!(!dpi.writes_onboard());
+        let poll = Command::from_parts("performance.set", Some(r#"{"poll_hz": 500}"#)).unwrap();
+        assert!(poll.writes_onboard() && !poll.write_confirmed());
+        let power = Command::from_parts("power.set", Some(r#"{"idle_s": 300, "write": true}"#)).unwrap();
+        assert!(power.writes_onboard() && power.write_confirmed());
+        assert_eq!(power.feature(), Some(Feature::Power));
+    }
+
+    #[test]
+    fn coded_errors() {
+        let e = coded(codes::LEFT_CLICK_GUARD, "no left click");
+        assert_eq!(e.to_string(), "no left click");
+        assert_eq!(e.downcast_ref::<CodedError>().unwrap().code, "left_click_guard");
+        let r = Response::err_code(Some(raw(&1)), Some(codes::CHECK_FAILED), "nope");
+        assert_eq!(r.to_line(), "{\"id\":1,\"ok\":false,\"error\":\"nope\",\"code\":\"check_failed\"}\n");
+        assert_eq!(Response::err(None, "x").to_line(), "{\"ok\":false,\"error\":\"x\"}\n");
+        let c = FeatureCheck { feature: Feature::PollRate, state: CheckState::NotNeeded, detail: None };
+        assert_eq!(serde_json::to_string(&c).unwrap(), r#"{"feature":"poll_rate","state":"not_needed","detail":null}"#);
     }
 
     #[test]

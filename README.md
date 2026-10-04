@@ -3,7 +3,7 @@
 # uncoil
 
 **A small, open-source lighting daemon for Razer peripherals on Windows. It does the part of Synapse you
-actually use, in one 0.65 MB process.**
+actually use, in one 1.2 MB process.**
 
 [![CI](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml/badge.svg)](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-f2f2f2?style=flat-square&labelColor=0b0b0b)](LICENSE)
@@ -21,7 +21,7 @@ actually use, in one 0.65 MB process.**
 | Processes | 17 | **1** |
 | Memory | ~1.4 GB at start, leaking to multiple GB over days | **~3 MB** private |
 | CPU, idle after startup | ~7% of a core | **<1%** of one core |
-| Install size | ~500 MB | **0.65 MB**, single executable |
+| Install size | ~500 MB | **1.2 MB**, single executable |
 | Kernel drivers | yes | **none**, plain user-mode HID |
 
 <sub>Measured on the maintainer's PC (Windows 11, BlackWidow V4 Pro 75%, Basilisk V3 Pro, Goliathus Chroma
@@ -63,6 +63,21 @@ this capture).</sub>
 | Razer BlackWidow V4 Pro 75% (wired) | `1532:02B3` | per-key + 18 underglow LEDs | tested |
 | Razer Basilisk V3 Pro (wired / HyperSpeed dongle) | `1532:00AA` / `1532:00AB` | scroll wheel, logo, 11-LED underglow | tested |
 | Razer Goliathus Chroma Extended | `1532:0C02` | 1 zone | tested |
+
+### Experimental
+
+These are set up from OpenRazer and OpenRGB data, and nobody has confirmed them on real hardware yet. Before
+uncoil changes anything stored on one of them (key and button mappings, DPI stages, polling rate, sleep timer),
+it reads a few settings first to make sure the device answers the way it expects; nothing is written until that
+check passes. If you own one,
+[tell us whether it works](https://github.com/justinthevoid/uncoil/issues/new?template=device_report.yml).
+Each one is a file in [`devices/experimental/`](devices/experimental/), with the source of every value in comments.
+
+- **Keyboards:** BlackWidow V3, V3 Pro, V3 Tenkeyless, V4, V4 Pro, V4 X, V4 75%; Huntsman V2, V2 Tenkeyless,
+  V3 Pro, V3 Pro Tenkeyless, Mini; Ornata V3
+- **Mice:** Basilisk V3, V3 35K, V3 X HyperSpeed; Cobra, Cobra Pro; DeathAdder V2, V3, V3 Pro; Naga V2 Pro;
+  Viper Mini, V2 Pro, V3 Pro
+- **Mats and accessories:** Firefly V2, Strider Chroma, Base Station V2 Chroma, Mouse Dock Pro
 
 Adding a device is mostly a data file: USB endpoints, quirks, LED matrix and physical layout in one TOML.
 See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-device) and open a

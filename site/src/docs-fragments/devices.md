@@ -1,7 +1,11 @@
 <!-- Body of /docs/devices/, rendered by src/pages/docs/devices.astro under the generated device table. -->
 
-This table is generated from the files in [`devices/`](https://github.com/justinthevoid/uncoil/tree/main/devices),
-the same files compiled into `uncoild`. Notes that don't fit a column:
+Both tables are generated from the files in [`devices/`](https://github.com/justinthevoid/uncoil/tree/main/devices)
+and [`devices/experimental/`](https://github.com/justinthevoid/uncoil/tree/main/devices/experimental), the same
+files compiled into `uncoild`. The experimental files are written by `tools/devices/gen_experimental.py` from the
+OpenRazer / OpenRGB research; each one says in comments where its values came from and how sure they are.
+"Device effects only" means the sources disagree about per-LED lighting, so uncoil only uses the device's own
+effects until someone confirms more. Notes on the supported devices:
 
 - **BlackWidow V4 Pro 75%:** wired only for now. The wireless (HyperSpeed dongle) variant is known to OpenRGB
   as `1532:02B4` but hasn't been tested, so it isn't listed. Its 18 underglow LEDs live in odd matrix slots;

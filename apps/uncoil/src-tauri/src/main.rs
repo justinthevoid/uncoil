@@ -21,14 +21,11 @@ fn defs() -> &'static [DeviceDef] {
     DEFS.get_or_init(|| device::load_all(None))
 }
 
-fn placed(config: &Config) -> Vec<(Kind, PlacedDevice)> {
-    defs()
-        .iter()
-        .map(|def| {
-            let at = config.desk.get(&def.id).copied().unwrap_or_else(|| layout::default_placement(def));
-            (def.kind, layout::place(def, at))
-        })
-        .collect()
+/// The desk: supported devices, devices the config places, and the `connected` ones (ids from the daemon's
+/// `devices`), auto-placed next to their kind when the config does not place them (`layout::arrange`).
+fn placed(config: &Config, connected: &[String]) -> Vec<(Kind, PlacedDevice)> {
+    let shown = layout::desk_devices(defs(), &config.desk, |id| connected.iter().any(|c| c == id));
+    layout::arrange(&shown, &config.desk).into_iter().map(|(def, _, p)| (def.kind, p)).collect()
 }
 
 /// A placed device plus its kind, so the preview can draw a mat differently from a mouse.
@@ -49,17 +46,27 @@ fn save_config(config: Config) -> Result<(), String> {
     config.save().map_err(|e| format!("could not save {}: {e}", Config::path().display()))
 }
 
+/// `connected` (optional): ids of connected devices, so experimental devices with a layout join the desk.
 #[tauri::command]
-fn get_desk(config: Config) -> Vec<DeskDevice> {
-    placed(&config).into_iter().map(|(kind, placed)| DeskDevice { kind, placed }).collect()
+fn get_desk(config: Config, connected: Option<Vec<String>>) -> Vec<DeskDevice> {
+    placed(&config, &connected.unwrap_or_default())
+        .into_iter()
+        .map(|(kind, placed)| DeskDevice { kind, placed })
+        .collect()
 }
 
 /// Hex colour of every shape of every device (same order as `get_desk`) at time `t`, computed by the
 /// same effect code the daemon runs. `presses` simulate key presses (desk position + time on the same clock
 /// as `t`) for reactive and ripple; `audio` simulates the audio level 0..1 for the audio meter.
 #[tauri::command]
-fn preview_frame(config: Config, t: f32, presses: Option<Vec<Press>>, audio: Option<f32>) -> Vec<Vec<String>> {
-    let desk = placed(&config);
+fn preview_frame(
+    config: Config,
+    t: f32,
+    presses: Option<Vec<Press>>,
+    audio: Option<f32>,
+    connected: Option<Vec<String>>,
+) -> Vec<Vec<String>> {
+    let desk = placed(&config, &connected.unwrap_or_default());
     let presses = presses.unwrap_or_default();
     let inputs = Inputs {
         presses: &presses,
@@ -82,7 +89,9 @@ fn get_status() -> Option<Status> {
 }
 
 /// Forward one typed command to uncoild's control pipe (the same surface the `uncoil` CLI uses).
-/// Errors from failing to reach the daemon start with `unreachable:` so the UI can explain them.
+/// Errors from failing to reach the daemon start with `unreachable:` so the UI can explain them; errors the
+/// daemon marks with a code (`check_failed`, `left_click_guard`, `not_supported`) start with that code and
+/// `: `, e.g. `check_failed: uncoil couldn't confirm …`.
 /// `UNCOIL_PIPE` points the app at another daemon, e.g. `uncoild --fake` while developing.
 #[tauri::command]
 async fn daemon(
@@ -96,10 +105,22 @@ async fn daemon(
         let pipe = std::env::var("UNCOIL_PIPE").unwrap_or_else(|_| ipc::PIPE_NAME.to_string());
         let mut client = Client::connect_to(&pipe).map_err(|e| format!("unreachable: {e}"))?;
         let response = client.call(device.as_deref(), &command).map_err(|e| format!("unreachable: {e}"))?;
+        if !response.ok {
+            return Err(error_text(response.code.as_deref(), response.error.as_deref()));
+        }
         response.into_result::<serde_json::Value>().map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// A daemon error as the UI reads it: `code: message` when the daemon gave a code, else the message.
+fn error_text(code: Option<&str>, error: Option<&str>) -> String {
+    let message = error.unwrap_or("daemon reported an error");
+    match code {
+        Some(c) => format!("{c}: {message}"),
+        None => message.to_string(),
+    }
 }
 
 /// Size the window to the monitor it opens on: about 56% x 65% of it (1440x900 on a 2560x1440 screen),
@@ -141,7 +162,7 @@ mod tests {
     #[test]
     fn mock_desk_matches_default_desk() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/lib/mock/desk.json");
-        let real = serde_json::to_string_pretty(&get_desk(Config::default())).unwrap() + "\n";
+        let real = serde_json::to_string_pretty(&get_desk(Config::default(), None)).unwrap() + "\n";
         if std::env::var_os("UNCOIL_UPDATE_MOCK").is_some() {
             std::fs::write(&path, &real).unwrap();
         }
@@ -168,10 +189,32 @@ mod tests {
     }
 
     #[test]
+    fn coded_errors_become_a_prefix() {
+        assert_eq!(
+            error_text(Some("left_click_guard"), Some("This would leave no button that left-clicks.")),
+            "left_click_guard: This would leave no button that left-clicks."
+        );
+        assert_eq!(error_text(None, Some("boom")), "boom");
+    }
+
+    #[test]
+    fn connected_experimental_devices_join_the_desk() {
+        // any experimental device with a layout from devices/experimental/
+        let Some(extra) = defs().iter().find(|d| d.is_experimental() && d.lit().is_some()) else { return };
+        let base = get_desk(Config::default(), None);
+        assert!(!base.iter().any(|d| d.placed.id == extra.id));
+        let with = get_desk(Config::default(), Some(vec![extra.id.clone()]));
+        assert_eq!(with.len(), base.len() + 1);
+        for (a, b) in base.iter().zip(with.iter().filter(|d| d.placed.id != extra.id)) {
+            assert_eq!((a.placed.x, a.placed.y), (b.placed.x, b.placed.y), "{} moved", a.placed.id);
+        }
+    }
+
+    #[test]
     fn preview_frame_matches_desk_shape() {
         let config = Config::default();
-        let desk = get_desk(config.clone());
-        let frame = preview_frame(config, 1.5, None, None);
+        let desk = get_desk(config.clone(), None);
+        let frame = preview_frame(config, 1.5, None, None, None);
         assert_eq!(frame.len(), desk.len());
         for (colors, dev) in frame.iter().zip(&desk) {
             assert_eq!(colors.len(), dev.placed.shapes.len());
@@ -201,8 +244,8 @@ mod tests {
                  "mask":{"kind":"keys","device":"razer-blackwidow-v4-pro-75","shapes":["W","Left Shift"]}}
             ]}"#,
         );
-        let desk = get_desk(config.clone());
-        let frame = preview_frame(config, 0.0, None, None);
+        let desk = get_desk(config.clone(), None);
+        let frame = preview_frame(config, 0.0, None, None, None);
         let kb = "razer-blackwidow-v4-pro-75";
         assert_eq!(shape_color(&frame, &desk, kb, "W"), "#00ff00");
         assert_eq!(shape_color(&frame, &desk, kb, "Left Shift"), "#00ff00");
@@ -214,20 +257,20 @@ mod tests {
     #[test]
     fn preview_uses_presses_and_audio() {
         let config = with_effect(r#"{"kind":"reactive","color":[255,255,255],"fade_s":1}"#);
-        let desk = get_desk(config.clone());
+        let desk = get_desk(config.clone(), None);
         let kb = "razer-blackwidow-v4-pro-75";
         let keyboard = desk.iter().find(|d| d.placed.id == kb).unwrap();
         let w = keyboard.placed.shapes.iter().find(|s| s.name == "W").unwrap();
         let press = vec![Press { x: w.x, y: w.y, t: 2.0 }];
-        let lit = preview_frame(config.clone(), 2.0, Some(press), None);
+        let lit = preview_frame(config.clone(), 2.0, Some(press), None, None);
         assert_eq!(shape_color(&lit, &desk, kb, "W"), "#ffffff");
         assert_eq!(shape_color(&lit, &desk, kb, "Q"), "#000000");
-        let idle = preview_frame(config, 2.0, None, None);
+        let idle = preview_frame(config, 2.0, None, None, None);
         assert_eq!(shape_color(&idle, &desk, kb, "W"), "#000000");
 
         let meter = with_effect(r#"{"kind":"audio_meter","sensitivity":1}"#);
-        let loud = preview_frame(meter.clone(), 0.0, None, Some(1.0));
-        let quiet = preview_frame(meter, 0.0, None, Some(0.0));
+        let loud = preview_frame(meter.clone(), 0.0, None, Some(1.0), None);
+        let quiet = preview_frame(meter, 0.0, None, Some(0.0), None);
         assert_ne!(shape_color(&loud, &desk, kb, "Escape"), "#000000");
         assert_eq!(shape_color(&quiet, &desk, kb, "Escape"), "#000000");
     }

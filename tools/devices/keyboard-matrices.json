@@ -1,0 +1,137 @@
+{
+  "_about": "Per-key matrix tables for the experimental keyboards: the LED name OpenRGB assigns to each (row, col) of the firmware matrix. Derived on 2026-10-03 by applying each razer_*_layout overlay in OpenRGB Controllers/RazerController/RazerDevices.cpp to the KeyboardLayoutManager base layout (ANSI QWERTY) in KeyboardLayoutManager/KeyboardLayoutManager.cpp, both at commit df3024befb0aff7326a3cb0662c75092dab96dc1, and cropping to the KEYBOARD zone size. Names are OpenRGB's, without the 'Key: ' prefix; gen_experimental.py maps them to uncoil names. Facts only, no code. Cross-check: the razer_blackwidow_v4_pro_75_layout result is identical, slot for slot, to devices/razer-blackwidow-v4-pro-75.toml, which was verified on hardware.",
+  "tables": {
+    "razer_blackwidow_v3_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:205",
+      "rows": [
+        ["","Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break","","","",""],
+        ["","`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up","Num Lock","Number Pad /","Number Pad *","Number Pad -"],
+        ["","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down","Number Pad 7","Number Pad 8","Number Pad 9","Number Pad +"],
+        ["","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","","","Number Pad 4","Number Pad 5","Number Pad 6",""],
+        ["","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","","Number Pad 1","Number Pad 2","Number Pad 3","Number Pad Enter"],
+        ["","Left Control","Left Windows","Left Alt","","","Space","","","","Right Alt","Logo","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow","","Number Pad 0","Number Pad .",""]
+      ]
+    },
+    "razer_blackwidow_v3_pro_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:261",
+      "rows": [
+        ["Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break","","Media Previous","Media Play/Pause","Media Next","Media Mute"],
+        ["`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up","Num Lock","Number Pad /","Number Pad *","Number Pad -",""],
+        ["Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down","Number Pad 7","Number Pad 8","Number Pad 9","Number Pad +",""],
+        ["Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","Logo","","","Number Pad 4","Number Pad 5","Number Pad 6","",""],
+        ["Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","","Number Pad 1","Number Pad 2","Number Pad 3","Number Pad Enter",""],
+        ["Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow","","Number Pad 0","Number Pad .","",""]
+      ]
+    },
+    "razer_blackwidow_v3_tkl_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:283",
+      "rows": [
+        ["","Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break"],
+        ["","`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up"],
+        ["","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down"],
+        ["","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","",""],
+        ["","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow",""],
+        ["","Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow"]
+      ]
+    },
+    "razer_blackwidow_v4_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:306",
+      "rows": [
+        ["","M6","Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break","Media Previous","Media Play/Pause","Media Next","Media Mute"],
+        ["","M5","`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up","Num Lock","Number Pad /","Number Pad *","Number Pad -"],
+        ["","M4","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down","Number Pad 7","Number Pad 8","Number Pad 9","Number Pad +"],
+        ["","M3","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","","","Number Pad 4","Number Pad 5","Number Pad 6",""],
+        ["","M2","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","","Number Pad 1","Number Pad 2","Number Pad 3","Number Pad Enter"],
+        ["","M1","Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow","","Number Pad 0","Number Pad .",""]
+      ]
+    },
+    "razer_blackwidow_v4_pro_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:339",
+      "rows": [
+        ["","Dial","Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break","Media Previous","Media Play/Pause","Media Next","Media Mute"],
+        ["","M5","`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up","Num Lock","Number Pad /","Number Pad *","Number Pad -"],
+        ["","M4","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down","Number Pad 7","Number Pad 8","Number Pad 9","Number Pad +"],
+        ["","M3","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","","","Number Pad 4","Number Pad 5","Number Pad 6",""],
+        ["","M2","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","","Number Pad 1","Number Pad 2","Number Pad 3","Number Pad Enter"],
+        ["","M1","Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow","","Number Pad 0","Number Pad .",""]
+      ]
+    },
+    "razer_blackwidow_v4_pro_75_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:372",
+      "rows": [
+        ["Left Underglow 0","Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Left Underglow 1","Left Underglow 5","Left Underglow 8","Right Underglow 0"],
+        ["Left Underglow 2","`","1","2","3","4","5","6","7","8","9","0","-","=","","Backspace","Delete","Right Underglow 2"],
+        ["Left Underglow 3","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","","Page Up","Right Underglow 3"],
+        ["Left Underglow 4","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","Page Down","Right Underglow 4"],
+        ["Left Underglow 6","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","Up Arrow","Insert","Right Underglow 6"],
+        ["Left Underglow 7","Left Control","Left Windows","Left Alt","","Right Underglow 1","Right Underglow 5","Space","Right Underglow 8","","","Right Alt","Right Fn","Right Control","Left Arrow","Down Arrow","Right Arrow","Right Underglow 7"]
+      ]
+    },
+    "razer_blackwidow_v4_x_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:419",
+      "rows": [
+        ["M6","Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break","","","",""],
+        ["M5","`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up","Num Lock","Number Pad /","Number Pad *","Number Pad -"],
+        ["M4","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down","Number Pad 7","Number Pad 8","Number Pad 9","Number Pad +"],
+        ["M3","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","","","Number Pad 4","Number Pad 5","Number Pad 6",""],
+        ["M2","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","","Number Pad 1","Number Pad 2","Number Pad 3","Number Pad Enter"],
+        ["M1","Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow","","Number Pad 0","Number Pad .",""]
+      ]
+    },
+    "razer_huntsman_v2_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:1039",
+      "rows": [
+        ["Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break","Media Previous","Media Play/Pause","Media Next","Media Mute",""],
+        ["`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up","Num Lock","Number Pad /","Number Pad *","Number Pad -",""],
+        ["Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down","Number Pad 7","Number Pad 8","Number Pad 9","Number Pad +",""],
+        ["Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","","","Number Pad 4","Number Pad 5","Number Pad 6","",""],
+        ["Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","","Number Pad 1","Number Pad 2","Number Pad 3","Number Pad Enter",""],
+        ["Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow","","Number Pad 0","Number Pad .","",""]
+      ]
+    },
+    "razer_huntsman_v2_tkl_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:1060",
+      "rows": [
+        ["Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break"],
+        ["`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up"],
+        ["Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down"],
+        ["Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","",""],
+        ["Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow",""],
+        ["Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow"]
+      ]
+    },
+    "razer_huntsman_v3_pro_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:1077",
+      "note": "OpenRGB's last edit removes the slot at row 5 col 17, which at that point holds Right Arrow, so Right Arrow is missing from its table. gen_experimental.py puts it back in that slot (see overrides.json).",
+      "rows": [
+        ["","Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Print Screen","Scroll Lock","Pause/Break","Media group","","Media: Volume Dial",""],
+        ["","`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up","Num Lock","Number Pad /","Number Pad *","Number Pad -"],
+        ["","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down","Number Pad 7","Number Pad 8","Number Pad 9","Number Pad +"],
+        ["","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","","","Number Pad 4","Number Pad 5","Number Pad 6",""],
+        ["","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","","Number Pad 1","Number Pad 2","Number Pad 3","Number Pad Enter"],
+        ["","Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","","Number Pad 0","Number Pad .","",""]
+      ]
+    },
+    "razer_huntsman_v3_pro_tkl_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:1103",
+      "rows": [
+        ["","Escape","","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Xbox Game Bar","Media Play/Pause","","Media: Volume Dial"],
+        ["","`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace","Insert","Home","Page Up",""],
+        ["","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)","Delete","End","Page Down",""],
+        ["","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter","","","",""],
+        ["","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift","","Up Arrow","",""],
+        ["","Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control","Left Arrow","Down Arrow","Right Arrow",""]
+      ]
+    },
+    "razer_huntsman_mini_layout": {
+      "cite": "OpenRGB RazerDevices.cpp:994",
+      "rows": [
+        ["","Escape","1","2","3","4","5","6","7","8","9","0","-","=","Backspace"],
+        ["","Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","\\ (ANSI)"],
+        ["","Caps Lock","A","S","D","F","G","H","J","K","L",";","'","","Enter"],
+        ["","Left Shift","","Z","X","C","V","B","N","M",",",".","/","","Right Shift"],
+        ["","Left Control","Left Windows","Left Alt","","","","Space","","","","Right Alt","Right Fn","Menu","Right Control"]
+      ]
+    }
+  }
+}

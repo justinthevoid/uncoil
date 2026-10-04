@@ -2,6 +2,7 @@
 //! here; device commands are queued to the device's own thread, which runs them between frames, so feature
 //! I/O never interleaves with frame streaming.
 
+use crate::checks::{self, Checks};
 use crate::exec::{self, Journal, Lighting};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,7 +14,9 @@ use uncoil_core::device::DeviceDef;
 use uncoil_core::features::dial::DialMode;
 use uncoil_core::features::hw_effect::HwEffect;
 use uncoil_core::features::Feature;
-use uncoil_core::ipc::{self, Capabilities, Command, DeviceInfo, KeyInfo, Raw, Request, Response};
+use uncoil_core::ipc::{
+    self, Capabilities, CodedError, Command, DeviceInfo, FeatureCheck, KeyInfo, Raw, Request, Response,
+};
 use uncoil_core::proto::Transport;
 
 /// How long a client waits for a device thread (a full key map dump takes about a second).
@@ -24,9 +27,34 @@ pub enum JobKind {
     ProbeLighting,
 }
 
+/// Why a request failed: plain words plus, for some cases, one of `ipc::codes`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Failure {
+    pub code: Option<&'static str>,
+    pub message: String,
+}
+
+impl From<String> for Failure {
+    fn from(message: String) -> Failure {
+        Failure { code: None, message }
+    }
+}
+
+impl From<&str> for Failure {
+    fn from(message: &str) -> Failure {
+        Failure { code: None, message: message.into() }
+    }
+}
+
+impl From<anyhow::Error> for Failure {
+    fn from(e: anyhow::Error) -> Failure {
+        Failure { code: e.downcast_ref::<CodedError>().map(|c| c.code), message: format!("{e:#}") }
+    }
+}
+
 pub struct Job {
     pub kind: JobKind,
-    pub reply: Sender<Result<Raw, String>>,
+    pub reply: Sender<Result<Raw, Failure>>,
 }
 
 /// A connected device, as seen by the control channel.
@@ -37,6 +65,8 @@ pub struct DeviceHandle {
     pub tx: Sender<Job>,
     /// Firmware effect currently showing instead of frames.
     pub hw: Arc<Mutex<Option<HwEffect>>>,
+    /// This connection's read-only check results (kept by the device thread).
+    pub checks: Arc<Mutex<Vec<FeatureCheck>>>,
     token: u64,
 }
 
@@ -70,17 +100,32 @@ impl Registry {
         product_id: u16,
         connection: String,
         hw: Arc<Mutex<Option<HwEffect>>>,
+        checks: Arc<Mutex<Vec<FeatureCheck>>>,
     ) -> (Receiver<Job>, Registration) {
         let (tx, rx) = mpsc::channel();
         let token = self.next.fetch_add(1, Ordering::Relaxed);
         let id = def.id.clone();
-        self.devices.lock().unwrap().insert(id.clone(), DeviceHandle { def, product_id, connection, tx, hw, token });
+        self.devices
+            .lock()
+            .unwrap()
+            .insert(id.clone(), DeviceHandle { def, product_id, connection, tx, hw, checks, token });
         (rx, Registration { registry: self.clone(), id, token })
     }
 
     /// Whether a device with this id is connected right now.
     pub fn is_connected(&self, id: &str) -> bool {
         self.devices.lock().unwrap().contains_key(id)
+    }
+
+    /// Ids of every connected device, sorted.
+    pub fn connected_ids(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.devices.lock().unwrap().keys().cloned().collect();
+        v.sort();
+        v
+    }
+
+    fn checks_of(&self, id: &str) -> Option<Vec<FeatureCheck>> {
+        self.devices.lock().unwrap().get(id).map(|h| h.checks.lock().unwrap().clone())
     }
 
     fn infos(&self) -> Vec<DeviceInfo> {
@@ -97,13 +142,14 @@ impl Registry {
                 connection: h.connection.clone(),
                 features: h.def.features.clone(),
                 hw_effect: h.hw.lock().unwrap().clone(),
+                support: h.def.support,
             })
             .collect();
         v.sort_by(|a, b| a.name.cmp(&b.name));
         v
     }
 
-    fn send(&self, id: &str, kind: JobKind) -> Result<Raw, String> {
+    fn send(&self, id: &str, kind: JobKind) -> Result<Raw, Failure> {
         let (tx, rx) = mpsc::channel();
         {
             let d = self.devices.lock().unwrap();
@@ -115,19 +161,26 @@ impl Registry {
 }
 
 /// Run one queued job on the device thread. Returns what the renderer must do with the lighting.
-pub fn serve_job(job: Job, t: &mut dyn Transport, def: &DeviceDef, tid: u8, journal: &Journal) -> Lighting {
+pub fn serve_job(
+    job: Job,
+    t: &mut dyn Transport,
+    def: &DeviceDef,
+    tid: u8,
+    journal: &Journal,
+    checks: &mut Checks,
+) -> Lighting {
     let (res, lighting) = match &job.kind {
         JobKind::ProbeLighting => {
-            (exec::probe_lighting(t, tid).map(|p| ipc::raw(&p)).map_err(|e| format!("{e:#}")), Lighting::Unchanged)
+            (exec::probe_lighting(t, tid).map(|p| ipc::raw(&p)).map_err(Failure::from), Lighting::Unchanged)
         }
-        JobKind::Command(cmd) => match exec::run(t, def, tid, cmd, journal) {
+        JobKind::Command(cmd) => match exec::run(t, def, tid, cmd, journal, checks) {
             Ok(out) => {
                 for l in &out.log {
                     crate::log::line(l);
                 }
                 (Ok(out.result), out.lighting)
             }
-            Err(e) => (Err(format!("{e:#}")), Lighting::Unchanged),
+            Err(e) => (Err(Failure::from(e)), Lighting::Unchanged),
         },
     };
     let _ = job.reply.send(res);
@@ -147,11 +200,11 @@ impl Control {
         let id = req.id.clone();
         match self.dispatch(&req) {
             Ok(v) => Response::ok(id, v),
-            Err(e) => Response::err(id, e),
+            Err(e) => Response::err_code(id, e.code, e.message),
         }
     }
 
-    fn dispatch(&self, req: &Request) -> Result<Raw, String> {
+    fn dispatch(&self, req: &Request) -> Result<Raw, Failure> {
         let cmd = req.command().map_err(|e| e.to_string())?;
         match &cmd {
             Command::Status => Ok(to(&*self.status.lock().unwrap())),
@@ -173,7 +226,8 @@ impl Control {
                     } else {
                         None
                     };
-                    out.push(capabilities(d, is_connected, probed));
+                    let checks = self.registry.checks_of(&d.id).unwrap_or_else(|| checks::initial(d));
+                    out.push(capabilities(d, is_connected, probed, checks));
                 }
                 if req.device.is_some() {
                     Ok(to(&out[0]))
@@ -190,8 +244,8 @@ impl Control {
                     Ok(id) => id.to_string(),
                     // known device that is not plugged in: say so plainly
                     Err(e) => match self.find_def(q) {
-                        Ok(d) => return Err(format!("{} is not connected", d.name)),
-                        Err(_) => return Err(e.to_string()),
+                        Ok(d) => return Err(format!("{} is not connected", d.name).into()),
+                        Err(_) => return Err(e.to_string().into()),
                     },
                 };
                 self.registry.send(&id, JobKind::Command(cmd))
@@ -199,15 +253,31 @@ impl Control {
         }
     }
 
+    /// A definition by id, kind or part of the name: among the connected devices first (so "keyboard"
+    /// means the plugged-in keyboard, not one of the many known ones), then among every known device.
     fn find_def(&self, q: &str) -> Result<&Arc<DeviceDef>, String> {
-        let list: Vec<(&str, &str, uncoil_core::device::Kind)> =
-            self.defs.iter().map(|d| (d.id.as_str(), d.name.as_str(), d.kind)).collect();
-        let id = ipc::resolve_device(q, &list).map_err(|e| e.to_string())?;
+        let connected = self.registry.connected_ids();
+        let list = |only_connected: bool| -> Vec<(&str, &str, uncoil_core::device::Kind)> {
+            self.defs
+                .iter()
+                .filter(|d| !only_connected || connected.contains(&d.id))
+                .map(|d| (d.id.as_str(), d.name.as_str(), d.kind))
+                .collect()
+        };
+        let id = match ipc::resolve_device(q, &list(true)) {
+            Ok(id) => id,
+            Err(_) => ipc::resolve_device(q, &list(false)).map_err(|e| e.to_string())?,
+        };
         Ok(self.defs.iter().find(|d| d.id == id).expect("resolved id exists"))
     }
 }
 
-fn capabilities(d: &DeviceDef, connected: bool, probed: Option<ipc::LightingProbe>) -> Capabilities {
+fn capabilities(
+    d: &DeviceDef,
+    connected: bool,
+    probed: Option<ipc::LightingProbe>,
+    checks: Vec<FeatureCheck>,
+) -> Capabilities {
     let km = d.keymap.as_ref();
     Capabilities {
         id: d.id.clone(),
@@ -222,6 +292,9 @@ fn capabilities(d: &DeviceDef, connected: bool, probed: Option<ipc::LightingProb
             .unwrap_or_default(),
         dial_modes: if d.has(Feature::Dial) { DialMode::ALL.to_vec() } else { vec![] },
         probed,
+        support: d.support,
+        checks,
+        unverified: d.unverified.clone(),
     }
 }
 
@@ -233,13 +306,14 @@ fn to<T: serde::Serialize>(t: &T) -> Raw {
 #[cfg(any(test, feature = "fake"))]
 pub fn spawn_fake(registry: &Arc<Registry>, def: Arc<DeviceDef>, journal: Arc<Journal>) {
     let hw = Arc::new(Mutex::new(None));
-    let (rx, reg) = registry.register(def.clone(), def.usb[0].product_id, "fake".into(), hw.clone());
+    let mut checks = Checks::new(&def);
+    let (rx, reg) = registry.register(def.clone(), def.usb[0].product_id, "fake".into(), hw.clone(), checks.mirror());
     let tid = def.usb[0].transaction_id;
     std::thread::spawn(move || {
         let _reg = reg;
         let mut dev = crate::fake::FakeDevice::for_def(&def);
         for job in rx {
-            match serve_job(job, &mut dev, &def, tid, &journal) {
+            match serve_job(job, &mut dev, &def, tid, &journal, &mut checks) {
                 Lighting::Hardware(e) => *hw.lock().unwrap() = Some(e),
                 Lighting::Software => *hw.lock().unwrap() = None,
                 Lighting::Unchanged => {}
@@ -252,17 +326,18 @@ pub fn spawn_fake(registry: &Arc<Registry>, def: Arc<DeviceDef>, journal: Arc<Jo
 mod tests {
     use super::*;
     use serde_json::{json, Value};
-    use uncoil_core::device::builtin;
     use uncoil_core::ipc::{KeyMapping, WriteResult};
 
+    /// The same devices `uncoild --fake` serves: keyboard, Basilisk and the experimental DeathAdder.
     fn control() -> Control {
-        let defs: Vec<Arc<DeviceDef>> = builtin().into_iter().map(Arc::new).collect();
+        let defs = crate::fake::fake_defs();
         let registry = Arc::new(Registry::default());
         let journal = Arc::new(Journal { path: None });
-        for d in defs.iter().filter(|d| d.kind != uncoil_core::device::Kind::Mousemat) {
-            spawn_fake(&registry, d.clone(), journal.clone());
+        for d in crate::fake::connected_fakes(&defs) {
+            spawn_fake(&registry, d, journal.clone());
         }
-        Control { registry, defs, status: Arc::new(Mutex::new(Status { pid: 42, ..Default::default() })) }
+        let status = Status { pid: 42, unknown_devices: crate::fake::unknown_devices(), ..Default::default() };
+        Control { registry, defs, status: Arc::new(Mutex::new(status)) }
     }
 
     fn req(cmd: &str, device: Option<&str>, args: Value) -> Request {
@@ -274,23 +349,63 @@ mod tests {
         let c = control();
         let r: Value = c.handle(req("status", None, Value::Null)).into_result().unwrap();
         assert_eq!(r["pid"], 42);
+        assert_eq!(r["unknown_devices"], json!([{"product_id": 0x0FFE, "interfaces": [0, 1, 2]}]));
+        assert!(c.defs.iter().all(|d| d.endpoint_for(0x0FFE).is_none()), "the fake unknown device must be unknown");
         let devs: Vec<DeviceInfo> = c.handle(req("devices", None, Value::Null)).into_result().unwrap();
-        assert_eq!(devs.len(), 2);
+        assert_eq!(devs.len(), 3);
+        let da = devs.iter().find(|d| d.id == "razer-deathadder-v3-pro").unwrap();
+        assert_eq!(da.support, uncoil_core::device::Support::Experimental);
+        assert!(!da.features.contains(&Feature::Lighting));
         let caps: Capabilities =
             c.handle(req("capabilities", Some("keyboard"), json!({"probe": true}))).into_result().unwrap();
         assert!(caps.connected && caps.features.contains(&Feature::Dial));
         assert_eq!(caps.dial_modes.len(), 9);
         assert_eq!(caps.probed.unwrap().regions[0].cols, 18);
+        assert!(caps.checks.iter().all(|c| c.state == ipc::CheckState::NotNeeded));
         let all: Vec<Capabilities> = c.handle(req("capabilities", None, Value::Null)).into_result().unwrap();
-        assert_eq!(all.len(), 3);
-        assert!(!all.iter().find(|c| c.kind == uncoil_core::device::Kind::Mousemat).unwrap().connected);
+        assert_eq!(all.len(), c.defs.len());
+        assert!(!all.iter().find(|c| c.id == "razer-goliathus-chroma-extended").unwrap().connected);
+        // the Basilisk's unverified features and the experimental mouse start untested
+        let b: Capabilities = c.handle(req("capabilities", Some("basilisk"), Value::Null)).into_result().unwrap();
+        assert_eq!(b.unverified, vec![Feature::Dpi, Feature::PollRate, Feature::Power]);
+        let state = |caps: &Capabilities, f: Feature| caps.checks.iter().find(|c| c.feature == f).unwrap().state;
+        assert_eq!(state(&b, Feature::Dpi), ipc::CheckState::Untested);
+        assert_eq!(state(&b, Feature::Keymap), ipc::CheckState::NotNeeded);
+        let da: Capabilities =
+            c.handle(req("capabilities", Some("deathadder v3 pro"), Value::Null)).into_result().unwrap();
+        assert!(da.checks.iter().all(|c| c.state == ipc::CheckState::Untested));
+        // check.run passes them, and capabilities shows it
+        let ran: Vec<FeatureCheck> =
+            c.handle(req("check.run", Some("deathadder v3 pro"), Value::Null)).into_result().unwrap();
+        assert!(ran.iter().all(|c| c.state == ipc::CheckState::Passed), "{ran:?}");
+        let da: Capabilities =
+            c.handle(req("capabilities", Some("deathadder v3 pro"), Value::Null)).into_result().unwrap();
+        assert_eq!(da.checks, ran);
+    }
+
+    #[test]
+    fn codes_travel_in_the_response() {
+        let c = control();
+        let e = c.handle(req("dial.get", Some("basilisk"), json!({})));
+        assert_eq!(e.code.as_deref(), Some(ipc::codes::NOT_SUPPORTED));
+        let e = c.handle(req(
+            "keymap.set",
+            Some("basilisk"),
+            json!({"key": "LEFT_CLICK", "function": "button 2", "write": true}),
+        ));
+        assert_eq!(e.code.as_deref(), Some(ipc::codes::LEFT_CLICK_GUARD));
+        assert!(e.error.unwrap().starts_with("This would leave no button that left-clicks."));
+        let ok = c.handle(req("performance.get", Some("basilisk"), Value::Null));
+        assert!(ok.ok && ok.code.is_none());
     }
 
     #[test]
     fn device_commands_go_through_the_device_thread() {
         let c = control();
-        let m: KeyMapping =
-            c.handle(req("keymap.get", Some("blackwidow"), json!({"key": "F9", "layer": "fn"}))).into_result().unwrap();
+        let m: KeyMapping = c
+            .handle(req("keymap.get", Some("blackwidow v4 pro 75"), json!({"key": "F9", "layer": "fn"})))
+            .into_result()
+            .unwrap();
         assert_eq!(m.function.to_string(), "razer 4");
         let w: WriteResult<KeyMapping> = c
             .handle(req(
@@ -302,10 +417,11 @@ mod tests {
             .unwrap();
         assert!(w.verified);
         // mouse: the clutch button
-        let m: KeyMapping = c.handle(req("keymap.get", Some("mouse"), json!({"key": "CLUTCH"}))).into_result().unwrap();
+        let m: KeyMapping =
+            c.handle(req("keymap.get", Some("basilisk"), json!({"key": "CLUTCH"}))).into_result().unwrap();
         assert_eq!(m.function.to_string(), "dpi 5 1 144 1 144");
         // hardware effect shows up in `devices`
-        assert!(c.handle(req("effect.hw", Some("mouse"), json!({"effect": "static #00ff00"}))).ok);
+        assert!(c.handle(req("effect.hw", Some("basilisk"), json!({"effect": "static #00ff00"}))).ok);
         let devs: Vec<DeviceInfo> = c.handle(req("devices", None, Value::Null)).into_result().unwrap();
         assert!(devs.iter().any(|d| d.hw_effect.is_some()));
     }
@@ -313,16 +429,55 @@ mod tests {
     #[test]
     fn errors_are_plain() {
         let c = control();
-        let e = c.handle(req("keymap.get", Some("mat"), json!({"key": "P"})));
+        let e = c.handle(req("keymap.get", Some("goliathus"), json!({"key": "P"})));
         assert_eq!(e.error.as_deref(), Some("Razer Goliathus Chroma Extended is not connected"));
         let e = c.handle(req("keymap.get", Some("headset"), json!({"key": "P"})));
         assert!(e.error.unwrap().contains("no device matches"));
-        let e = c.handle(req("dial.get", Some("mouse"), json!({})));
+        let e = c.handle(req("dial.get", Some("basilisk"), json!({})));
         assert!(e.error.unwrap().contains("does not support dial"));
         let e = c.handle(req("keymap.get", None, json!({"key": "P"})));
         assert_eq!(e.error.as_deref(), Some("this command needs a device"));
         let e = c.handle(req("frobnicate", None, Value::Null));
         assert!(e.error.unwrap().contains("unknown command"));
+    }
+
+    /// The browser mock (`apps/uncoil/src/lib/mock/daemon/*.json`) is seeded from these fake-daemon answers,
+    /// the same JSON `uncoil --json --pipe \\.\pipe\uncoil-fake …` prints. Regenerate with
+    /// `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoild gui_mock` (also checks every answer succeeds).
+    #[test]
+    fn gui_mock_from_fake_answers() {
+        let c = control();
+        let kb = "razer-blackwidow-v4-pro-75";
+        let mouse = "razer-basilisk-v3-pro";
+        let da = crate::fake::DEATHADDER_ID;
+        let files: [(&str, Option<&str>, &str, Value); 17] = [
+            ("devices", None, "devices", Value::Null),
+            ("caps-keyboard", Some(kb), "capabilities", Value::Null),
+            ("caps-mouse", Some(mouse), "capabilities", Value::Null),
+            ("caps-deathadder", Some(da), "capabilities", Value::Null),
+            ("keymap-keyboard-normal", Some(kb), "keymap.dump", json!({"layer": "normal"})),
+            ("keymap-keyboard-hypershift", Some(kb), "keymap.dump", json!({"layer": "hypershift"})),
+            ("keymap-mouse-normal", Some(mouse), "keymap.dump", json!({"layer": "normal"})),
+            ("keymap-mouse-hypershift", Some(mouse), "keymap.dump", json!({"layer": "hypershift"})),
+            ("keymap-deathadder-normal", Some(da), "keymap.dump", json!({"layer": "normal"})),
+            ("profiles-keyboard", Some(kb), "profile.list", Value::Null),
+            ("profiles-mouse", Some(mouse), "profile.list", Value::Null),
+            ("dial", Some(kb), "dial.get", json!({})),
+            ("oled", Some(kb), "oled.get", Value::Null),
+            ("performance-mouse", Some(mouse), "performance.get", Value::Null),
+            ("performance-deathadder", Some(da), "performance.get", Value::Null),
+            ("power-mouse", Some(mouse), "power.get", Value::Null),
+            ("power-deathadder", Some(da), "power.get", Value::Null),
+        ];
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../uncoil/src/lib/mock/daemon");
+        let write = std::env::var_os("UNCOIL_UPDATE_MOCK").is_some();
+        for (name, device, cmd, args) in files {
+            let v: Value = c.handle(req(cmd, device, args)).into_result().unwrap_or_else(|e| panic!("{name}: {e}"));
+            if write {
+                std::fs::write(dir.join(format!("{name}.json")), serde_json::to_string_pretty(&v).unwrap() + "\n")
+                    .unwrap();
+            }
+        }
     }
 
     #[cfg(windows)]

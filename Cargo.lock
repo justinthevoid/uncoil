@@ -3993,6 +3993,7 @@ name = "uncoil-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "miniz_oxide 0.8.9",
  "serde",
  "serde_json",
  "toml 0.8.2",

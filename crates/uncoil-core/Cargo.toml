@@ -10,3 +10,7 @@ serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 toml.workspace = true
 anyhow.workspace = true
+miniz_oxide.workspace = true
+
+[build-dependencies]
+miniz_oxide.workspace = true

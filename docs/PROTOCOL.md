@@ -34,7 +34,7 @@ One 90-byte **feature report**, written with report id `0` (91 bytes through hid
 | offset | field | notes |
 |---:|---|---|
 | 0 | status | `0x00` new, `0x01` busy, `0x02` ok, `0x03` fail, `0x04` timeout / no answer, `0x05` unsupported |
-| 1 | transaction id | per device: `0x1F` keyboard + mouse, `0x3F` Goliathus mat (Synapse itself uses a rolling counter) |
+| 1 | transaction id | per device: `0x1F` keyboard + mouse, `0x3F` Goliathus mat (Synapse itself uses a rolling counter); some firmwares want another id for some command groups, see below |
 | 2–3 | remaining packets | 0 |
 | 4 | protocol type | 0 |
 | 5 | data size | number of argument bytes; getters often announce more (`0x50`) than they send |
@@ -45,6 +45,17 @@ One 90-byte **feature report**, written with report id `0` (91 bytes through hid
 | 89 | reserved | |
 
 Each device answers on one specific HID collection (interface + usage page + usage); see `devices/*.toml`.
+Some keyboards moved their collection in a firmware update (BlackWidow V4 / V4 Pro: page `0x01` usage
+`0x00` before 1.5, `0x0C` / `0x01` after, same interface 3, per OpenRGB), so a device file can accept more
+than one (`alt_usages`).
+
+**Transaction ids per command group** (prior art, OpenRazer): a few devices use different ids for
+different commands, e.g. Viper Mini lighting `0x3F` but DPI / poll `0xFF`; BlackWidow V3 custom-frame rows
+`0x1F` but effects `0x3F`; the Basilisk V3 Pro, Viper V2 Pro and Cobra Pro send only the low-battery
+threshold pair (`07/01`, `07/81`) with `0xFF`. Device files say so in `[usb.transaction_ids]` (groups in
+[`ARCHITECTURE.md`](ARCHITECTURE.md#transaction-ids-per-command-group)). Wireless receivers also need a
+longer pause before the reply (OpenRazer: 31 ms for HyperSpeed mice, 59.9 ms for Viper-class receivers,
+4.9 ms for wireless keyboards), `reply_wait_us` in the device file.
 A reply echoes class and id. Right after a request the device may still show `busy`, `new` or the
 previous command's reply; uncoil re-reads with growing pauses and only then re-sends.
 
@@ -70,7 +81,31 @@ Synapse's logs contain a second, older command table for the same keyboard (`rzD
 | `17/03` | Set OLED brightness | `[percent]` | logged |
 | `17/82`–`17/96` | OLED getters | see [OLED](#oled-display) | logged, read |
 
-See the catalog for battery, firmware, macro storage etc.
+See the catalog for firmware, macro storage etc., and [Shared mouse commands](#shared-mouse-commands) for
+DPI, poll rate and power.
+
+## Shared mouse commands
+
+From OpenRazer (`razerchromacommon.c` and `razermouse_driver.c` at a84cd0ae; facts transcribed into
+`tools/reference/device-research/`). **From OpenRazer, unverified on uncoil's devices:** none of these has
+been sent to or read from the Basilisk V3 Pro yet, so its device file lists them as `unverified` and uncoil
+reads each value back (read-only check) before changing it.
+
+| class/id | name | args → reply | notes |
+|---|---|---|---|
+| `04/05` | set DPI | `[storage, x_hi, x_lo, y_hi, y_lo, 0, 0]` (size 7) | storage `0` (NOSTORE) on almost every modern mouse: the DPI lasts until the DPI button changes it; `1` (VARSTORE) on Naga V2 Pro, Naga Pro and a few older mice |
+| `04/85` | get DPI | `[storage]` (size 7) → `[storage, x_hi, x_lo, y_hi, y_lo]` | |
+| `04/06` | set DPI stages | `[1, active, count, count × [index, x_hi, x_lo, y_hi, y_lo, 0, 0]]` (size `0x26`) | always VARSTORE (stored); active is 1-based, each record's index 0-based; at most 5 stages |
+| `04/86` | get DPI stages | `[1]` (size `0x26`) → same layout | |
+| `00/05` / `00/85` | poll rate, classic | `[code]` (size 1): `1` = 1000, `2` = 500, `8` = 125 Hz | most mice |
+| `00/40` / `00/C0` | poll rate, HyperPolling | `[arg, code]` (size 2): `0x01` 8000, `0x02` 4000, `0x04` 2000, `0x08` 1000, `0x10` 500, `0x20` 250, `0x40` 125 Hz; reply code in argument 1 | DeathAdder V3, Viper V3 Pro wireless, Viper 8K, Viper Mini SE, DeathAdder V4 Pro, the HyperPolling dongle; OpenRazer sends the set twice to these, argument `0` then `1` |
+| `07/80` | battery | size 2 → `[_, 0–255]` | shown as a percentage |
+| `07/84` | charging | size 2 → `[_, 0/1]` | |
+| `07/03` / `07/83` | sleep timer | `[secs_hi, secs_lo]` | 60–900 s, no storage byte |
+| `07/01` / `07/81` | low-battery threshold | `[raw]` (size 1) | `0x0C`–`0x3F` of 255 (about 5–25 %); transaction id `0xFF` on the Basilisk V3 Pro |
+
+uncoil clamps DPI to the device file's `[dpi]` range, the sleep timer to 60–900 s and the threshold to
+`0x0C`–`0x3F` before sending.
 
 ## Firmware effects
 
@@ -154,6 +189,13 @@ handles the combination itself: no driver mode, no daemon, works on any PC.
   the 75% board, with their LED names and factory normal-layer mappings, are in
   `devices/razer-blackwidow-v4-pro-75.toml` (`[keymap]`); Synapse's full id table is
   [`blackwidow-keyids.json`](blackwidow-keyids.json). Left Windows and Fn have no id there.
+- The ids are the IBM PC/AT key positions the USB HID Usage Tables print as "Typical AT-101 Position"
+  (checked against HUT 1.12: A = 31, P = 26, Esc = 110, F1 = 112, Print Screen = 124, Space = 61, …; every
+  id in `blackwidow-keyids.json` matches), so the table very likely holds for other Razer keyboards too
+  (inferred). The scheme predicts **Left GUI = 127, Right GUI = 128** (untested; probably the missing Left
+  Windows id). Keys with no AT-101 position (Fn, macro keys, the dial, media keys) use Razer ids that are
+  not documented anywhere. Mouse button ids are a different numbering (52 is tilt left on the Basilisk, not
+  a key).
 - Basilisk V3 Pro button ids (`02/84`, read): 1 left, 2 right, 3 wheel click, 4 back, 5 forward, 9/10 wheel
   up/down, 52/53 wheel tilt left/right, 14 profile button (`DKM_SB_01`), 15 DPI clutch (`DKM_SB_02`),
   96 DPI button (`DKM_SB_03`), 106 scroll-mode button (`DKM_M_106`). Names in parentheses are Synapse's.
@@ -263,6 +305,9 @@ command, image format and chunking never appear in the logs.
 
 - Hardware verification of firmware effects (`0F/02`) on all three devices, and of `dial set` / `oled set`.
 - Profile switching and confirmation of `05/84`.
+- The shared mouse commands (DPI, stages, poll rate, battery, sleep timer, low-battery threshold) on the
+  Basilisk V3 Pro: `uncoil check mouse` reads them all without writing anything.
+- Every file in `devices/experimental/` (built from OpenRazer / OpenRGB data).
 - Media-key (`fn` 10), macro, lighting and Windows-shortcut data layouts on the keyboard.
 - The `02/8F` bulk-read paging, and the factory Hypershift defaults for keys Synapse never wrote.
 - OLED setters beyond brightness; OLED image upload.

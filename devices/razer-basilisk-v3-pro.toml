@@ -4,7 +4,10 @@ id = "razer-basilisk-v3-pro"
 name = "Razer Basilisk V3 Pro"
 kind = "mouse"
 vendor_id = 0x1532
-features = ["lighting", "hw_effects", "keymap", "profiles"]
+features = ["lighting", "hw_effects", "keymap", "profiles", "dpi", "poll_rate", "power"]
+# dpi, poll_rate and power come from OpenRazer and have not been read on this mouse yet: their writes wait
+# for uncoil's read-only checks (`uncoil check mouse`) like an experimental device's.
+unverified = ["dpi", "poll_rate", "power"]
 
 [[usb]]
 product_id = 0x00AA
@@ -14,6 +17,12 @@ usage_page = 0x01
 usage = 0x02
 transaction_id = 0x1F
 
+[usb.transaction_ids]
+# From OpenRazer, not yet read on this mouse: the low-battery threshold (07/01, 07/81) is the only command
+# it sends to this mouse with 0xFF. Everything else, DPI, poll rate and the other power commands included,
+# uses 0x1F.
+low_battery = 0xFF
+
 [[usb]]
 product_id = 0x00AB
 connection = "dongle"   # answers status 0x04 (timeout) while the mouse is on its cable
@@ -21,6 +30,9 @@ interface = 0
 usage_page = 0x01
 usage = 0x02
 transaction_id = 0x1F
+
+[usb.transaction_ids]
+low_battery = 0xFF   # as on the wired endpoint (OpenRazer, not yet read on this mouse)
 
 [quirks]
 ack_every_report = false
@@ -74,3 +86,23 @@ keys = [
   { id = 96, name = "DPI_BUTTON", default = "dpi 6" },          # DKM_SB_03: DPI cycle up
   { id = 106, name = "SCROLL_MODE", default = "shortcut 1" },   # DKM_M_106: free-spin / notched toggle
 ]
+
+# ---- from OpenRazer, not yet read on this mouse ----------------------------------------------------------
+# Shared mouse commands (razerchromacommon.c, razermouse_driver.c at a84cd0ae). Listed in `unverified`
+# above, so uncoil reads each value back (check) before it changes anything.
+
+[dpi]
+# 04/05 set, 04/85 get; NOSTORE like almost every modern Razer mouse (lasts until the DPI button changes it).
+min = 100
+max = 30000
+storage = "nostore"
+stages_max = 5        # 04/06, 04/86
+
+[poll_rate]
+kind = "classic"      # 00/05, 00/85
+rates = [125, 500, 1000]
+
+[power]
+battery = true        # 07/80 level, 07/84 charging
+idle = true           # 07/03, 07/83: 60-900 s
+low_battery = true    # 07/01, 07/81 (transaction id 0xFF, see [usb.transaction_ids])

@@ -1,7 +1,7 @@
 //! Physical placement: where each LED of each device sits on the desk, in key units (1u = 19.05 mm),
 //! x to the right, y toward the user.
 
-use crate::device::{DeviceDef, LayoutDef};
+use crate::device::{DeviceDef, Kind, LayoutDef};
 use crate::effect::Bounds;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -49,11 +49,85 @@ pub struct Placement {
 /// Sensible default desk: keyboard at the origin, mouse to its right, mat underneath both.
 pub fn default_placement(def: &DeviceDef) -> Placement {
     match def.kind {
-        crate::device::Kind::Keyboard => Placement { x: 0.0, y: 0.0 },
-        crate::device::Kind::Mouse => Placement { x: 20.75, y: 3.1 },
-        crate::device::Kind::Mousemat => Placement { x: 11.125, y: 3.375 },
+        Kind::Keyboard => Placement { x: 0.0, y: 0.0 },
+        Kind::Mouse => Placement { x: 20.75, y: 3.1 },
+        Kind::Mousemat => Placement { x: 11.125, y: 3.375 },
         _ => Placement { x: 0.0, y: 8.0 },
     }
+}
+
+/// Space left between an auto-placed device and its neighbour, in key units.
+const GAP: f32 = 1.0;
+
+fn kind_rank(k: Kind) -> u8 {
+    match k {
+        Kind::Keyboard => 0,
+        Kind::Mouse => 1,
+        Kind::Mousemat => 2,
+        Kind::Headset => 3,
+        Kind::Other => 4,
+    }
+}
+
+/// The devices the desk shows, in desk order (keyboards, mice, mats, the rest; file order within a kind):
+/// every supported device with a layout, every device the config places, and every connected device with a
+/// layout. Devices without a matrix and layout never appear.
+pub fn desk_devices<'a>(
+    defs: impl IntoIterator<Item = &'a DeviceDef>,
+    configured: &HashMap<String, Placement>,
+    connected: impl Fn(&str) -> bool,
+) -> Vec<&'a DeviceDef> {
+    let mut v: Vec<&DeviceDef> = defs
+        .into_iter()
+        .filter(|d| d.lit().is_some())
+        .filter(|d| !d.is_experimental() || configured.contains_key(&d.id) || connected(&d.id))
+        .collect();
+    v.sort_by_key(|d| kind_rank(d.kind));
+    v
+}
+
+/// Where each desk device sits. Devices the config places stay exactly there; every other device goes to
+/// its kind's default spot when no device of that kind is on the desk yet (so the default desk never
+/// changes), else next to the others of its kind: a second keyboard below the first, another mouse to the
+/// right of the mice, another mat below the mats, anything else to the right of the desk.
+pub fn arrange<'a>(
+    devices: &[&'a DeviceDef],
+    configured: &HashMap<String, Placement>,
+) -> Vec<(&'a DeviceDef, Placement, PlacedDevice)> {
+    let mut out: Vec<Option<(Placement, PlacedDevice)>> = vec![None; devices.len()];
+    for (i, d) in devices.iter().enumerate() {
+        if let Some(&at) = configured.get(&d.id) {
+            out[i] = place(d, at).map(|p| (at, p));
+        }
+    }
+    for (i, d) in devices.iter().enumerate() {
+        if out[i].is_some() || configured.contains_key(&d.id) {
+            continue;
+        }
+        let placed: Vec<(Kind, &PlacedDevice)> =
+            devices.iter().zip(&out).filter_map(|(d, o)| o.as_ref().map(|(_, p)| (d.kind, p))).collect();
+        let at = auto_place(d, &placed);
+        out[i] = place(d, at).map(|p| (at, p));
+    }
+    devices.iter().zip(out).filter_map(|(d, o)| o.map(|(at, p)| (*d, at, p))).collect()
+}
+
+fn auto_place(def: &DeviceDef, placed: &[(Kind, &PlacedDevice)]) -> Placement {
+    let same: Vec<&PlacedDevice> = placed.iter().filter(|(k, _)| *k == def.kind).map(|(_, p)| *p).collect();
+    let Some(first) = same.first() else { return default_placement(def) };
+    let Some(origin) = place(def, Placement { x: 0.0, y: 0.0 }) else { return default_placement(def) };
+    let bottom = |ps: &[&PlacedDevice]| ps.iter().map(|p| p.y + p.h).fold(f32::MIN, f32::max);
+    let right = |ps: &[&PlacedDevice]| ps.iter().map(|p| p.x + p.w).fold(f32::MIN, f32::max);
+    // top-left of the new device's body
+    let (bx, by) = match def.kind {
+        Kind::Keyboard | Kind::Mousemat => (first.x, bottom(&same) + GAP),
+        Kind::Mouse => (right(&same) + GAP, first.center().1 - origin.h / 2.0),
+        _ => {
+            let all: Vec<&PlacedDevice> = placed.iter().map(|(_, p)| *p).collect();
+            (right(&all) + GAP, first.y)
+        }
+    };
+    Placement { x: bx - origin.x, y: by - origin.y }
 }
 
 fn parse_key(spec: &str) -> (&str, f32) {
@@ -63,13 +137,14 @@ fn parse_key(spec: &str) -> (&str, f32) {
     }
 }
 
-pub fn place(def: &DeviceDef, at: Placement) -> PlacedDevice {
-    let m = &def.matrix;
+/// A device's LEDs and body on the desk; `None` for a device without a matrix and layout.
+pub fn place(def: &DeviceDef, at: Placement) -> Option<PlacedDevice> {
+    let (m, layout) = def.lit()?;
     let mut positions = vec![vec![None; m.cols]; m.rows];
     let mut shapes = Vec::new();
     let (bx, by, bw, bh);
 
-    match &def.layout {
+    match layout {
         LayoutDef::Keyboard { width, depth, rows, underglow } => {
             // key rectangles by name
             let mut keys: HashMap<&str, (f32, f32, f32, f32)> = HashMap::new();
@@ -146,7 +221,7 @@ pub fn place(def: &DeviceDef, at: Placement) -> PlacedDevice {
         }
     }
 
-    PlacedDevice { id: def.id.clone(), name: def.name.clone(), x: bx, y: by, w: bw, h: bh, positions, shapes }
+    Some(PlacedDevice { id: def.id.clone(), name: def.name.clone(), x: bx, y: by, w: bw, h: bh, positions, shapes })
 }
 
 impl PlacedDevice {
@@ -182,12 +257,15 @@ mod tests {
     use super::*;
     use crate::device::builtin;
 
+    fn kb() -> DeviceDef {
+        builtin().into_iter().find(|d| d.id == "razer-blackwidow-v4-pro-75").unwrap()
+    }
+
     #[test]
     fn keyboard_every_named_slot_is_placed() {
-        let defs = builtin();
-        let kb = defs.iter().find(|d| d.id == "razer-blackwidow-v4-pro-75").unwrap();
-        let p = place(kb, Placement { x: 0.0, y: 0.0 });
-        let named = kb.matrix.names.iter().flatten().filter(|n| !n.is_empty()).count();
+        let kb = kb();
+        let p = place(&kb, Placement { x: 0.0, y: 0.0 }).unwrap();
+        let named = kb.matrix.as_ref().unwrap().names.iter().flatten().filter(|n| !n.is_empty()).count();
         let placed = p.positions.iter().flatten().filter(|x| x.is_some()).count();
         assert_eq!(named, 99);
         assert_eq!(placed, named, "every named LED must have a physical position");
@@ -195,9 +273,7 @@ mod tests {
 
     #[test]
     fn hidden_underglow_slots_land_on_the_sides() {
-        let defs = builtin();
-        let kb = defs.iter().find(|d| d.id == "razer-blackwidow-v4-pro-75").unwrap();
-        let p = place(kb, Placement { x: 0.0, y: 0.0 });
+        let p = place(&kb(), Placement { x: 0.0, y: 0.0 }).unwrap();
         let (lx, _) = p.positions[0][14].unwrap(); // LU1, stored in the top-right of the matrix
         let (rx, _) = p.positions[5][5].unwrap(); // RU1, stored next to the spacebar
         assert!(lx < 0.0, "LU1 should be left of the keyboard, got x={lx}");
@@ -206,7 +282,18 @@ mod tests {
 
     #[test]
     fn default_desk_bounds_match_the_effect_default() {
-        let placed: Vec<PlacedDevice> = builtin().iter().map(|d| place(d, default_placement(d))).collect();
+        let defs = builtin();
+        let shown = desk_devices(&defs, &HashMap::new(), |_| false);
+        let desk = arrange(&shown, &HashMap::new());
+        assert_eq!(
+            desk.iter().map(|(d, _, _)| d.id.as_str()).collect::<Vec<_>>(),
+            ["razer-blackwidow-v4-pro-75", "razer-basilisk-v3-pro", "razer-goliathus-chroma-extended"],
+            "the default desk is the three supported devices, keyboard first"
+        );
+        for (d, at, _) in &desk {
+            assert_eq!(*at, default_placement(d), "{}", d.id);
+        }
+        let placed: Vec<PlacedDevice> = desk.into_iter().map(|(_, _, p)| p).collect();
         let b = desk_bounds(&placed).unwrap();
         let d = Bounds::DEFAULT;
         for (got, want) in [(b.min_x, d.min_x), (b.min_y, d.min_y), (b.max_x, d.max_x), (b.max_y, d.max_y)] {
@@ -217,5 +304,101 @@ mod tests {
         assert!((cx - 8.125).abs() < 1e-4 && (cy - 3.125).abs() < 1e-4);
         assert_eq!(kb.shape_position("Escape"), Some((0.5, 0.5)));
         assert!(desk_bounds(&[]).is_none());
+    }
+
+    /// A made-up experimental keyboard or mouse with a one-LED layout.
+    fn extra(kind: &str, id: &str) -> DeviceDef {
+        let (matrix, layout) = match kind {
+            "keyboard" => (
+                r#"names = [["Escape"]]"#,
+                r#"type = "keyboard"
+                   width = 15.0
+                   depth = 5.0
+                   rows = [{ y = 0.0, keys = ["Escape:1"] }]"#,
+            ),
+            _ => (
+                r#"names = [["Logo"]]"#,
+                r#"type = "points"
+                   width = 2.5
+                   depth = 5.0
+                   points = [[0.0, 0.0]]"#,
+            ),
+        };
+        let src = format!(
+            r#"id = "{id}"
+               name = "{id}"
+               kind = "{kind}"
+               vendor_id = 0x1532
+               support = "experimental"
+               [[usb]]
+               product_id = 0x0001
+               interface = 0
+               usage_page = 1
+               usage = 2
+               transaction_id = 0x1F
+               [matrix]
+               rows = 1
+               cols = 1
+               {matrix}
+               [layout]
+               {layout}
+            "#
+        );
+        DeviceDef::from_toml(&src).unwrap()
+    }
+
+    #[test]
+    fn connected_devices_are_placed_next_to_their_kind() {
+        let mut defs = builtin();
+        defs.push(extra("keyboard", "test-kb"));
+        defs.push(extra("mouse", "test-mouse"));
+        // not connected and not configured: not on the desk
+        let shown = desk_devices(&defs, &HashMap::new(), |_| false);
+        assert!(shown.iter().all(|d| !d.id.starts_with("test-")));
+        // connected: below the first keyboard / right of the first mouse; the three keep their places
+        let shown = desk_devices(&defs, &HashMap::new(), |id| id.starts_with("test-"));
+        let desk = arrange(&shown, &HashMap::new());
+        let get = |id: &str| desk.iter().find(|(d, _, _)| d.id == id).unwrap();
+        let (_, kb_at, kb) = get("razer-blackwidow-v4-pro-75");
+        let (_, mouse_at, mouse) = get("razer-basilisk-v3-pro");
+        assert_eq!(*kb_at, Placement { x: 0.0, y: 0.0 });
+        assert_eq!(*mouse_at, Placement { x: 20.75, y: 3.1 });
+        let (_, _, kb2) = get("test-kb");
+        assert!((kb2.x - kb.x).abs() < 1e-4 && (kb2.y - (kb.y + kb.h + GAP)).abs() < 1e-4, "{kb2:?}");
+        let (_, _, m2) = get("test-mouse");
+        assert!((m2.x - (mouse.x + mouse.w + GAP)).abs() < 1e-4, "{m2:?}");
+        assert!((m2.center().1 - mouse.center().1).abs() < 1e-4);
+        // configured devices stay exactly where the config says
+        let mut cfg = HashMap::new();
+        cfg.insert("test-mouse".to_string(), Placement { x: -5.0, y: 1.0 });
+        cfg.insert("razer-blackwidow-v4-pro-75".to_string(), Placement { x: 2.0, y: 2.0 });
+        let shown = desk_devices(&defs, &cfg, |_| false);
+        let desk = arrange(&shown, &cfg);
+        let at = |id: &str| desk.iter().find(|(d, _, _)| d.id == id).map(|(_, at, _)| *at).unwrap();
+        assert_eq!(at("test-mouse"), Placement { x: -5.0, y: 1.0 });
+        assert_eq!(at("razer-blackwidow-v4-pro-75"), Placement { x: 2.0, y: 2.0 });
+        assert!(!desk.iter().any(|(d, _, _)| d.id == "test-kb"));
+        // the unconfigured Basilisk now goes right of the configured mouse
+        let (_, _, b) = desk.iter().find(|(d, _, _)| d.id == "razer-basilisk-v3-pro").unwrap();
+        assert!(b.x > -5.0);
+    }
+
+    #[test]
+    fn feature_only_devices_are_never_placed() {
+        let src = r#"id = "x"
+                     name = "x"
+                     kind = "mouse"
+                     vendor_id = 0x1532
+                     features = ["profiles"]
+                     [[usb]]
+                     product_id = 1
+                     interface = 0
+                     usage_page = 1
+                     usage = 2
+                     transaction_id = 0x1F
+                  "#;
+        let d = DeviceDef::from_toml(src).unwrap();
+        assert!(place(&d, Placement { x: 0.0, y: 0.0 }).is_none());
+        assert!(desk_devices([&d], &HashMap::new(), |_| true).is_empty());
     }
 }

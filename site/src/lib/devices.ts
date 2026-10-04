@@ -1,5 +1,5 @@
-// Supported devices, read at build time from the same devices/*.toml the daemon compiles in.
-// Adding a TOML there adds a row here; nothing on the site is typed by hand.
+// Device lists, read at build time from the same files the daemon compiles in: devices/*.toml (supported) and
+// devices/experimental/*.toml (experimental). Adding a TOML there adds a row here; nothing is typed by hand.
 import { parse } from 'smol-toml';
 
 type UsbEndpoint = { product_id: number; connection?: string };
@@ -8,10 +8,13 @@ type DeviceToml = {
 	name: string;
 	kind: string;
 	vendor_id: number;
+	support?: 'supported' | 'experimental';
+	features?: string[];
 	usb: UsbEndpoint[];
 	quirks?: { ack_every_report?: boolean; custom_mode_once?: boolean };
-	matrix: { rows: number; cols: number; names: string[][] };
-	layout: { type: string };
+	// Optional: devices without RGB have neither.
+	matrix?: { rows: number; cols: number; names: string[][] };
+	layout?: { type: string };
 };
 
 export interface DeviceRow {
@@ -31,15 +34,23 @@ const files = import.meta.glob('../../../devices/*.toml', {
 	eager: true,
 }) as Record<string, string>;
 
+const experimentalFiles = import.meta.glob('../../../devices/experimental/*.toml', {
+	query: '?raw',
+	import: 'default',
+	eager: true,
+}) as Record<string, string>;
+
 const hex4 = (n: number) => n.toString(16).toUpperCase().padStart(4, '0');
 
 /** "Strip 1".."Strip 11" -> "Strip ×11"; keyboards -> "84 keys + 18 underglow". */
 function lighting(def: DeviceToml, names: string[]): string {
+	if (names.length === 0) return 'no lighting';
 	if (names.length === 1) return '1 zone';
 	if (def.kind === 'keyboard') {
 		const glow = names.filter((n) => /^(LU|RU)\d+$/.test(n)).length;
-		const keys = names.length - glow;
-		return glow ? `${keys} keys + ${glow} underglow` : `${keys} keys`;
+		const rest = names.filter((n) => /^WR\d+$/.test(n)).length;
+		const keys = names.length - glow - rest;
+		return [`${keys} keys`, glow && `${glow} underglow`, rest && `${rest} wrist rest`].filter(Boolean).join(' + ');
 	}
 	const groups = new Map<string, number>();
 	for (const n of names) {
@@ -52,7 +63,7 @@ function lighting(def: DeviceToml, names: string[]): string {
 export const devices: DeviceRow[] = Object.entries(files)
 	.map(([path, src]) => {
 		const def = parse(src) as unknown as DeviceToml;
-		const names = def.matrix.names.flat().filter((n) => n !== '');
+		const names = (def.matrix?.names ?? []).flat().filter((n) => n !== '');
 		const quirks: string[] = [];
 		if (def.quirks?.ack_every_report) quirks.push('reads every reply');
 		if (def.quirks?.custom_mode_once ?? true) quirks.push('custom mode once');
@@ -70,3 +81,34 @@ export const devices: DeviceRow[] = Object.entries(files)
 	.sort((a, b) => ['keyboard', 'mouse', 'mousemat'].indexOf(a.kind) - ['keyboard', 'mouse', 'mousemat'].indexOf(b.kind));
 
 export const totalLeds = devices.reduce((n, d) => n + d.leds, 0);
+
+const KIND_ORDER = ['keyboard', 'mouse', 'mousemat', 'headset', 'other'];
+
+export interface ExperimentalRow {
+	id: string;
+	name: string;
+	kind: string;
+	file: string;
+	lighting: string;
+	/** Firmware effects only (no per-LED frames) when the sources disagree about per-LED lighting. */
+	effectsOnly: boolean;
+	usb: { pid: string; connection: string }[];
+}
+
+/** Experimental devices: built from OpenRazer / OpenRGB data, not yet confirmed on real hardware. */
+export const experimentalDevices: ExperimentalRow[] = Object.entries(experimentalFiles)
+	.map(([path, src]) => {
+		const def = parse(src) as unknown as DeviceToml;
+		const names = (def.matrix?.names ?? []).flat().filter((n) => n !== '');
+		const features = def.features ?? ['lighting'];
+		return {
+			id: def.id,
+			name: def.name,
+			kind: def.kind,
+			file: `devices/experimental/${path.split('/').pop()}`,
+			lighting: lighting(def, names),
+			effectsOnly: names.length > 0 && !features.includes('lighting'),
+			usb: def.usb.map((u) => ({ pid: `${hex4(def.vendor_id)}:${hex4(u.product_id)}`, connection: u.connection ?? '' })),
+		};
+	})
+	.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name));

@@ -16,7 +16,7 @@ runs while you look at it.
 
 ## The daemon: `uncoild`
 
-One process, no window, no console, no service, no kernel driver. On the maintainer's PC it is a 651 KB
+One process, no window, no console, no service, no kernel driver. On the maintainer's PC it is a 1.2 MB
 executable using about 3 MB of private memory and under 1% of one core while animating.
 
 - **Main loop** (every 33 ms; every 250 ms while the lights are faded out): watches the config file's

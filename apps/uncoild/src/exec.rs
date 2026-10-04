@@ -5,18 +5,29 @@
 //! the value is read before and after, the write is logged, and it is appended to the journal
 //! (`%LOCALAPPDATA%\uncoil\onboard-writes.jsonl`) so `keymap.reset` can restore what was there before
 //! uncoil first touched a key.
+//!
+//! On experimental devices (and a supported device's `unverified` features) every write first passes the
+//! feature's read-only check (`checks.rs`). On every mouse, a key map change that would leave no button
+//! producing left click is refused (`left_click_guard`).
 
+use crate::checks::Checks;
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
-use uncoil_core::device::DeviceDef;
+use uncoil_core::device::{DeviceDef, Kind};
 use uncoil_core::features::dial::{self, DialMode};
 use uncoil_core::features::hw_effect::{self, HwEffect, Storage};
 use uncoil_core::features::keymap::{self, Function, KeyDef, KeymapDef, Layer};
 use uncoil_core::features::oled::{self, OledState};
+use uncoil_core::features::performance::{self as perf, DpiStorage, PerformanceState};
+use uncoil_core::features::power::{self, PowerState};
 use uncoil_core::features::profile::{self, ProfileInfo};
-use uncoil_core::ipc::{self, Command, EffectState, KeyMapping, LightingProbe, Raw, WriteResult};
+use uncoil_core::features::Feature;
+use uncoil_core::ipc::{
+    self, coded, codes, Command, EffectState, KeyMapping, LightingProbe, PerformanceSetArgs, PowerSetArgs, Raw,
+    WriteResult,
+};
 use uncoil_core::proto::{self, query_ok, DeviceMode, Transport};
 
 /// What the renderer must do with the lighting after a command.
@@ -102,15 +113,69 @@ fn to_json<T: Serialize>(t: &T) -> Raw {
     ipc::raw(t)
 }
 
-/// Run one device-level command.
-pub fn run(t: &mut dyn Transport, def: &DeviceDef, tid: u8, cmd: &Command, journal: &Journal) -> Result<Outcome> {
+fn not_supported(def: &DeviceDef, what: &str) -> anyhow::Error {
+    coded(codes::NOT_SUPPORTED, format!("{} does not support {what}", def.name))
+}
+
+/// Features whose read-only check must pass before this command may write.
+fn gated_features(cmd: &Command) -> Vec<Feature> {
+    match cmd {
+        Command::KeymapSet(_) | Command::KeymapReset(_) => vec![Feature::Keymap],
+        Command::DialSet(_) => vec![Feature::Dial],
+        Command::OledSet(_) => vec![Feature::Oled],
+        Command::PerformanceSet(a) => {
+            let mut v = vec![];
+            if a.dpi.is_some() || a.stages.is_some() {
+                v.push(Feature::Dpi);
+            }
+            if a.poll_hz.is_some() {
+                v.push(Feature::PollRate);
+            }
+            v
+        }
+        Command::PowerSet(_) => vec![Feature::Power],
+        _ => vec![],
+    }
+}
+
+/// Run one device-level command. `checks` is the device's check cache for this connection.
+pub fn run(
+    t: &mut dyn Transport,
+    def: &DeviceDef,
+    tid: u8,
+    cmd: &Command,
+    journal: &Journal,
+    checks: &mut Checks,
+) -> Result<Outcome> {
     if let Some(f) = cmd.feature() {
         if !def.has(f) {
-            bail!("{} does not support {}", def.name, f.as_str());
+            return Err(not_supported(def, f.as_str()));
         }
     }
-    if cmd.writes_onboard() && !cmd.write_confirmed() {
+    match cmd {
+        Command::PerformanceGet if !def.has(Feature::Dpi) && !def.has(Feature::PollRate) => {
+            return Err(not_supported(def, "dpi or poll_rate"));
+        }
+        Command::PerformanceSet(a) => {
+            if (a.dpi.is_some() || a.stages.is_some()) && !def.has(Feature::Dpi) {
+                return Err(not_supported(def, "dpi"));
+            }
+            if a.poll_hz.is_some() && !def.has(Feature::PollRate) {
+                return Err(not_supported(def, "poll_rate"));
+            }
+            if a.stages.is_some() && def.dpi.as_ref().is_some_and(|d| d.stages_max == 0) {
+                return Err(not_supported(def, "DPI stages"));
+            }
+        }
+        _ => {}
+    }
+    let stored_dpi = matches!(cmd, Command::PerformanceSet(a)
+        if a.dpi.is_some() && def.dpi.as_ref().is_some_and(|d| d.storage == DpiStorage::Varstore));
+    if (cmd.writes_onboard() || stored_dpi) && !cmd.write_confirmed() {
         bail!("this writes {}'s onboard memory; repeat with write=true (CLI: --write)", def.name);
+    }
+    for f in gated_features(cmd) {
+        checks.require(t, def, tid, f)?;
     }
     match cmd {
         Command::KeymapGet(a) => {
@@ -255,8 +320,215 @@ pub fn run(t: &mut dyn Transport, def: &DeviceDef, tid: u8, cmd: &Command, journ
                 log: vec![],
             })
         }
+        Command::CheckRun => Ok(Outcome::value(to_json(&checks.run_all(t, def, tid)))),
+        Command::PerformanceGet => Ok(Outcome::value(to_json(&read_performance(t, def, tid)))),
+        Command::PerformanceSet(a) => set_performance(t, def, tid, a, journal),
+        Command::PowerGet => Ok(Outcome::value(to_json(&read_power(t, def, tid)))),
+        Command::PowerSet(a) => set_power(t, def, tid, a, journal),
         Command::Status | Command::Devices | Command::Capabilities(_) => bail!("{:?} is answered by the daemon", cmd),
     }
+}
+
+/// Everything readable about DPI and poll rate; `None` where the device lacks it or did not answer.
+fn read_performance(t: &mut dyn Transport, def: &DeviceDef, tid: u8) -> PerformanceState {
+    let mut s = PerformanceState::default();
+    if let (true, Some(d)) = (def.has(Feature::Dpi), &def.dpi) {
+        s.dpi = query_ok(t, &perf::get_dpi(tid, d.storage)).and_then(|r| perf::parse_dpi(&r)).ok();
+        s.dpi_min = Some(d.min);
+        s.dpi_max = Some(d.max);
+        s.stages_max = d.stages_max;
+        if d.stages_max > 0 {
+            s.stages = query_ok(t, &perf::get_stages(tid)).and_then(|r| perf::parse_stages(&r)).ok();
+        }
+    }
+    if let (true, Some(p)) = (def.has(Feature::PollRate), &def.poll_rate) {
+        s.poll_hz = query_ok(t, &perf::get_poll(tid, p.kind)).and_then(|r| perf::parse_poll(&r, p.kind)).ok();
+        s.poll_rates = p.rates.clone();
+    }
+    s
+}
+
+fn set_performance(
+    t: &mut dyn Transport,
+    def: &DeviceDef,
+    tid: u8,
+    a: &PerformanceSetArgs,
+    journal: &Journal,
+) -> Result<Outcome> {
+    if a.dpi.is_none() && a.stages.is_none() && a.poll_hz.is_none() {
+        bail!("nothing to set (dpi, stages, poll_hz)");
+    }
+    // targets, clamped to what the device file allows
+    let dpi_def = def.dpi.as_ref();
+    let dpi = match (a.dpi, dpi_def) {
+        (Some(d), Some(dd)) => Some(d.clamp(dd.min, dd.max)),
+        _ => None,
+    };
+    let stages = match (&a.stages, dpi_def) {
+        (Some(s), Some(dd)) => {
+            if s.list.len() > dd.stages_max as usize {
+                bail!("{} keeps at most {} DPI stages, not {}", def.name, dd.stages_max, s.list.len());
+            }
+            let s = s.clamp(dd.min, dd.max);
+            perf::set_stages(tid, &s)?; // validates count and active stage
+            Some(s)
+        }
+        _ => None,
+    };
+    let poll = match (a.poll_hz, def.poll_rate.as_ref()) {
+        (Some(hz), Some(p)) => {
+            if !p.rates.contains(&hz) {
+                let rates: Vec<String> = p.rates.iter().map(u16::to_string).collect();
+                bail!("{} runs at {} Hz, not {hz} Hz", def.name, rates.join(", "));
+            }
+            Some((hz, p))
+        }
+        _ => None,
+    };
+    let send_dpi = |t: &mut dyn Transport, d| {
+        query_ok(t, &perf::set_dpi(tid, dpi_def.map_or(DpiStorage::Nostore, |x| x.storage), d))
+    };
+
+    // DPI alone: live, like pressing the DPI button (unless the device stores it)
+    let stored_dpi = dpi_def.is_some_and(|d| d.storage == DpiStorage::Varstore);
+    if stages.is_none() && poll.is_none() && !stored_dpi {
+        if let Some(d) = dpi {
+            send_dpi(t, d)?;
+        }
+        return Ok(Outcome::value(to_json(&read_performance(t, def, tid))));
+    }
+
+    let before = read_performance(t, def, tid);
+    let wants = |s: &PerformanceState| {
+        dpi.is_none_or(|d| s.dpi == Some(d))
+            && stages.as_ref().is_none_or(|x| s.stages.as_ref() == Some(x))
+            && poll.is_none_or(|(hz, _)| s.poll_hz == Some(hz))
+    };
+    if wants(&before) {
+        let r = WriteResult { after: before.clone(), before, verified: true, unchanged: true };
+        return Ok(Outcome::value(to_json(&r)));
+    }
+    if let Some(d) = dpi {
+        send_dpi(t, d)?;
+    }
+    if let Some(s) = &stages {
+        query_ok(t, &perf::set_stages(tid, s)?)?;
+    }
+    if let Some((hz, p)) = poll {
+        for r in perf::set_poll(tid, p.kind, hz, p.set_twice)? {
+            query_ok(t, &r)?;
+        }
+    }
+    let after = read_performance(t, def, tid);
+    let verified = wants(&after);
+    let show = |s: &PerformanceState| serde_json::to_string(s).unwrap_or_default();
+    journal.record(&JournalEntry {
+        t: unix_now(),
+        device: def.id.clone(),
+        cmd: "performance".into(),
+        profile: None,
+        key: None,
+        layer: None,
+        before: show(&before),
+        after: show(&after),
+    });
+    let mut parts = vec![];
+    if let Some(s) = &stages {
+        let l: Vec<String> = s.list.iter().map(|d| d.to_string()).collect();
+        parts.push(format!("DPI stages [{}] active {}", l.join(", "), s.active));
+    }
+    if let Some((hz, _)) = poll {
+        parts.push(format!("poll rate {} -> {hz} Hz", before.poll_hz.map_or("?".into(), |h| h.to_string())));
+    }
+    if let Some(d) = dpi {
+        parts.push(format!("DPI {d}"));
+    }
+    let line = format!("ONBOARD WRITE {}: {} (verified {verified})", def.id, parts.join(", "));
+    Ok(Outcome {
+        result: to_json(&WriteResult { before, after, verified, unchanged: false }),
+        lighting: Lighting::Unchanged,
+        log: vec![line],
+    })
+}
+
+fn read_power(t: &mut dyn Transport, def: &DeviceDef, tid: u8) -> PowerState {
+    let mut s = PowerState::default();
+    let Some(p) = &def.power else { return s };
+    if p.battery {
+        s.battery_pct = query_ok(t, &power::get_battery(tid)).ok().map(|r| power::parse_battery(&r));
+        s.charging = query_ok(t, &power::get_charging(tid)).and_then(|r| power::parse_charging(&r)).ok();
+    }
+    if p.idle {
+        s.idle_s = query_ok(t, &power::get_idle(tid)).and_then(|r| power::parse_idle(&r)).ok();
+        s.idle_range = Some((power::IDLE_MIN, power::IDLE_MAX));
+    }
+    if p.low_battery {
+        s.low_battery_pct = query_ok(t, &power::get_low_battery(tid))
+            .and_then(|r| power::parse_low_battery(&r))
+            .ok()
+            .map(power::raw_to_pct);
+        s.low_battery_range = Some(power::low_battery_range_pct());
+    }
+    s
+}
+
+fn set_power(t: &mut dyn Transport, def: &DeviceDef, tid: u8, a: &PowerSetArgs, journal: &Journal) -> Result<Outcome> {
+    let p = def.power.clone().unwrap_or_default();
+    if a.idle_s.is_none() && a.low_battery_pct.is_none() {
+        bail!("nothing to set (idle_s, low_battery_pct)");
+    }
+    if a.idle_s.is_some() && !p.idle {
+        return Err(not_supported(def, "a sleep timer"));
+    }
+    if a.low_battery_pct.is_some() && !p.low_battery {
+        return Err(not_supported(def, "a low-battery threshold"));
+    }
+    let idle = a.idle_s.map(|s| s.clamp(power::IDLE_MIN, power::IDLE_MAX));
+    let low_raw =
+        a.low_battery_pct.map(|pct| power::pct_to_raw(pct).clamp(power::LOW_BATTERY_MIN, power::LOW_BATTERY_MAX));
+    let wants = |s: &PowerState| {
+        idle.is_none_or(|v| s.idle_s == Some(v))
+            && low_raw.is_none_or(|r| s.low_battery_pct == Some(power::raw_to_pct(r)))
+    };
+    let before = read_power(t, def, tid);
+    if wants(&before) {
+        let r = WriteResult { after: before.clone(), before, verified: true, unchanged: true };
+        return Ok(Outcome::value(to_json(&r)));
+    }
+    if let Some(v) = idle {
+        query_ok(t, &power::set_idle(tid, v))?;
+    }
+    if let Some(r) = low_raw {
+        query_ok(t, &power::set_low_battery(tid, r))?;
+    }
+    let after = read_power(t, def, tid);
+    let verified = wants(&after);
+    let show = |s: &PowerState| serde_json::to_string(s).unwrap_or_default();
+    journal.record(&JournalEntry {
+        t: unix_now(),
+        device: def.id.clone(),
+        cmd: "power".into(),
+        profile: None,
+        key: None,
+        layer: None,
+        before: show(&before),
+        after: show(&after),
+    });
+    let opt = |v: Option<u16>| v.map_or("?".to_string(), |x| x.to_string());
+    let mut parts = vec![];
+    if let Some(v) = idle {
+        parts.push(format!("sleep after {} -> {v} s", opt(before.idle_s)));
+    }
+    if let Some(r) = low_raw {
+        let pct = power::raw_to_pct(r);
+        parts.push(format!("low battery {}% -> {pct}%", opt(before.low_battery_pct.map(u16::from))));
+    }
+    let line = format!("ONBOARD WRITE {}: {} (verified {verified})", def.id, parts.join(", "));
+    Ok(Outcome {
+        result: to_json(&WriteResult { before, after, verified, unchanged: false }),
+        lighting: Lighting::Unchanged,
+        log: vec![line],
+    })
 }
 
 /// Read `0F/80` regions and `0F/81` effects for each (read-only).
@@ -333,6 +605,7 @@ fn write_key(
         let r = WriteResult { after: before.clone(), before, verified: true, unchanged: true };
         return Ok(Outcome::value(to_json(&r)));
     }
+    left_click_guard(t, tid, def, km, key, profile, layer, &before.function, f)?;
     query_ok(t, &report)?;
     let after = read_key(t, tid, km, key, profile, layer)?;
     let verified = &after.function == f;
@@ -359,6 +632,34 @@ fn write_key(
         lighting: Lighting::Unchanged,
         log: vec![line],
     })
+}
+
+/// On a mouse's normal layer, refuse to take left click away from the last button that has it.
+#[allow(clippy::too_many_arguments)]
+fn left_click_guard(
+    t: &mut dyn Transport,
+    tid: u8,
+    def: &DeviceDef,
+    km: &KeymapDef,
+    key: &KeyDef,
+    profile: u8,
+    layer: Layer,
+    current: &Function,
+    new: &Function,
+) -> Result<()> {
+    let left = Function::MouseButton { button: 1 };
+    if def.kind != Kind::Mouse || layer != Layer::Normal || current != &left || new == &left {
+        return Ok(());
+    }
+    for other in km.keys.iter().filter(|k| k.id != key.id) {
+        if read_key(t, tid, km, other, profile, layer)?.function == left {
+            return Ok(());
+        }
+    }
+    Err(coded(
+        codes::LEFT_CLICK_GUARD,
+        "This would leave no button that left-clicks. Map another button to left click first.",
+    ))
 }
 
 fn read_oled(t: &mut dyn Transport, tid: u8) -> Result<OledState> {
@@ -399,6 +700,11 @@ mod tests {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     }
 
+    /// `run` with a fresh check cache (supported devices need none).
+    fn go(dev: &mut FakeDevice, def: &DeviceDef, tid: u8, cmd: &Command, j: &Journal) -> Result<Outcome> {
+        run(dev, def, tid, cmd, j, &mut Checks::new(def))
+    }
+
     fn cmd(name: &str, args: serde_json::Value) -> Command {
         Command::from_parts(name, Some(&args.to_string())).unwrap()
     }
@@ -413,7 +719,7 @@ mod tests {
         let def = kb();
         let mut dev = FakeDevice::keyboard();
         let (j, _) = journal();
-        let out = run(&mut dev, &def, 0x1F, &cmd("keymap.get", json!({"key": "P", "layer": "fn"})), &j).unwrap();
+        let out = go(&mut dev, &def, 0x1F, &cmd("keymap.get", json!({"key": "P", "layer": "fn"})), &j).unwrap();
         let m: KeyMapping = from_raw(out.result).unwrap();
         assert_eq!(m.function, Function::Key { modifiers: 0, usage: 0 }, "the fake starts as Synapse left Fn+P");
         assert_eq!(m.key, 26);
@@ -426,7 +732,7 @@ mod tests {
         let mut dev = FakeDevice::keyboard();
         let (j, _) = journal();
         let c = cmd("keymap.set", json!({"key": "P", "layer": "fn", "function": "key PRINT_SCREEN"}));
-        let err = run(&mut dev, &def, 0x1F, &c, &j).unwrap_err().to_string();
+        let err = go(&mut dev, &def, 0x1F, &c, &j).unwrap_err().to_string();
         assert!(err.contains("write=true"), "{err}");
         assert!(dev.writes().is_empty(), "nothing may reach the device without write=true");
     }
@@ -437,7 +743,7 @@ mod tests {
         let mut dev = FakeDevice::keyboard();
         let (j, path) = journal();
         let c = cmd("keymap.set", json!({"key": "P", "layer": "fn", "function": "key PRINT_SCREEN", "write": true}));
-        let out = run(&mut dev, &def, 0x1F, &c, &j).unwrap();
+        let out = go(&mut dev, &def, 0x1F, &c, &j).unwrap();
         let r: WriteResult<KeyMapping> = from_raw(out.result).unwrap();
         assert!(r.verified && !r.unchanged);
         assert_eq!(r.before.function.to_string(), "key NONE");
@@ -448,13 +754,13 @@ mod tests {
         assert!(std::fs::read_to_string(&path).unwrap().contains("\"before\":\"key NONE\""));
 
         // writing the same thing again sends nothing
-        let again = run(&mut dev, &def, 0x1F, &c, &j).unwrap();
+        let again = go(&mut dev, &def, 0x1F, &c, &j).unwrap();
         assert!(from_raw::<WriteResult<KeyMapping>>(again.result).unwrap().unchanged);
         assert_eq!(dev.writes().len(), 1);
 
         // reset restores what was there before uncoil's first write (from the journal)
         let reset = cmd("keymap.reset", json!({"key": "P", "layer": "fn", "write": true}));
-        let r: WriteResult<KeyMapping> = from_raw(run(&mut dev, &def, 0x1F, &reset, &j).unwrap().result).unwrap();
+        let r: WriteResult<KeyMapping> = from_raw(go(&mut dev, &def, 0x1F, &reset, &j).unwrap().result).unwrap();
         assert_eq!(r.after.function.to_string(), "key NONE");
         let _ = std::fs::remove_file(path);
     }
@@ -466,7 +772,7 @@ mod tests {
         let j = Journal { path: None };
         dev.set_key(1, 26, 0, 17, &[4]);
         let reset = cmd("keymap.reset", json!({"key": "P", "write": true}));
-        let r: WriteResult<KeyMapping> = from_raw(run(&mut dev, &def, 0x1F, &reset, &j).unwrap().result).unwrap();
+        let r: WriteResult<KeyMapping> = from_raw(go(&mut dev, &def, 0x1F, &reset, &j).unwrap().result).unwrap();
         assert_eq!(r.after.function, Function::Key { modifiers: 0, usage: 0x13 });
     }
 
@@ -475,7 +781,7 @@ mod tests {
         let def = kb();
         let mut dev = FakeDevice::keyboard();
         let rows: Vec<KeyMapping> = from_raw(
-            run(&mut dev, &def, 0x1F, &cmd("keymap.dump", json!({"layer": "hypershift"})), &Journal { path: None })
+            go(&mut dev, &def, 0x1F, &cmd("keymap.dump", json!({"layer": "hypershift"})), &Journal { path: None })
                 .unwrap()
                 .result,
         )
@@ -490,9 +796,9 @@ mod tests {
         let def = kb();
         let mut dev = FakeDevice::keyboard();
         let j = Journal { path: None };
-        assert!(run(&mut dev, &def, 0x1F, &cmd("keymap.get", json!({"key": "NOPE"})), &j).is_err());
+        assert!(go(&mut dev, &def, 0x1F, &cmd("keymap.get", json!({"key": "NOPE"})), &j).is_err());
         let mat = builtin().into_iter().find(|d| d.id == "razer-goliathus-chroma-extended").unwrap();
-        let e = run(&mut dev, &mat, 0x3F, &cmd("keymap.get", json!({"key": "P"})), &j).unwrap_err().to_string();
+        let e = go(&mut dev, &mat, 0x3F, &cmd("keymap.get", json!({"key": "P"})), &j).unwrap_err().to_string();
         assert!(e.contains("does not support keymap"), "{e}");
     }
 
@@ -501,25 +807,25 @@ mod tests {
         let def = kb();
         let mut dev = FakeDevice::keyboard();
         let j = Journal { path: None };
-        let p: ProfileInfo = from_raw(run(&mut dev, &def, 0x1F, &Command::ProfileList, &j).unwrap().result).unwrap();
+        let p: ProfileInfo = from_raw(go(&mut dev, &def, 0x1F, &Command::ProfileList, &j).unwrap().result).unwrap();
         assert_eq!(p, ProfileInfo { max: 5, count: 1, ids: vec![1], active: Some(1) });
         let d: dial::DialState =
-            from_raw(run(&mut dev, &def, 0x1F, &cmd("dial.get", json!({})), &j).unwrap().result).unwrap();
+            from_raw(go(&mut dev, &def, 0x1F, &cmd("dial.get", json!({})), &j).unwrap().result).unwrap();
         assert_eq!(d.mode, Some(DialMode::Volume));
-        let o: OledState = from_raw(run(&mut dev, &def, 0x1F, &Command::OledGet, &j).unwrap().result).unwrap();
+        let o: OledState = from_raw(go(&mut dev, &def, 0x1F, &Command::OledGet, &j).unwrap().result).unwrap();
         assert_eq!(o.brightness, Some(100));
         assert!(dev.writes().is_empty());
 
         // writes need the flag, then go through with read-back
-        assert!(run(&mut dev, &def, 0x1F, &cmd("dial.set", json!({"mode": "ZOOM"})), &j).is_err());
+        assert!(go(&mut dev, &def, 0x1F, &cmd("dial.set", json!({"mode": "ZOOM"})), &j).is_err());
         let w: WriteResult<dial::DialState> = from_raw(
-            run(&mut dev, &def, 0x1F, &cmd("dial.set", json!({"mode": "ZOOM", "write": true})), &j).unwrap().result,
+            go(&mut dev, &def, 0x1F, &cmd("dial.set", json!({"mode": "ZOOM", "write": true})), &j).unwrap().result,
         )
         .unwrap();
         assert!(w.verified);
         assert_eq!(dev.writes(), vec![(0x17, 0x00, vec![1, 5, 6, 6])]);
         let w: WriteResult<u8> = from_raw(
-            run(&mut dev, &def, 0x1F, &cmd("oled.set", json!({"brightness": 40, "write": true})), &j).unwrap().result,
+            go(&mut dev, &def, 0x1F, &cmd("oled.set", json!({"brightness": 40, "write": true})), &j).unwrap().result,
         )
         .unwrap();
         assert_eq!((w.before, w.after, w.verified), (100, 40, true));
@@ -530,18 +836,18 @@ mod tests {
         let def = kb();
         let mut dev = FakeDevice::keyboard();
         let j = Journal { path: None };
-        let out = run(&mut dev, &def, 0x1F, &cmd("effect.hw", json!({"effect": "spectrum"})), &j).unwrap();
+        let out = go(&mut dev, &def, 0x1F, &cmd("effect.hw", json!({"effect": "spectrum"})), &j).unwrap();
         assert_eq!(out.lighting, Lighting::Hardware(HwEffect::Spectrum));
         assert_eq!(dev.sent().last().unwrap(), &(0x0F, 0x02, vec![0, 5, 3, 0, 0, 0]));
         assert!(out.log.is_empty(), "session effects are not onboard writes");
         // saving to the device needs write
-        assert!(run(&mut dev, &def, 0x1F, &cmd("effect.hw", json!({"effect": "spectrum", "storage": "onboard"})), &j)
+        assert!(go(&mut dev, &def, 0x1F, &cmd("effect.hw", json!({"effect": "spectrum", "storage": "onboard"})), &j)
             .is_err());
         // the mat cannot do reactive
         let mat = builtin().into_iter().find(|d| d.id == "razer-goliathus-chroma-extended").unwrap();
-        let e = run(&mut dev, &mat, 0x3F, &cmd("effect.hw", json!({"effect": "reactive #ff0000"})), &j);
+        let e = go(&mut dev, &mat, 0x3F, &cmd("effect.hw", json!({"effect": "reactive #ff0000"})), &j);
         assert!(e.unwrap_err().to_string().contains("does not run"));
-        let back = run(&mut dev, &def, 0x1F, &Command::EffectSoftware, &j).unwrap();
+        let back = go(&mut dev, &def, 0x1F, &Command::EffectSoftware, &j).unwrap();
         assert_eq!(back.lighting, Lighting::Software);
     }
 
@@ -551,5 +857,155 @@ mod tests {
         let p = probe_lighting(&mut dev, 0x1F).unwrap();
         assert_eq!(p.regions.len(), 1);
         assert_eq!(p.effects[0].1[4], "wave");
+    }
+
+    fn mouse() -> DeviceDef {
+        builtin().into_iter().find(|d| d.id == "razer-basilisk-v3-pro").unwrap()
+    }
+
+    fn code(e: &anyhow::Error) -> Option<&'static str> {
+        e.downcast_ref::<ipc::CodedError>().map(|c| c.code)
+    }
+
+    #[test]
+    fn performance_get_reads_dpi_stages_and_poll() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        let j = Journal { path: None };
+        let s: PerformanceState =
+            from_raw(go(&mut dev, &def, 0x1F, &Command::PerformanceGet, &j).unwrap().result).unwrap();
+        assert_eq!(s.dpi, Some(perf::Dpi { x: 1600, y: 1600 }));
+        assert_eq!((s.dpi_min, s.dpi_max, s.stages_max), (Some(100), Some(30000), 5));
+        let st = s.stages.unwrap();
+        assert_eq!(st.active, 3);
+        assert_eq!(st.list.iter().map(|d| d.x).collect::<Vec<_>>(), vec![400, 800, 1600, 3200, 6400]);
+        assert_eq!((s.poll_hz, s.poll_rates), (Some(1000), vec![125, 500, 1000]));
+        assert!(dev.setters().is_empty());
+        // the keyboard has neither
+        let kb = kb();
+        let e = go(&mut FakeDevice::keyboard(), &kb, 0x1F, &Command::PerformanceGet, &j).unwrap_err();
+        assert_eq!(code(&e), Some(codes::NOT_SUPPORTED));
+    }
+
+    #[test]
+    fn live_dpi_needs_no_write_flag_but_passes_the_check() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        let j = Journal { path: None };
+        let mut checks = Checks::new(&def);
+        let c = cmd("performance.set", json!({"dpi": {"x": 50, "y": 800}}));
+        let s: PerformanceState = from_raw(run(&mut dev, &def, 0x1F, &c, &j, &mut checks).unwrap().result).unwrap();
+        assert_eq!(s.dpi, Some(perf::Dpi { x: 100, y: 800 }), "clamped to the file's minimum");
+        // the DPI check ran first (read-only), then one live set
+        assert_eq!(dev.setters(), vec![(0x04, 0x05, vec![0, 0, 100, 3, 0x20, 0, 0])]);
+        assert!(dev.writes().is_empty(), "a live DPI change is not an onboard write");
+        assert!(checks.list().iter().any(|c| c.feature == Feature::Dpi && c.state == ipc::CheckState::Passed));
+    }
+
+    #[test]
+    fn stages_and_poll_need_write_and_are_read_back() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        let (j, path) = journal();
+        let c = cmd("performance.set", json!({"poll_hz": 500}));
+        assert!(go(&mut dev, &def, 0x1F, &c, &j).unwrap_err().to_string().contains("write=true"));
+        assert!(dev.setters().is_empty());
+        let c = cmd(
+            "performance.set",
+            json!({"poll_hz": 500, "stages": {"active": 2, "list": [{"x": 400, "y": 400}, {"x": 900, "y": 900}]}, "write": true}),
+        );
+        let out = go(&mut dev, &def, 0x1F, &c, &j).unwrap();
+        let w: WriteResult<PerformanceState> = from_raw(out.result).unwrap();
+        assert!(w.verified && !w.unchanged);
+        assert_eq!((w.before.poll_hz, w.after.poll_hz), (Some(1000), Some(500)));
+        assert_eq!(w.after.stages.unwrap().list.len(), 2);
+        assert!(out.log[0].starts_with("ONBOARD WRITE razer-basilisk-v3-pro"), "{}", out.log[0]);
+        assert!(std::fs::read_to_string(&path).unwrap().contains("\"cmd\":\"performance\""));
+        assert!(go(&mut dev, &def, 0x1F, &cmd("performance.set", json!({"poll_hz": 8000, "write": true})), &j).is_err());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn power_get_and_set() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        let j = Journal { path: None };
+        let s: PowerState = from_raw(go(&mut dev, &def, 0x1F, &Command::PowerGet, &j).unwrap().result).unwrap();
+        assert_eq!(
+            s,
+            PowerState {
+                battery_pct: Some(78),
+                charging: Some(false),
+                idle_s: Some(300),
+                idle_range: Some((60, 900)),
+                low_battery_pct: Some(15),
+                low_battery_range: Some((5, 25)),
+            }
+        );
+        assert!(go(&mut dev, &def, 0x1F, &cmd("power.set", json!({"idle_s": 600})), &j).is_err());
+        let w: WriteResult<PowerState> = from_raw(
+            go(
+                &mut dev,
+                &def,
+                0x1F,
+                &cmd("power.set", json!({"idle_s": 9000, "low_battery_pct": 20, "write": true})),
+                &j,
+            )
+            .unwrap()
+            .result,
+        )
+        .unwrap();
+        assert!(w.verified);
+        assert_eq!((w.after.idle_s, w.after.low_battery_pct), (Some(900), Some(20)));
+        // low battery went out with transaction id 0xFF (OpenRazer), everything else with 0x1F
+        let tids = dev.sent_tids();
+        assert!(tids.iter().filter(|(c, i, _)| *c == 0x07 && (*i == 0x01 || *i == 0x81)).all(|(_, _, t)| *t == 0xFF));
+        assert!(tids.iter().filter(|(c, i, _)| *c == 0x07 && *i == 0x03).all(|(_, _, t)| *t == 0x1F));
+        assert!(tids.iter().any(|(c, i, _)| (*c, *i) == (0x07, 0x01)));
+    }
+
+    #[test]
+    fn experimental_writes_wait_for_their_check() {
+        let def = crate::fake::deathadder();
+        let mut dev = FakeDevice::for_def(&def);
+        let j = Journal { path: None };
+        let mut checks = Checks::new(&def);
+        assert!(checks.list().iter().all(|c| c.state == ipc::CheckState::Untested));
+        // a failing DPI check blocks DPI changes with check_failed; reads still work
+        dev.set_dpi(0, 0);
+        let c = cmd("performance.set", json!({"dpi": {"x": 800, "y": 800}}));
+        let e = run(&mut dev, &def, 0x1F, &c, &j, &mut checks).unwrap_err();
+        assert_eq!(code(&e), Some(codes::CHECK_FAILED), "{e}");
+        assert!(!e.to_string().contains("Lighting still works"), "this mouse has no lighting");
+        assert!(dev.setters().is_empty());
+        assert!(run(&mut dev, &def, 0x1F, &Command::PerformanceGet, &j, &mut checks).is_ok());
+        // check.run after the device answers properly: everything passes, then writes go through
+        dev.set_dpi(800, 800);
+        let list: Vec<ipc::FeatureCheck> =
+            from_raw(run(&mut dev, &def, 0x1F, &Command::CheckRun, &j, &mut checks).unwrap().result).unwrap();
+        assert!(list.iter().all(|c| c.state == ipc::CheckState::Passed), "{list:?}");
+        assert!(run(&mut dev, &def, 0x1F, &c, &j, &mut checks).is_ok());
+    }
+
+    #[test]
+    fn left_click_guard_keeps_one_left_click() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        let j = Journal { path: None };
+        let take = cmd("keymap.set", json!({"key": "LEFT_CLICK", "function": "button 3", "write": true}));
+        let e = go(&mut dev, &def, 0x1F, &take, &j).unwrap_err();
+        assert_eq!(code(&e), Some(codes::LEFT_CLICK_GUARD));
+        assert_eq!(
+            e.to_string(),
+            "This would leave no button that left-clicks. Map another button to left click first."
+        );
+        assert!(dev.writes().is_empty());
+        // give left click to the back button first, then the main button may change
+        go(&mut dev, &def, 0x1F, &cmd("keymap.set", json!({"key": "BACK", "function": "button 1", "write": true})), &j)
+            .unwrap();
+        assert!(go(&mut dev, &def, 0x1F, &take, &j).is_ok());
+        // the Hypershift layer is not guarded
+        let fnl = cmd("keymap.set", json!({"key": "BACK", "layer": "fn", "function": "button 3", "write": true}));
+        assert!(go(&mut dev, &def, 0x1F, &fnl, &j).is_ok());
     }
 }

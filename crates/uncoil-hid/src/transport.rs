@@ -1,14 +1,19 @@
 use anyhow::{Context, Result};
 use hidapi::{HidApi, HidDevice};
-use std::collections::HashSet;
-use std::ffi::CString;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::ffi::{CStr, CString};
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
+use uncoil_core::config::UnknownDevice;
 use uncoil_core::device::{DeviceDef, UsbEndpoint};
 use uncoil_core::proto::{self, DeviceMode, Reply, Report, Status, Transport, WIRE_LEN};
 
-/// An opened device, ready to receive frames.
+/// Razer's USB vendor id.
+pub const RAZER_VID: u16 = 0x1532;
+
+/// An opened device. Devices with lighting receive frames; feature-only devices (no `lighting`, e.g. a
+/// mouse without RGB) are opened for control commands only and never get a frame.
 pub struct LiveDevice {
     pub def: Arc<DeviceDef>,
     pub endpoint: UsbEndpoint,
@@ -26,30 +31,75 @@ pub struct Candidate {
     pub path: CString,
 }
 
-/// Find every known device endpoint currently attached, skipping paths already open.
+/// The USB interface a HID collection path belongs to. Windows gives each top-level collection of one
+/// interface its own path: `\\?\hid#vid_1532&pid_00aa&mi_00&col01#8&1e3b5c3a&0&0000#{guid}` and
+/// `…&col02#8&1e3b5c3a&0&0001#{guid}`. Dropping `&colNN` and the last part of the instance id leaves
+/// what they share. Paths in another shape are their own key.
+fn interface_key(path: &CStr) -> String {
+    let p = path.to_string_lossy().to_ascii_lowercase();
+    let parts: Vec<&str> = p.split('#').collect();
+    if parts.len() < 3 {
+        return p;
+    }
+    let ids = match parts[1].find("&col") {
+        Some(i) => &parts[1][..i],
+        None => parts[1],
+    };
+    let instance = parts[2].rsplit_once('&').map_or(parts[2], |(head, _)| head);
+    format!("{ids}#{instance}")
+}
+
+/// Find every known device endpoint currently attached, skipping paths already open. A device matches on
+/// its interface plus any accepted (usage page, usage); when several collections of one interface match,
+/// only the best-ranked one is used, and none when one of them is already open.
 pub fn discover(api: &mut HidApi, defs: &[Arc<DeviceDef>], skip: &HashSet<CString>) -> Vec<Candidate> {
     let _ = api.refresh_devices();
-    let mut out = Vec::new();
+    // (device id, interface key) -> (rank, candidate)
+    let mut best: BTreeMap<String, (usize, Candidate)> = BTreeMap::new();
+    let mut busy: HashSet<String> = HashSet::new();
     for info in api.device_list() {
         for def in defs {
             if info.vendor_id() != def.vendor_id {
                 continue;
             }
             let Some(ep) = def.endpoint_for(info.product_id()) else { continue };
-            if info.interface_number() == ep.interface
-                && info.usage_page() == ep.usage_page
-                && info.usage() == ep.usage
-                && !skip.contains(info.path())
-            {
-                out.push(Candidate { def: def.clone(), endpoint: ep.clone(), path: info.path().to_owned() });
+            let Some(rank) = ep.accepts(info.interface_number(), info.usage_page(), info.usage()) else { continue };
+            let key = format!("{}|{}", def.id, interface_key(info.path()));
+            if skip.contains(info.path()) {
+                busy.insert(key);
+                continue;
+            }
+            if best.get(&key).is_none_or(|(r, _)| rank < *r) {
+                let c = Candidate { def: def.clone(), endpoint: ep.clone(), path: info.path().to_owned() };
+                best.insert(key, (rank, c));
             }
         }
     }
-    out
+    best.into_iter().filter(|(k, _)| !busy.contains(k)).map(|(_, (_, c))| c).collect()
+}
+
+/// Razer devices (vendor 0x1532) on the bus that no definition knows, with their interface numbers. Call
+/// after [`discover`] (which refreshes the device list).
+pub fn unknown_devices(api: &HidApi, defs: &[Arc<DeviceDef>]) -> Vec<UnknownDevice> {
+    let mut found: BTreeMap<u16, BTreeSet<u8>> = BTreeMap::new();
+    for info in api.device_list() {
+        if info.vendor_id() != RAZER_VID {
+            continue;
+        }
+        let pid = info.product_id();
+        if defs.iter().any(|d| d.vendor_id == RAZER_VID && d.endpoint_for(pid).is_some()) {
+            continue;
+        }
+        let set = found.entry(pid).or_default();
+        if let Ok(i) = u8::try_from(info.interface_number()) {
+            set.insert(i);
+        }
+    }
+    found.into_iter().map(|(product_id, i)| UnknownDevice { product_id, interfaces: i.into_iter().collect() }).collect()
 }
 
 impl LiveDevice {
-    /// Open and prepare: normal (firmware) mode, then the custom-frame effect once.
+    /// Open and prepare (see [`LiveDevice::prepare`]).
     /// Returns Ok(None) when the endpoint exists but nothing answers (e.g. a dongle whose mouse is
     /// on its cable).
     pub fn open(api: &HidApi, c: Candidate) -> Result<Option<LiveDevice>> {
@@ -61,10 +111,20 @@ impl LiveDevice {
         })
     }
 
-    /// Normal (firmware) mode, then the custom-frame effect once. Safe to repeat, e.g. after the PC
-    /// wakes and the device may have reset to its onboard lighting.
+    /// Devices that stream frames: normal (firmware) mode, then the custom-frame effect once. Safe to
+    /// repeat, e.g. after the PC wakes and the device may have reset to its onboard lighting.
+    ///
+    /// Feature-only devices: read the device mode (`00/84`) and only set normal mode when it is not normal
+    /// already, so an untried device gets no write it does not need.
     pub fn prepare(&mut self) -> Result<Status> {
         let tid = self.tid();
+        if !self.def.streams_frames() {
+            let reply = self.query(&proto::get_device_mode(tid))?;
+            if reply.status == Status::Ok && reply.raw[0] != DeviceMode::Normal as u8 {
+                self.ask(&proto::set_device_mode(tid, DeviceMode::Normal))?;
+            }
+            return Ok(reply.status);
+        }
         let st = self.ask(&proto::set_device_mode(tid, DeviceMode::Normal))?;
         if st == Status::Ok {
             self.ask(&proto::effect_custom_frame(tid))?;
@@ -72,14 +132,21 @@ impl LiveDevice {
         Ok(st)
     }
 
+    /// The endpoint's default transaction id. Every report goes out with the id its command group needs
+    /// (`[usb.transaction_ids]`), whatever id it was built with.
     pub fn tid(&self) -> u8 {
         self.endpoint.transaction_id
     }
 
+    /// Pause before reading a reply: the endpoint's `reply_wait_us`, else `default`.
+    fn reply_wait(&self, default: Duration) -> Duration {
+        self.endpoint.reply_wait_us.map_or(default, |us| Duration::from_micros(us as u64))
+    }
+
     /// Send a report and read the device's reply status.
     pub fn ask(&mut self, r: &Report) -> Result<Status> {
-        self.dev.send_feature_report(&r.to_wire())?;
-        sleep(Duration::from_millis(2));
+        self.dev.send_feature_report(&self.endpoint.wire(r))?;
+        sleep(self.reply_wait(Duration::from_millis(2)));
         let mut buf = [0u8; WIRE_LEN];
         self.dev.get_feature_report(&mut buf)?;
         Ok(proto::reply_status(&buf))
@@ -87,7 +154,7 @@ impl LiveDevice {
 
     /// Send a report the way this device needs it: fire-and-forget, or acknowledged with busy-retry.
     pub fn send(&mut self, r: &Report) -> Result<()> {
-        let wire = r.to_wire();
+        let wire = self.endpoint.wire(r);
         if !self.def.quirks.ack_every_report {
             self.dev.send_feature_report(&wire)?;
             return Ok(());
@@ -95,7 +162,7 @@ impl LiveDevice {
         let mut buf = [0u8; WIRE_LEN];
         for _ in 0..4 {
             self.dev.send_feature_report(&wire)?;
-            sleep(Duration::from_millis(1));
+            sleep(self.reply_wait(Duration::from_millis(1)));
             self.dev.get_feature_report(&mut buf)?;
             match proto::reply_status(&buf) {
                 Status::Busy => {
@@ -113,9 +180,14 @@ impl LiveDevice {
         Ok(())
     }
 
-    /// Upload one full frame. `color(row, col)` returns the colour for that matrix slot.
+    /// Upload one full frame. `color(row, col)` returns the colour for that matrix slot. Sends nothing to a
+    /// device that does not stream frames.
     pub fn send_frame(&mut self, mut color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<()> {
-        let (rows, cols) = (self.def.matrix.rows, self.def.matrix.cols);
+        if !self.def.streams_frames() {
+            return Ok(());
+        }
+        let Some(m) = self.def.matrix.as_ref() else { return Ok(()) };
+        let (rows, cols) = (m.rows, m.cols);
         let tid = self.tid();
         let mut row_buf = Vec::with_capacity(cols);
         for r in 0..rows {
@@ -136,13 +208,14 @@ impl LiveDevice {
     /// after six reads the request is sent again (all commands uncoil sends are idempotent). Within uncoild
     /// only the device's own thread calls this, between frames.
     pub fn query(&mut self, r: &Report) -> Result<Reply> {
-        let wire = r.to_wire();
+        let wire = self.endpoint.wire(r);
         let mut buf = [0u8; WIRE_LEN];
         let mut last = None;
+        let first = self.reply_wait(Duration::from_millis(2));
         for attempt in 0..4u64 {
             self.dev.send_feature_report(&wire)?;
             for read in 0..6u64 {
-                sleep(Duration::from_millis(2 + 2 * read + 4 * attempt));
+                sleep(first + Duration::from_millis(2 * read + 4 * attempt));
                 self.dev.get_feature_report(&mut buf)?;
                 let reply = Reply::parse(&buf).context("short reply")?;
                 if !reply.answers(r) {
@@ -174,5 +247,22 @@ impl LiveDevice {
 impl Transport for LiveDevice {
     fn query(&mut self, request: &Report) -> anyhow::Result<Reply> {
         LiveDevice::query(self, request)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collections_of_one_interface_share_a_key() {
+        let col1 = CString::new(r"\\?\HID#VID_1532&PID_00AA&MI_00&Col01#8&1e3b5c3a&0&0000#{4d1e55b2-f16f}").unwrap();
+        let col2 = CString::new(r"\\?\hid#vid_1532&pid_00aa&mi_00&col02#8&1e3b5c3a&0&0001#{4d1e55b2-f16f}").unwrap();
+        let other = CString::new(r"\\?\hid#vid_1532&pid_00aa&mi_01#8&22222222&0&0000#{4d1e55b2-f16f}").unwrap();
+        assert_eq!(interface_key(&col1), interface_key(&col2));
+        assert_eq!(interface_key(&col1), "vid_1532&pid_00aa&mi_00#8&1e3b5c3a&0");
+        assert_ne!(interface_key(&col1), interface_key(&other));
+        let odd = CString::new("some-other-path").unwrap();
+        assert_eq!(interface_key(&odd), "some-other-path");
     }
 }

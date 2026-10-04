@@ -13,6 +13,8 @@ pub mod dial;
 pub mod hw_effect;
 pub mod keymap;
 pub mod oled;
+pub mod performance;
+pub mod power;
 pub mod profile;
 
 use serde::{Deserialize, Serialize};
@@ -33,11 +35,26 @@ pub enum Feature {
     Dial,
     /// OLED display settings.
     Oled,
+    /// Mouse sensitivity: current DPI and the DPI stages (`[dpi]` in the device file).
+    Dpi,
+    /// USB poll rate (`[poll_rate]`).
+    PollRate,
+    /// Battery, charging, sleep timer and low-battery threshold (`[power]`).
+    Power,
 }
 
 impl Feature {
-    pub const ALL: [Feature; 6] =
-        [Feature::Lighting, Feature::HwEffects, Feature::Keymap, Feature::Profiles, Feature::Dial, Feature::Oled];
+    pub const ALL: [Feature; 9] = [
+        Feature::Lighting,
+        Feature::HwEffects,
+        Feature::Keymap,
+        Feature::Profiles,
+        Feature::Dial,
+        Feature::Oled,
+        Feature::Dpi,
+        Feature::PollRate,
+        Feature::Power,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
@@ -47,6 +64,9 @@ impl Feature {
             Feature::Profiles => "profiles",
             Feature::Dial => "dial",
             Feature::Oled => "oled",
+            Feature::Dpi => "dpi",
+            Feature::PollRate => "poll_rate",
+            Feature::Power => "power",
         }
     }
 }

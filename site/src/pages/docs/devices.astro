@@ -1,22 +1,39 @@
 ---
-// /docs/devices/: a Starlight page (not a content entry) so the supported-devices table can be generated at
-// build time from devices/*.toml, the same files the daemon compiles in. The prose lives in
-// src/docs-fragments/devices.md.
+// /docs/devices/: a Starlight page (not a content entry) so the device tables can be generated at build time
+// from devices/*.toml and devices/experimental/*.toml, the same files the daemon compiles in. The prose lives
+// in src/docs-fragments/devices.md.
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import DeviceTable from '../../components/docs/DeviceTable.astro';
+import ExperimentalTable from '../../components/docs/ExperimentalTable.astro';
 import { Content as Guide, getHeadings } from '../../docs-fragments/devices.md';
+import { REPO } from '../../lib/url';
 
-const headings = [{ depth: 2, slug: 'supported-today', text: 'Supported today' }, ...getHeadings()];
+const headings = [
+	{ depth: 2, slug: 'supported-today', text: 'Supported today' },
+	{ depth: 2, slug: 'experimental', text: 'Experimental' },
+	...getHeadings(),
+];
+const reportUrl = `${REPO}/issues/new?template=device_report.yml`;
 ---
 
 <StarlightPage
 	frontmatter={{
 		title: 'Devices',
-		description: 'The Razer devices uncoil supports today, and how to add one with a single TOML file.',
+		description: 'The Razer devices uncoil supports today, the experimental ones waiting for a report, and how to add one with a single TOML file.',
 	}}
 	headings={headings}
 >
 	<h2 id="supported-today">Supported today</h2>
 	<DeviceTable />
+
+	<h2 id="experimental">Experimental</h2>
+	<p>
+		Set up from OpenRazer and OpenRGB data. Nobody has confirmed these on real hardware yet, so uncoil won't change
+		settings stored on one (key remaps, DPI stages, polling rate, sleep timer) until a read-only check passes.
+		Lighting works without it. If you have one, <a href={reportUrl}>tell us whether it works</a>: one report is
+		enough to move it to the supported list.
+	</p>
+	<ExperimentalTable />
+
 	<Guide />
 </StarlightPage>

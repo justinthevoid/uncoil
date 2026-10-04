@@ -1,0 +1,130 @@
+name: Experimental device report
+description: Tell us whether an experimental device works, so it can be marked supported (or fixed).
+title: "[report] "
+labels: ["device", "experimental", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Experimental devices are set up from OpenRazer and OpenRGB data, and nobody has confirmed them on real hardware yet. One report that a device works is enough to mark it supported; a report that something is wrong is just as useful. The list is on the [Devices](https://justinthevoid.github.io/uncoil/docs/devices/) page.
+
+        uncoil won't change settings stored on an experimental device (key remaps, DPI stages, polling rate, sleep timer) until a read-only check has passed, so trying one is safe.
+
+        **Please don't attach HID captures, Synapse logs or serial numbers.** Nothing below needs them. If a capture is ever useful, we'll agree on a safe, minimal one in the thread first.
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - Razer BlackWidow V3
+        - Razer BlackWidow V3 Pro
+        - Razer BlackWidow V3 TKL
+        - Razer BlackWidow V4
+        - Razer BlackWidow V4 Pro
+        - Razer BlackWidow V4 X
+        - Razer BlackWidow V4 75%
+        - Razer Huntsman V2
+        - Razer Huntsman V2 TKL
+        - Razer Huntsman V3 Pro
+        - Razer Huntsman V3 Pro TKL
+        - Razer Huntsman Mini
+        - Razer Ornata V3
+        - Razer DeathAdder V3
+        - Razer DeathAdder V3 Pro
+        - Razer DeathAdder V2
+        - Razer Viper V2 Pro
+        - Razer Viper V3 Pro
+        - Razer Viper Mini
+        - Razer Basilisk V3
+        - Razer Basilisk V3 X HyperSpeed
+        - Razer Basilisk V3 35K
+        - Razer Cobra
+        - Razer Cobra Pro
+        - Razer Naga V2 Pro
+        - Razer Firefly V2
+        - Razer Strider Chroma
+        - Razer Base Station V2 Chroma
+        - Razer Mouse Dock Pro
+        - Another device (say which below)
+    validations:
+      required: true
+
+  - type: input
+    id: device-detail
+    attributes:
+      label: Exact model
+      description: Edition and layout if it has them, or the device name if you picked "Another device".
+      placeholder: ANSI, US layout, black
+    validations:
+      required: false
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      options:
+        - Cable
+        - HyperSpeed dongle
+        - Both (tested each)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What works
+      description: Tick what you saw working. Leave a box empty if it didn't work or you didn't try it.
+      options:
+        - label: uncoil detects the device
+        - label: Lighting looks right (effects move across the device the right way, no LED shows a colour from the wrong side)
+        - label: Firmware effects (the device's own effects, set from uncoil)
+        - label: DPI
+        - label: Polling rate
+        - label: Battery level
+        - label: The key remapping read check passed (`uncoil check`)
+
+  - type: textarea
+    id: broken
+    attributes:
+      label: What doesn't work
+      description: Anything wrong or missing, and what you expected instead. "Nothing" is a fine answer.
+    validations:
+      required: true
+
+  - type: textarea
+    id: devices-output
+    attributes:
+      label: Output of `uncoil devices`
+      description: Paste it as text. If a line shows a serial number, remove it first.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: check-output
+    attributes:
+      label: Output of `uncoil check <device>`
+      description: The read-only check for this device (it only reads, it never changes anything). Paste it as text, without serial numbers.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: uncoil version
+      description: From the app's About screen, or the release you installed.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for this device.
+          required: true
+        - label: I haven't included serial numbers, HID captures or Synapse logs.
+          required: true

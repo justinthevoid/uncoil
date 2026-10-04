@@ -128,8 +128,14 @@ mod tests {
         let kb = defs.iter().find(|d| d.id == "razer-blackwidow-v4-pro-75").unwrap();
         let mapped: Vec<&str> =
             (0u16..0x80).flat_map(|m| [shape_name(m, false), shape_name(m, true)]).flatten().collect();
-        let keys =
-            kb.matrix.names.iter().flatten().filter(|n| !n.is_empty() && !n.starts_with("LU") && !n.starts_with("RU"));
+        let keys = kb
+            .matrix
+            .as_ref()
+            .unwrap()
+            .names
+            .iter()
+            .flatten()
+            .filter(|n| !n.is_empty() && !n.starts_with("LU") && !n.starts_with("RU"));
         let missing: Vec<&String> = keys.filter(|n| !mapped.contains(&n.as_str())).collect();
         assert_eq!(missing, ["Right Fn"], "only Fn (handled in firmware) has no scan code");
     }

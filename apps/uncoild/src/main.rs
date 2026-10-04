@@ -10,6 +10,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod checks;
 mod control;
 mod exec;
 #[cfg(any(test, feature = "fake"))]
@@ -29,7 +30,7 @@ use std::sync::mpsc::RecvTimeoutError;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use uncoil_core::config::{Config, DeviceStatus, Status};
+use uncoil_core::config::{Config, DeviceStatus, Status, UnknownDevice};
 use uncoil_core::device::{self, DeviceDef};
 use uncoil_core::effect::Inputs;
 use uncoil_core::features::hw_effect::{HwEffect, Storage};
@@ -45,8 +46,13 @@ const TICK: Duration = Duration::from_millis(33);
 /// State shared between the main loop and device threads.
 struct Shared {
     config: RwLock<Arc<Config>>,
-    /// Bumped whenever the config changes, so threads re-place their LEDs.
+    /// Bumped whenever the config changes, so threads re-place their LEDs and drop firmware effects.
     generation: AtomicU32,
+    /// Bumped when the desk changes without a config change (a device connected or went away), so threads
+    /// re-place their LEDs.
+    desk_generation: AtomicU32,
+    /// Razer devices on the bus with no definition (for status).
+    unknown: Mutex<Vec<UnknownDevice>>,
     /// Current brightness multiplier from the display fade (f32 bits).
     level: AtomicU32,
     /// Bumped when the display wakes: devices may have reset during sleep, so re-prepare them.
@@ -72,6 +78,14 @@ impl Shared {
     }
     fn config(&self) -> Arc<Config> {
         self.config.read().unwrap().clone()
+    }
+
+    /// Rebuild the desk from the config and the connected devices. Returns whether any device moved.
+    fn rearrange(&self, defs: &[Arc<DeviceDef>]) -> bool {
+        let desk = inputs::Desk::new(defs, &self.config(), &self.registry.connected_ids());
+        let moved = !desk.same_places(&self.inputs.desk());
+        self.inputs.set_desk(desk);
+        moved
     }
 }
 
@@ -100,11 +114,16 @@ fn main() -> Result<()> {
     }
     display::spawn_watcher();
 
+    for e in device::builtin_errors() {
+        log::line(&format!("built-in device file left out: {e}"));
+    }
     let defs: Vec<Arc<DeviceDef>> =
         device::load_all(Some(&Config::dir().join("devices"))).into_iter().map(Arc::new).collect();
     let shared = Arc::new(Shared {
         config: RwLock::new(Arc::new(config)),
         generation: AtomicU32::new(0),
+        desk_generation: AtomicU32::new(0),
+        unknown: Mutex::new(Vec::new()),
         level: AtomicU32::new(1.0f32.to_bits()),
         wake: AtomicU32::new(0),
         t0: Instant::now(),
@@ -118,9 +137,11 @@ fn main() -> Result<()> {
     let mut listeners = inputs::Listeners::default();
     {
         let cfg = shared.config();
-        shared.inputs.set_desk(inputs::Desk::new(&defs, &cfg));
+        shared.rearrange(&defs);
         listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
     }
+    let mut connected = shared.registry.connected_ids();
+    let mut logged_unknown: HashSet<u16> = HashSet::new();
 
     // control pipe: commands for the GUI / CLI, executed by the device threads
     let ctl = Arc::new(control::Control {
@@ -154,7 +175,7 @@ fn main() -> Result<()> {
             cfg_mtime = m;
             let cfg = Arc::new(Config::load());
             *shared.config.write().unwrap() = cfg.clone();
-            shared.inputs.set_desk(inputs::Desk::new(&defs, &cfg));
+            shared.rearrange(&defs);
             listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
             shared.generation.fetch_add(1, Ordering::Relaxed);
             log::line("config reloaded");
@@ -195,6 +216,24 @@ fn main() -> Result<()> {
                     Err(e) => log::line(&format!("open {name} ({pid:04X}) failed: {e:#}")),
                 }
             }
+            let unknown = transport::unknown_devices(&api, &defs);
+            for u in &unknown {
+                if logged_unknown.insert(u.product_id) {
+                    log::line(&format!(
+                        "Razer device {:04X} (interfaces {:?}) has no device definition",
+                        u.product_id, u.interfaces
+                    ));
+                }
+            }
+            *shared.unknown.lock().unwrap() = unknown;
+            // connected devices with a layout join the desk; ones that left free their spot
+            let now_connected = shared.registry.connected_ids();
+            if now_connected != connected {
+                connected = now_connected;
+                if shared.rearrange(&defs) {
+                    shared.desk_generation.fetch_add(1, Ordering::Relaxed);
+                }
+            }
         }
 
         if now.duration_since(last_status) >= STATUS_EVERY {
@@ -212,11 +251,14 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
     let path = dev.path.clone();
     shared.open_paths.lock().unwrap().insert(path.clone());
     let hw_state = Arc::new(Mutex::new(None::<HwEffect>));
+    // read-only check results for this connection; dropped (and forgotten) when the device goes away
+    let mut checks = checks::Checks::new(&dev.def);
     let (jobs, registration) = shared.registry.register(
         dev.def.clone(),
         dev.endpoint.product_id,
         dev.endpoint.connection.clone(),
         hw_state.clone(),
+        checks.mirror(),
     );
     thread::Builder::new()
         .name(dev.def.id.clone())
@@ -228,9 +270,13 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
             let mut last_ping = Instant::now();
             let mut jobs_open = true;
             let mut gen = u32::MAX;
+            let mut desk_gen = u32::MAX;
             let mut wake = shared.wake.load(Ordering::Relaxed);
-            let mut positions = Vec::new();
+            let mut positions: Vec<Vec<Option<(f32, f32)>>> = Vec::new();
             let def = dev.def.clone();
+            // feature-only devices (no lighting) are only served commands, never frames
+            let streams = def.streams_frames();
+            let names: Vec<Vec<String>> = def.matrix.as_ref().map(|m| m.names.clone()).unwrap_or_default();
             let mut dark_frames = 0u32;
             let mut frames = 0u32;
             let mut fps_window = Instant::now();
@@ -238,10 +284,14 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                 let start = Instant::now();
                 let cfg = shared.config();
                 let g = shared.generation.load(Ordering::Relaxed);
+                let dg = shared.desk_generation.load(Ordering::Relaxed);
+                if g != gen || dg != desk_gen {
+                    let at = shared.inputs.desk().placement(&dev.def);
+                    positions = layout::place(&dev.def, at).map(|p| p.positions).unwrap_or_default();
+                    desk_gen = dg;
+                }
                 if g != gen {
                     gen = g;
-                    let at = cfg.desk.get(&dev.def.id).copied().unwrap_or_else(|| layout::default_placement(&dev.def));
-                    positions = layout::place(&dev.def, at).positions;
                     if hw.take().is_some() {
                         // editing the config means "use the software effect again"
                         *hw_state.lock().unwrap() = None;
@@ -264,7 +314,7 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                 }
                 let level = shared.level();
                 let dark = level <= 0.0;
-                if let Some(e) = &hw {
+                if hw.is_some() || !streams {
                     // no frames go out, so check now and then that the device is still there
                     if last_ping.elapsed() >= Duration::from_secs(2) {
                         last_ping = Instant::now();
@@ -273,6 +323,8 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                             break;
                         }
                     }
+                }
+                if let Some(e) = &hw {
                     // firmware effect: just follow the display (off while it is off)
                     if dark != hw_dark {
                         hw_dark = dark;
@@ -281,7 +333,7 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                             log::line(&format!("firmware effect on {} failed: {e:#}", dev.def.name));
                         }
                     }
-                } else if !dark || dark_frames < 3 {
+                } else if streams && (!dark || dark_frames < 3) {
                     // once faded out, send a few black frames and then idle (the device holds the frame)
                     let t = shared.t0.elapsed().as_secs_f32();
                     let presses = if cfg.effect.uses_keys() { shared.inputs.presses(t) } else { Vec::new() };
@@ -293,11 +345,11 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                         keyboard_center: desk.keyboard_center,
                     };
                     let frame = cfg.effect.at_with(t, cfg.saturation, cfg.brightness * level, &inputs);
-                    let names = &def.matrix.names;
-                    let res = dev.send_frame(|r, c| match positions[r][c] {
-                        Some((x, y)) => frame.color_led(&def.id, &names[r][c], x, y).bytes(),
-                        None => [0, 0, 0],
-                    });
+                    let res =
+                        dev.send_frame(|r, c| match positions.get(r).and_then(|row| row.get(c)).copied().flatten() {
+                            Some((x, y)) => frame.color_led(&def.id, &names[r][c], x, y).bytes(),
+                            None => [0, 0, 0],
+                        });
                     if let Err(e) = res {
                         log::line(&format!("lost {} ({e:#})", dev.def.name));
                         break;
@@ -325,7 +377,7 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                     );
                 }
 
-                let target = if dark || hw.is_some() {
+                let target = if dark || hw.is_some() || !streams {
                     Duration::from_millis(250)
                 } else {
                     Duration::from_secs_f32(1.0 / cfg.fps.clamp(5, 60) as f32)
@@ -340,7 +392,7 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                     match jobs.recv_timeout(rest) {
                         Ok(job) => {
                             let (tid, def) = (dev.tid(), dev.def.clone());
-                            match control::serve_job(job, &mut dev, &def, tid, &shared.journal) {
+                            match control::serve_job(job, &mut dev, &def, tid, &shared.journal, &mut checks) {
                                 exec::Lighting::Hardware(e) => {
                                     log::line(&format!("{}: firmware effect {}", def.name, e.name()));
                                     *hw_state.lock().unwrap() = Some(e.clone());
@@ -378,15 +430,19 @@ fn apply_hw(dev: &mut LiveDevice, e: &HwEffect) -> Result<()> {
 /// and GUI; build with `--features fake`. Pipe: `UNCOIL_PIPE` or `\\.\pipe\uncoil-fake`.
 #[cfg(feature = "fake")]
 fn fake_mode() -> Result<()> {
-    use uncoil_core::features::Feature;
     log::to_stderr();
-    let defs: Vec<Arc<DeviceDef>> = device::builtin().into_iter().map(Arc::new).collect();
     let registry = Arc::new(control::Registry::default());
     let journal = Arc::new(exec::Journal { path: None });
-    for d in defs.iter().filter(|d| d.has(Feature::Keymap)) {
-        control::spawn_fake(&registry, d.clone(), journal.clone());
+    let defs = fake::fake_defs();
+    for d in fake::connected_fakes(&defs) {
+        control::spawn_fake(&registry, d, journal.clone());
     }
-    let ctl = Arc::new(control::Control { registry, defs, status: Arc::new(Mutex::new(Status::default())) });
+    let status = Status {
+        version: env!("CARGO_PKG_VERSION").into(),
+        unknown_devices: fake::unknown_devices(),
+        ..Default::default()
+    };
+    let ctl = Arc::new(control::Control { registry, defs, status: Arc::new(Mutex::new(status)) });
     let name = pipe_name(r"\\.\pipe\uncoil-fake");
     pipe::serve(&name, Arc::new(move |r| ctl.handle(r)))?;
     println!("uncoild --fake: serving fake devices on {name}");
@@ -415,6 +471,7 @@ fn write_status(shared: &Shared, started: u64, ds: DisplayState, me: &mut selfst
         memory_bytes,
         cpu_percent,
         exe_bytes: me.exe_bytes,
+        unknown_devices: shared.unknown.lock().unwrap().clone(),
     };
     *shared.status.lock().unwrap() = st.clone();
     let path = Status::path();

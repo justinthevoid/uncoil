@@ -5,11 +5,14 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use uncoil_core::config::Status;
+use uncoil_core::device::Support;
 use uncoil_core::features::dial::{DialMode, DialState};
 use uncoil_core::features::hw_effect::{parse_color, Direction, HwEffect, Storage, DEFAULT_WAVE_SPEED};
 use uncoil_core::features::keymap::{Function, KeymapFile, Layer};
 use uncoil_core::features::oled::OledState;
 use uncoil_core::features::parse_u8;
+use uncoil_core::features::performance::{Dpi, DpiStages, PerformanceState};
+use uncoil_core::features::power::PowerState;
 use uncoil_core::features::profile::ProfileInfo;
 use uncoil_core::ipc::{self, *};
 
@@ -47,11 +50,23 @@ usage: uncoil [--json] [--pipe NAME] <command>
                                        `effect software`; add --onboard --write to save it in the device
   effect software DEVICE               back to the configured software effect
 
+  dpi DEVICE                           current DPI, DPI stages and poll rate
+  dpi DEVICE N[xM]                     set the DPI now, like the DPI button (not stored; no --write)
+  dpi DEVICE --stages A,B,C… [--active N] --write
+                                       store the DPI stages (each N or NxM; --active is 1-based)
+  poll DEVICE [HZ --write]             show or store the poll rate
+  power DEVICE                         battery, charging, sleep timer, low-battery warning
+  power DEVICE [--idle SECONDS] [--low-battery PERCENT] --write
+                                       store the sleep timer (60-900 s) / warning level (5-25 %)
+  check DEVICE                         run the read-only checks now (experimental devices and
+                                       features not yet confirmed: their writes wait for these)
+
 DEVICE: an id, a kind (keyboard, mouse, mat) or part of the name (basilisk).
 KEY: a key name (P, F9, PAGE_UP, \"Page Up\") or #id.
 MAPPING: off | key NAME [+lctrl +lshift …] | button N | razer N | power 0x82 | media B B | profile N
          | dpi B… | turbo-button BUTTON MS | raw FN B…
 Every command that changes the device's onboard memory needs --write and prints before/after.
+On experimental devices those writes also wait for the matching read-only check (`uncoil check`).
 ";
 
 #[derive(Debug, Default)]
@@ -69,6 +84,10 @@ struct Opts {
     direction: Option<String>,
     speed: Option<u8>,
     duration: Option<u8>,
+    stages: Option<String>,
+    active: Option<u8>,
+    idle: Option<u16>,
+    low_battery: Option<u8>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,6 +129,10 @@ fn parse(argv: &[String]) -> Result<(Opts, Action)> {
             "--direction" => o.direction = Some(val(a)?),
             "--speed" => o.speed = Some(byte(&val(a)?)?),
             "--duration" => o.duration = Some(byte(&val(a)?)?),
+            "--stages" => o.stages = Some(val(a)?),
+            "--active" => o.active = Some(byte(&val(a)?)?),
+            "--idle" => o.idle = Some(number(&val(a)?)?),
+            "--low-battery" => o.low_battery = Some(byte(val(a)?.trim_end_matches('%'))?),
             "-h" | "--help" | "help" => return Ok((o, Action::Help)),
             s if s.starts_with("--") => bail!("unknown option {s}"),
             _ => pos.push(a.clone()),
@@ -179,6 +202,39 @@ fn parse(argv: &[String]) -> Result<(Opts, Action)> {
             call(dev(2)?, Command::EffectHw(EffectHwArgs { effect, storage, write: o.write }))
         }
         ["effect", "software" | "sw", ..] => call(dev(2)?, Command::EffectSoftware),
+        ["dpi", d, rest @ ..] => {
+            let dpi = rest.first().map(|v| parse_dpi(v)).transpose()?;
+            let stages = match &o.stages {
+                Some(list) => {
+                    let list = list.split(',').map(|v| parse_dpi(v.trim())).collect::<Result<Vec<_>>>()?;
+                    Some(DpiStages { active: o.active.unwrap_or(1), list })
+                }
+                None if o.active.is_some() => bail!("--active goes with --stages"),
+                None => None,
+            };
+            if dpi.is_none() && stages.is_none() {
+                call(d.to_string(), Command::PerformanceGet)
+            } else {
+                call(
+                    d.to_string(),
+                    Command::PerformanceSet(PerformanceSetArgs { dpi, stages, poll_hz: None, write: o.write }),
+                )
+            }
+        }
+        ["poll", d] => call(d.to_string(), Command::PerformanceGet),
+        ["poll", d, hz, ..] => {
+            let hz = number(hz.trim_end_matches("Hz").trim_end_matches("hz"))?;
+            call(
+                d.to_string(),
+                Command::PerformanceSet(PerformanceSetArgs { poll_hz: Some(hz), write: o.write, ..Default::default() }),
+            )
+        }
+        ["power", d, ..] if o.idle.is_none() && o.low_battery.is_none() => call(d.to_string(), Command::PowerGet),
+        ["power", d, ..] => call(
+            d.to_string(),
+            Command::PowerSet(PowerSetArgs { idle_s: o.idle, low_battery_pct: o.low_battery, write: o.write }),
+        ),
+        ["check" | "checks", d, ..] => call(d.to_string(), Command::CheckRun),
         other => bail!("unknown command `{}` (see `uncoil help`)", other.join(" ")),
     };
     Ok((o, action))
@@ -186,6 +242,70 @@ fn parse(argv: &[String]) -> Result<(Opts, Action)> {
 
 fn byte(s: &str) -> Result<u8> {
     parse_u8(s).ok_or_else(|| anyhow!("not a number 0-255: {s}"))
+}
+
+fn number(s: &str) -> Result<u16> {
+    s.trim().parse().map_err(|_| anyhow!("not a number 0-65535: {s}"))
+}
+
+/// `800` or `800x600`.
+fn parse_dpi(s: &str) -> Result<Dpi> {
+    let (x, y) = s.split_once(['x', 'X']).unwrap_or((s, s));
+    Ok(Dpi { x: number(x)?, y: number(y)? })
+}
+
+fn check_word(s: CheckState) -> &'static str {
+    match s {
+        CheckState::Passed => "passed",
+        CheckState::Failed => "FAILED",
+        CheckState::Untested => "not run yet",
+        CheckState::NotNeeded => "not needed (confirmed device)",
+    }
+}
+
+fn print_performance(s: &PerformanceState) {
+    let opt = |v: Option<u16>| v.map_or("?".to_string(), |x| x.to_string());
+    if s.dpi_max.is_some() {
+        let dpi = s.dpi.map_or("? (no answer)".to_string(), |d| d.to_string());
+        println!("DPI         {dpi}  (range {}-{})", opt(s.dpi_min), opt(s.dpi_max));
+    }
+    if let Some(st) = &s.stages {
+        let list: Vec<String> = st
+            .list
+            .iter()
+            .enumerate()
+            .map(|(i, d)| if i + 1 == st.active as usize { format!("[{d}]") } else { d.to_string() })
+            .collect();
+        println!("stages      {}  (up to {})", list.join(" "), s.stages_max);
+    } else if s.stages_max > 0 {
+        println!("stages      ? (no answer)");
+    }
+    if !s.poll_rates.is_empty() {
+        let rates: Vec<String> = s.poll_rates.iter().map(u16::to_string).collect();
+        println!("poll rate   {} Hz  (offers {} Hz)", opt(s.poll_hz), rates.join(", "));
+    }
+}
+
+fn print_power(s: &PowerState) {
+    if let Some(b) = s.battery_pct {
+        println!("battery       {b}%{}", if s.charging == Some(true) { ", charging" } else { "" });
+    }
+    if s.idle_range.is_some() {
+        println!("sleep after   {} s", s.idle_s.map_or("?".into(), |v| v.to_string()));
+    }
+    if s.low_battery_range.is_some() {
+        println!("low battery   {}%", s.low_battery_pct.map_or("?".into(), |v| v.to_string()));
+    }
+}
+
+fn print_verified<T>(r: &WriteResult<T>) {
+    if r.unchanged {
+        println!("(already set; nothing written)");
+    } else if r.verified {
+        println!("written to the device and read back");
+    } else {
+        println!("WARNING: read-back differs from what was written");
+    }
 }
 
 fn hw_effect(name: &str, o: &Opts) -> Result<HwEffect> {
@@ -342,6 +462,9 @@ fn show(cmd: &Command, v: Value) -> Result<()> {
         Command::Status => {
             let s: Status = serde_json::from_value(v)?;
             println!("uncoild {} (pid {}), display {}, level {:.2}", s.version, s.pid, s.display, s.level);
+            for u in &s.unknown_devices {
+                println!("  a Razer device uncoil doesn't know yet (product ID 0x{:04X})", u.product_id);
+            }
             println!(
                 "footprint: {:.1} MB private memory, {:.2}% of one core, {:.2} MB executable",
                 s.memory_bytes as f64 / 1e6,
@@ -360,7 +483,15 @@ fn show(cmd: &Command, v: Value) -> Result<()> {
             for d in devs {
                 let f: Vec<&str> = d.features.iter().map(|f| f.as_str()).collect();
                 let hw = d.hw_effect.map(|e| format!("  [firmware effect: {}]", e.name())).unwrap_or_default();
-                println!("{:<34} {:<32} {:04X} {:<7} {}{hw}", d.name, d.id, d.product_id, d.connection, f.join(" "));
+                let exp = if d.support == Support::Experimental { "  [experimental]" } else { "" };
+                println!(
+                    "{:<34} {:<32} {:04X} {:<7} {}{hw}{exp}",
+                    d.name,
+                    d.id,
+                    d.product_id,
+                    d.connection,
+                    f.join(" ")
+                );
             }
         }
         Command::Capabilities(_) => {
@@ -370,6 +501,18 @@ fn show(cmd: &Command, v: Value) -> Result<()> {
                 let f: Vec<&str> = c.features.iter().map(|f| f.as_str()).collect();
                 println!("{} ({}){}", c.name, c.id, if c.connected { "" } else { " — not connected" });
                 println!("  features:    {}", f.join(", "));
+                if c.support == Support::Experimental {
+                    println!(
+                        "  support:     experimental (set up from OpenRazer and OpenRGB data; nobody has confirmed it)"
+                    );
+                }
+                if !c.unverified.is_empty() {
+                    let u: Vec<&str> = c.unverified.iter().map(|f| f.as_str()).collect();
+                    println!("  unconfirmed: {}", u.join(", "));
+                }
+                for ch in c.checks.iter().filter(|ch| ch.state != CheckState::NotNeeded) {
+                    println!("  check:       {:<11} {}", ch.feature.as_str(), check_word(ch.state));
+                }
                 if !c.hw_effects.is_empty() {
                     println!("  hw effects:  {}", c.hw_effects.join(", "));
                 }
@@ -465,6 +608,35 @@ fn show(cmd: &Command, v: Value) -> Result<()> {
             );
         }
         Command::EffectSoftware => println!("back to the software effect"),
+        Command::CheckRun => {
+            let list: Vec<FeatureCheck> = serde_json::from_value(v)?;
+            for c in list {
+                let detail = c.detail.map(|d| format!("  {d}")).unwrap_or_default();
+                println!("{:<11} {}{detail}", c.feature.as_str(), check_word(c.state));
+            }
+        }
+        Command::PerformanceGet => print_performance(&serde_json::from_value(v)?),
+        Command::PerformanceSet(_) => {
+            if v.get("before").is_some() {
+                let r: WriteResult<PerformanceState> = serde_json::from_value(v)?;
+                println!("before:");
+                print_performance(&r.before);
+                println!("after:");
+                print_performance(&r.after);
+                print_verified(&r);
+            } else {
+                print_performance(&serde_json::from_value(v)?);
+            }
+        }
+        Command::PowerGet => print_power(&serde_json::from_value(v)?),
+        Command::PowerSet(_) => {
+            let r: WriteResult<PowerState> = serde_json::from_value(v)?;
+            println!("before:");
+            print_power(&r.before);
+            println!("after:");
+            print_power(&r.after);
+            print_verified(&r);
+        }
     }
     Ok(())
 }
@@ -537,6 +709,42 @@ mod tests {
         assert!(matches!(p("").unwrap().1, Action::Help));
         assert!(p("frobnicate").is_err());
         assert!(p("keymap get kb P --layer sideways").is_err());
+    }
+
+    #[test]
+    fn performance_power_and_checks() {
+        assert!(matches!(p("dpi mouse").unwrap().1, Action::Call(_, Command::PerformanceGet)));
+        match p("dpi mouse 800x600").unwrap().1 {
+            Action::Call(_, Command::PerformanceSet(a)) => {
+                assert_eq!(a.dpi, Some(Dpi { x: 800, y: 600 }));
+                assert!(!a.write && a.stages.is_none());
+            }
+            other => panic!("{other:?}"),
+        }
+        match p("dpi mouse --stages 400,800,1600x1200 --active 2 --write").unwrap().1 {
+            Action::Call(_, Command::PerformanceSet(a)) => {
+                let s = a.stages.unwrap();
+                assert_eq!((s.active, s.list.len(), s.list[2]), (2, 3, Dpi { x: 1600, y: 1200 }));
+                assert!(a.write);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(p("dpi mouse --active 2").is_err());
+        assert!(p("dpi mouse fast").is_err());
+        assert!(matches!(p("poll mouse").unwrap().1, Action::Call(_, Command::PerformanceGet)));
+        assert!(matches!(
+            p("poll mouse 500 --write").unwrap().1,
+            Action::Call(_, Command::PerformanceSet(PerformanceSetArgs { poll_hz: Some(500), write: true, .. }))
+        ));
+        assert!(matches!(p("power mouse").unwrap().1, Action::Call(_, Command::PowerGet)));
+        assert!(matches!(
+            p("power mouse --idle 300 --low-battery 15% --write").unwrap().1,
+            Action::Call(
+                _,
+                Command::PowerSet(PowerSetArgs { idle_s: Some(300), low_battery_pct: Some(15), write: true })
+            )
+        ));
+        assert!(matches!(p("check deathadder").unwrap().1, Action::Call(Some(_), Command::CheckRun)));
     }
 
     #[test]

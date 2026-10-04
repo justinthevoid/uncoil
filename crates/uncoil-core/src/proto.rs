@@ -189,6 +189,50 @@ pub fn query_ok(t: &mut dyn Transport, request: &Report) -> anyhow::Result<Reply
     }
 }
 
+/// Commands that some firmwares want with their own transaction id (`[usb.transaction_ids]` in a device
+/// file). OpenRazer sends, for example, a Viper Mini's lighting with `0x3F` and its DPI with `0xFF`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandGroup {
+    /// Custom frame rows `0F/03` and the custom-frame effect (`0F/02` with effect 8).
+    Frame,
+    /// Every other class-`0F` command: firmware effects, brightness, regions.
+    Effect,
+    /// `02/0D`, `02/8D`, `02/0C`, `02/8C`, `02/84`.
+    Keymap,
+    /// Class `05`.
+    Profile,
+    /// `04/05`, `04/85`, `04/06`, `04/86`.
+    Dpi,
+    /// `00/05`, `00/85`, `00/40`, `00/C0`.
+    Poll,
+    /// `07/80`, `07/84`, `07/03`, `07/83` (and the low-battery pair when `low_battery` is not set).
+    Power,
+    /// `07/01`, `07/81`.
+    LowBattery,
+    /// `00/04`, `00/84`, `00/81`, `00/82`.
+    Device,
+    /// Anything else: always the endpoint's `transaction_id`.
+    Other,
+}
+
+impl CommandGroup {
+    pub fn of(r: &Report) -> CommandGroup {
+        match (r.class, r.id) {
+            (0x0F, 0x03) => CommandGroup::Frame,
+            (0x0F, 0x02) if r.args.get(2) == Some(&0x08) => CommandGroup::Frame,
+            (0x0F, _) => CommandGroup::Effect,
+            (0x02, 0x0D | 0x8D | 0x0C | 0x8C | 0x84) => CommandGroup::Keymap,
+            (0x05, _) => CommandGroup::Profile,
+            (0x04, 0x05 | 0x85 | 0x06 | 0x86) => CommandGroup::Dpi,
+            (0x00, 0x05 | 0x85 | 0x40 | 0xC0) => CommandGroup::Poll,
+            (0x07, 0x01 | 0x81) => CommandGroup::LowBattery,
+            (0x07, 0x80 | 0x84 | 0x03 | 0x83) => CommandGroup::Power,
+            (0x00, 0x04 | 0x84 | 0x81 | 0x82) => CommandGroup::Device,
+            _ => CommandGroup::Other,
+        }
+    }
+}
+
 // ---- known commands ---------------------------------------------------------------------------
 
 pub fn set_device_mode(tid: u8, mode: DeviceMode) -> Report {
@@ -287,6 +331,24 @@ mod tests {
         assert_eq!(back.args().len(), 7);
         assert!(back.answers(&Report::new(0x1F, 2, 0x8D, &[1, 26, 1])));
         assert!(!back.answers(&Report::new(0x1F, 2, 0x0D, &[1, 26, 1])));
+    }
+
+    #[test]
+    fn command_groups() {
+        use CommandGroup as G;
+        assert_eq!(G::of(&custom_frame_row(1, 0, 0, &[[0, 0, 0]])), G::Frame);
+        assert_eq!(G::of(&effect_custom_frame(1)), G::Frame);
+        assert_eq!(G::of(&effect_wave(1, 1, 0x28)), G::Effect);
+        assert_eq!(G::of(&Report::new(1, 0x0F, 0x80, &[])), G::Effect);
+        assert_eq!(G::of(&Report::new(1, 0x02, 0x8D, &[1, 26, 0])), G::Keymap);
+        assert_eq!(G::of(&Report::new(1, 0x02, 0x14, &[1, 0])), G::Other, "scroll mode is not a key map command");
+        assert_eq!(G::of(&Report::new(1, 0x05, 0x81, &[])), G::Profile);
+        assert_eq!(G::of(&Report::new(1, 0x04, 0x86, &[1])), G::Dpi);
+        assert_eq!(G::of(&Report::new(1, 0x00, 0xC0, &[])), G::Poll);
+        assert_eq!(G::of(&Report::new(1, 0x07, 0x81, &[])), G::LowBattery);
+        assert_eq!(G::of(&Report::new(1, 0x07, 0x83, &[])), G::Power);
+        assert_eq!(G::of(&set_device_mode(1, DeviceMode::Normal)), G::Device);
+        assert_eq!(G::of(&set_oled_brightness(1, 50)), G::Other);
     }
 
     #[test]

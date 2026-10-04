@@ -25,8 +25,9 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
 | where | what | I/O |
 |---|---|---|
 | `crates/uncoil-core/src/proto.rs` | 90-byte report builder, `Reply` parser, the `Transport` trait | none |
-| `crates/uncoil-core/src/features/` | one module per feature: `hw_effect`, `keymap`, `profile`, `dial`, `oled` — report builders and reply parsers, each unit-tested against Synapse-logged or hardware-read bytes | none |
-| `crates/uncoil-core/src/device.rs` | device definitions from `devices/*.toml`, now with `features = [...]`, `[hw_effects]` and `[keymap]` | reads TOML |
+| `crates/uncoil-core/src/features/` | one module per feature: `hw_effect`, `keymap`, `profile`, `dial`, `oled`, `performance` (DPI, stages, poll rate), `power` — report builders and reply parsers, each unit-tested against Synapse-logged, hardware-read or OpenRazer-documented bytes | none |
+| `crates/uncoil-core/src/device.rs` | device definitions from `devices/*.toml` and `devices/experimental/*.toml` (all embedded by `build.rs`), with `support`, `features`, per-group transaction ids and the feature sections | reads TOML |
+| `crates/uncoil-core/src/layout.rs` | LED positions on the desk; which devices the desk shows and where unplaced ones go (`desk_devices`, `arrange`) | none |
 | `crates/uncoil-core/src/ipc.rs` | the pipe protocol: `Request`, `Response`, `Command` and its argument structs, result types, device-name resolution, a blocking `Client` | client only |
 | `crates/uncoil-core/src/effect.rs` | effects, studio layers and masks, `Frame` | none |
 | `crates/uncoil-core/src/scancode.rs` | scan code to layout shape name (reactive effects) | none |
@@ -35,8 +36,9 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
 | `crates/uncoil-hid/src/transport.rs` | `LiveDevice`: frames, quirks, and `query()` (send + matching reply, busy/new retry) implementing `Transport` | HID |
 | `apps/uncoild/src/pipe.rs` | named-pipe server | pipe |
 | `apps/uncoild/src/control.rs` | request router, device registry, job queues | channels |
-| `apps/uncoild/src/exec.rs` | runs one command against any `Transport`; write gating, read-back, journal | via `Transport` |
-| `apps/uncoild/src/fake.rs` | a fake keyboard and mouse that answer like the real ones (tests, `--fake`) | none |
+| `apps/uncoild/src/exec.rs` | runs one command against any `Transport`; write gating, read-back, journal, left-click guard | via `Transport` |
+| `apps/uncoild/src/checks.rs` | read-only checks per feature, cached per connection; gate writes on experimental devices | via `Transport` |
+| `apps/uncoild/src/fake.rs` | a fake keyboard, mouse and experimental DeathAdder V3 Pro that answer like real ones (tests, `--fake`) | none |
 | `apps/uncoil-cli` | the `uncoil` binary | pipe |
 
 Adding a feature is: a module in `features/` (pure, tested), a `Command` variant + args in `ipc.rs`, a
@@ -59,9 +61,86 @@ set = 0x0D
 keys = [ { id = 26, name = "P", led = "P", default = "key P" }, … ]
 ```
 
-The daemon refuses a command whose feature the device does not declare, an effect it does not list, or a
-key it does not know. `led` links each key to its matrix LED, so a GUI can draw the key map on the same
-layout as the lighting. `default` is the factory normal-layer mapping (used by `keymap.reset`).
+The daemon refuses a command whose feature the device does not declare (error code `not_supported`), an
+effect it does not list, or a key it does not know. `led` links each key to its matrix LED, so a GUI can
+draw the key map on the same layout as the lighting. `default` is the factory normal-layer mapping (used by
+`keymap.reset`).
+
+More sections, each required by its feature: `[dpi]` (`min`, `max`, `storage`, `stages_max`), `[poll_rate]`
+(`kind` = `classic` or `hyperpolling`, `rates`, `set_twice`) and `[power]` (`battery`, `idle`,
+`low_battery`). `matrix` and `layout` are needed only with `lighting` or `hw_effects`; a device without them
+(a mouse with no RGB) is opened for commands only, never gets a frame and never appears on the desk.
+Unknown keys anywhere in a device file are errors, and every error names the file and the field
+(`devices/experimental/x.toml: [dpi]: min 200 must be above 0 and below max 100`).
+
+### Every file is compiled in
+
+`crates/uncoil-core/build.rs` embeds every `devices/*.toml` and `devices/experimental/*.toml`, sorted by
+path, with comments and blank lines dropped, so a new device needs no Rust edit. The test
+`every_device_file_parses` parses all of them, checks that a file's folder matches its `support`, and that
+no id or product id is used twice. A file that fails to parse is left out at run time (and logged) rather
+than stopping the daemon. User files in `%APPDATA%\uncoil\devices` still override built-ins by id.
+
+### Support levels and read-only checks
+
+`support = "supported"` (the default) means confirmed on real hardware; `support = "experimental"` means the
+file was built from OpenRazer / OpenRGB data and nobody has confirmed it yet (those files live in
+`devices/experimental/`). A supported device can also list features nobody has confirmed on it yet:
+`unverified = ["dpi", "poll_rate", "power"]` on the Basilisk V3 Pro.
+
+Before uncoil changes anything stored in an experimental device (or an unverified feature), it runs that
+feature's **read-only check**: it reads the current value with the matching "get" command and checks the
+reply makes sense. One check per feature, run on first need or by `check.run`, cached on the device thread
+until the device disconnects:
+
+| feature | reads | passes when |
+|---|---|---|
+| keymap (keyboard) | normal-layer mapping of P (26), A (31), Esc (110) | each maps to its own key or the file's default |
+| keymap (mouse) | buttons 1 and 2 | left click and right click |
+| profiles | `05/8A`, `05/80` | a well-formed count |
+| dpi | `04/85` (and `04/86` when the mouse has stages) | DPI and every stage inside `[dpi]` min..max |
+| poll_rate | `00/85` or `00/C0` | a rate listed in `[poll_rate]` |
+| power | `07/80` + `07/84`, `07/83`, `07/81` (the enabled parts) | well-formed, idle 60–900 s, threshold `0x0C`–`0x3F` |
+| dial / oled | `17/80` / `17/83` | a known mode / a percentage |
+| lighting / hw_effects | `0F/80` regions | informational only: regions add up to the file's matrix; never blocks lighting |
+
+A failed or not-yet-run check makes that feature's writes fail with code `check_failed` and a plain message
+("uncoil couldn't confirm Razer DeathAdder V3 Pro answers the way it expects, so it won't change its DPI
+settings (…)"); reads still work. Supported devices report `not_needed`. The live DPI change also waits for
+the DPI check, although it is not stored. `capabilities` carries `support`, `checks` (one per declared
+feature) and `unverified`; `devices` carries `support`.
+
+**Left-click guard.** On every mouse, `keymap.set` / `keymap.reset` refuse a normal-layer change that would
+leave no button producing left click (code `left_click_guard`: "This would leave no button that
+left-clicks. Map another button to left click first."). The check only reads the other buttons when the key
+being changed is currently left click.
+
+### Transaction ids per command group
+
+Each `[[usb]]` endpoint has a default `transaction_id`. Firmwares that want another id for some commands
+get a `[usb.transaction_ids]` table; missing groups use the default. The transport (`UsbEndpoint::wire`)
+puts the right id on every report, whatever id the report was built with.
+
+| group | commands |
+|---|---|
+| `frame` | `0F/03` custom frame rows, `0F/02` with effect 8 (custom frame) |
+| `effect` | every other class `0F` command (firmware effects, brightness, regions) |
+| `keymap` | `02/0D`, `02/8D`, `02/0C`, `02/8C`, `02/84` |
+| `profile` | class `05` |
+| `dpi` | `04/05`, `04/85`, `04/06`, `04/86` |
+| `poll` | `00/05`, `00/85`, `00/40`, `00/C0` |
+| `power` | `07/80`, `07/84`, `07/03`, `07/83` |
+| `low_battery` | `07/01`, `07/81` (falls back to `power`) |
+| `device` | `00/04`, `00/84`, `00/81`, `00/82` |
+
+`reply_wait_us` sets the pause before reading a reply (wireless receivers); `alt_usages` lists more
+(usage page, usage) pairs accepted on the same interface. When several collections of one interface match,
+the first listed wins and only one is opened.
+
+### Unknown Razer devices
+
+On every rescan the daemon lists HID devices with Razer's vendor id (0x1532) that no definition knows,
+logs each product id once, and publishes them as `status.unknown_devices` (`[{product_id, interfaces}]`).
 
 ## The control pipe
 
@@ -95,6 +174,15 @@ gets the typed values for free. Spec strings instead of tagged JSON objects, and
 | `oled.set` | `brightness`, `write` | before / after | **yes** |
 | `effect.hw` | `effect`, `storage` (`session`/`onboard`), `write` | `{effect, storage}` | only with `storage: onboard` |
 | `effect.software` | | | |
+| `check.run` | | `[{feature, state, detail}]`, state `passed` / `failed` / `untested` / `not_needed` | |
+| `performance.get` | | `{dpi, dpi_min, dpi_max, stages, stages_max, poll_hz, poll_rates}` | |
+| `performance.set` | `dpi` (`{x, y}`), `stages` (`{active, list}`), `poll_hz`, `write` | `dpi` alone: the new state; else before / after | `stages`, `poll_hz` (and `dpi` on `varstore` mice) |
+| `power.get` | | `{battery_pct, charging, idle_s, idle_range, low_battery_pct, low_battery_range}` | |
+| `power.set` | `idle_s`, `low_battery_pct`, `write` | before / after | **yes** |
+
+A failed request is `{"id":…, "ok":false, "error":"<plain words>", "code":"<code>"}`; `code` is present
+only for `check_failed`, `left_click_guard` and `not_supported`. The desktop app's bridge turns it into the
+error text `"<code>: <plain words>"`, next to the existing `unreachable:` prefix.
 
 Backups (`uncoil keymap export/import`) are built from `keymap.dump` / `keymap.set` on the client side.
 
@@ -165,11 +253,20 @@ In the daemon (`apps/uncoild/src/inputs.rs`), the main loop starts and stops two
   named-pipe server in-process and talk to it with `ipc::Client`, including a full stack test.
 - `cargo build -p uncoild --features fake` then `uncoild --fake` serves fake devices on
   `\\.\pipe\uncoil-fake` (or `UNCOIL_PIPE`), so the CLI and GUI can be exercised with no device and next
-  to a running daemon: `uncoil --pipe \\.\pipe\uncoil-fake devices`.
+  to a running daemon: `uncoil --pipe \\.\pipe\uncoil-fake devices`. It serves the keyboard, the Basilisk
+  (with made-up DPI 1600, stages 400/800/1600/3200/6400, 1000 Hz, battery 78 %, sleep 300 s, warning 15 %)
+  and the experimental DeathAdder V3 Pro from its device file (checks start untested; `check.run` passes
+  them), and reports one unknown Razer device, product ID 0x0FFE.
+- The browser mock's daemon answers (`apps/uncoil/src/lib/mock/daemon/*.json`) are the fake's answers:
+  `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoild gui_mock` rewrites them.
 
 ## Footprint
 
 Release `uncoild.exe`: 0.66 MB before the control channel, about 0.91 MB with it (serde for the requests,
 the five feature modules, the pipe server). The CLI is a separate 0.6 MB binary that only runs when used.
 The layered effects, key listener and audio meter added about 82 KB (0.93 MB to 1.02 MB, measured
-2026-10-03); most of it is serde for the new effect, layer and mask types.
+2026-10-03); most of it is serde for the new effect, layer and mask types. Experimental devices, checks,
+DPI / poll rate / power and per-group transaction ids took it from 1,015,296 to 1,339,904 bytes (+317 KB,
+measured 2026-10-03): about 146 KB was the 32 embedded device files (comments stripped; 29 of them
+experimental), about 171 KB code, mostly TOML and JSON (de)serialisers for the new sections and results.
+Deflating the device files into one blob (inflated once, on first use) brought it to 1,208,320 bytes.

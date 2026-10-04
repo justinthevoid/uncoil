@@ -63,12 +63,38 @@ Everything so far. Nothing has been released yet.
   data layouts, profiles, command-dial modes and OLED getters, from a second pass over Synapse's logs and
   read-only hardware probes (`tools/reference/readonly_probe.py`).
 - **Reverse-engineering tools** in `tools/reference` (log miners, read-only probes, capture and analysis).
+- **Experimental devices.** Device files can say `support = "experimental"`: set up from OpenRazer and
+  OpenRGB data, not yet confirmed on the device. They live in `devices/experimental/` and are compiled in
+  with the rest (a build script embeds every device file, so a new one needs no Rust change).
+- **Read-only checks before writes.** On an experimental device, and for features a supported device lists
+  as `unverified`, uncoil reads the current value first and refuses to change anything stored in the
+  device until that read makes sense (`uncoil check DEVICE`, `check.run`). Lighting is never blocked.
+- **Left-click guard:** on every mouse, a key map change that would leave no button that left-clicks is
+  refused.
+- **DPI, poll rate and power** (from OpenRazer's shared mouse commands): `uncoil dpi` (live DPI, stored DPI
+  stages), `uncoil poll`, `uncoil power` (battery, charging, sleep timer, low-battery warning), and the
+  `performance.get/set` and `power.get/set` pipe commands. The Basilisk V3 Pro gets them as `unverified`:
+  not yet read on that mouse.
+- **Unknown Razer devices** (vendor 0x1532, no definition) are logged once and listed in the status
+  (`unknown_devices`).
+- Devices without lighting (e.g. a mouse with no RGB) are opened for commands only and never sent frames.
+- Connected devices that the config does not place are put on the desk next to devices of their kind (a
+  second keyboard below the first, another mouse to the right); the default desk is unchanged.
 - Project scaffolding: CI, release workflow, issue and pull request templates, contributing guide, security
   policy, code of conduct.
 
 ### Changed
 
-- The release daemon grew from 0.66 MB to about 0.93 MB for the control pipe and feature modules.
+- The release daemon grew from 0.66 MB to about 0.93 MB for the control pipe and feature modules, and from
+  1.02 MB to 1.21 MB for experimental devices, checks, DPI / poll rate / power (the 32 embedded device
+  files are stored deflated).
+- **Device files:** `matrix` and `layout` are only required with `lighting` or `hw_effects`; new optional
+  `support`, `unverified`, `[sources]`, `alt_usages`, `reply_wait_us`, per-command-group
+  `[usb.transaction_ids]`, `[dpi]`, `[poll_rate]` and `[power]`; unknown keys are now errors that name the
+  file and field.
+- **Pipe:** failed requests may carry a `code` (`check_failed`, `left_click_guard`, `not_supported`);
+  `devices` and `capabilities` report `support`, `capabilities` also `checks` and `unverified`. A device
+  query by kind (`keyboard`, `mouse`) now prefers connected devices; with two mice connected, name one.
 - `scripts/install-task.ps1` installs the elevated daemon to `%ProgramFiles%\uncoil` instead of
   `%LOCALAPPDATA%\uncoil\bin`, so no unelevated process can replace it; `scripts/uninstall-task.ps1` added.
 
