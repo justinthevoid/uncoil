@@ -7,11 +7,12 @@
 // The still frame (t = 6 s) is rendered at build time, so the page shows the real answer with no JavaScript.
 // The script then animates it: only while it is on screen and the tab is visible, never under reduced motion
 // unless the visitor presses Play, and the Pause button stops it at any time.
-import { frame, hex } from '$uncoil/effect';
+import { frameWith, hex } from '$uncoil/effect';
 import { devices, ledCount, deskBounds, deskBox, capBox, CASE_PAD } from '../lib/desk';
 import { EFFECT, STILL_T } from '../lib/wave';
 
-const at = frame(EFFECT, STILL_T, 1, 1);
+const sample = frameWith(EFFECT, STILL_T, 1, 1);
+const at = (x: number, y: number) => sample('', '', x, y);
 const c = (x: number, y: number) => hex(at(x, y));
 const r = (n: number) => +n.toFixed(3);
 
@@ -94,7 +95,7 @@ const wave = EFFECT.kind === 'wave' ? EFFECT : null;
 </figure>
 
 <script>
-	import { frame, hex } from '$uncoil/effect';
+	import { frameWith, hex } from '$uncoil/effect';
 	import { EFFECT, STILL_T } from '../lib/wave';
 
 	for (const fig of document.querySelectorAll<HTMLElement>('[data-desk-hero]')) {
@@ -113,7 +114,8 @@ const wave = EFFECT.kind === 'wave' ? EFFECT : null;
 		let last = 0;
 
 		const paint = () => {
-			const at = frame(EFFECT, t, 1, 1);
+			const sample = frameWith(EFFECT, t, 1, 1);
+			const at = (x: number, y: number) => sample('', '', x, y);
 			for (let i = 0; i < els.length; i++) els[i].style.setProperty('--c', hex(at(xs[i], ys[i])));
 		};
 		const loop = (now: number) => {
