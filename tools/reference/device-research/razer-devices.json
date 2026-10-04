@@ -4,7 +4,7 @@
   "openrazer": {
    "repo": "https://github.com/openrazer/openrazer",
    "commit": "a84cd0aefe37079a92637dc8469b5fd5bcb56d5f",
-   "license": "GPL-2.0 (facts transcribed only)"
+   "license": "GPL-2.0-or-later (facts transcribed only)"
   },
   "openrgb": {
    "repo": "https://gitlab.com/CalcProgrammer1/OpenRGB",

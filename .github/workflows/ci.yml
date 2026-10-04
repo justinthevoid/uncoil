@@ -21,16 +21,21 @@ jobs:
   rust:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: cargo fmt --all --check
       - run: cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli --all-targets -- -D warnings
       - run: cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli
-      - run: cargo build --release -p uncoild -p uncoil-cli
-      - uses: actions/upload-artifact@v4
+      # The release build (LTO, one codegen unit) is the slowest step, so pull requests skip it.
+      - if: github.event_name == 'push'
+        run: cargo build --release -p uncoild -p uncoil-cli
+      - if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: uncoild
           path: target/release/uncoild.exe
@@ -42,49 +47,57 @@ jobs:
       run:
         working-directory: apps/uncoil
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          # apps/uncoil/package.json has no "packageManager" field, so the version must be given here.
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
           version: 12
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: apps/uncoil/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      # svelte-check: catches drift between src/lib/types.ts and the daemon's IPC types.
+      - run: pnpm check
       - run: pnpm build
-      - run: cargo build -p uncoil-gui
+      - run: cargo clippy -p uncoil-gui --all-targets -- -D warnings
         working-directory: .
       # Checks the browser mock (src/lib/mock) still matches the real desk layout.
       - run: cargo test -p uncoil-gui
         working-directory: .
 
-  # Marketing site. Every step is skipped until site/package.json exists.
+  # Marketing site and docs.
   site:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - id: detect
-        if: hashFiles('site/package.json') != ''
-        run: echo "present=true" >> "$GITHUB_OUTPUT"
-      - uses: pnpm/action-setup@v4
-        if: steps.detect.outputs.present == 'true'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 12
-      - uses: actions/setup-node@v4
-        if: steps.detect.outputs.present == 'true'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - if: steps.detect.outputs.present == 'true'
-        working-directory: site
+      - working-directory: site
         run: pnpm install --frozen-lockfile
       # The site imports the app's effect maths; the app's tsconfig extends SvelteKit's generated one.
-      - if: steps.detect.outputs.present == 'true'
-        working-directory: apps/uncoil
+      - working-directory: apps/uncoil
         run: pnpm install --frozen-lockfile && pnpm exec svelte-kit sync
-      - if: steps.detect.outputs.present == 'true'
-        working-directory: site
+      - working-directory: site
         run: pnpm build
+
+  # Device files: checks Rust's parser doesn't (matrix names vs layout names, key ids, unique product ids),
+  # and that the experimental files are exactly what the generator produces.
+  devices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: python3 tools/devices/validate.py
+      - run: python3 tools/devices/gen_experimental.py --check

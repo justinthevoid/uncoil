@@ -38,7 +38,7 @@ This is what uncoil runs when there is no config file at all:
 | `fps` | integer | `30` | Frames per second sent to each device, clamped to 5–60. |
 | `display` | object | see below | How lighting follows the display. See [Display](#display). |
 | `desk` | object | `{}` | Where each device sits on the desk. See [Desk](#desk). |
-| `openrgb_hardware_rainbow` | boolean | `true` | Hand non-Razer RGB to OpenRGB once at start. See [below](#openrgb_hardware_rainbow). |
+| `openrgb_hardware_rainbow` | boolean | `true` | Hand some non-Razer RGB to OpenRGB once at start. See [below](#openrgb_hardware_rainbow). |
 
 ## Effects
 
@@ -85,8 +85,97 @@ All LEDs dark. The devices stay connected and keep their normal-mode functions.
 "effect": { "kind": "off" }
 ```
 
-Colours for `wave` and `spectrum` come from FastLED's "rainbow" hue map rather than a plain HSV wheel. It is
-tuned for real LEDs, so no band of the rainbow looks wider or brighter than the rest.
+### `breathing`
+
+Fades in and out.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `colors` | `[]` | No colours: a new rainbow hue each breath. One: that colour. More: they take turns. Each is `[r, g, b]`. |
+| `period_s` | `4` | Seconds per breath. Minimum 0.5. |
+
+### `starlight`
+
+Random LEDs twinkle. Every device shares one field, so the twinkles are spread across the whole desk.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `colors` | `[]` | Colours to pick from; none means random hues. |
+| `density` | `0.15` | Share of LEDs lit at once, 0–1. |
+| `twinkle_s` | `1.5` | Seconds per twinkle. Minimum 0.1. |
+
+### `fire`
+
+Flames rising from the front edge of the desk.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `speed` | `1` | 0.25–3. |
+| `height` | `0.5` | Flame height as a share of the desk's depth, 0.05–1. |
+
+### `wheel`
+
+A rainbow turning around a centre point.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `period_s` | `6` | Seconds per turn. Minimum 0.5. |
+| `reverse` | `false` | Turn the other way. |
+| `center` | `null` | `[x, y]` in desk key units; `null` is the keyboard's centre. |
+
+### `reactive` and `ripple`
+
+`reactive` lights a key when it is pressed and fades it; `ripple` sends a ring across the desk from each
+pressed key. While either is in use (on its own or in a Studio layer), uncoild listens for key presses and
+turns each one into a desk position straight away; it never records which key it was. See
+[SECURITY.md](https://github.com/justinthevoid/uncoil/blob/main/SECURITY.md#key-presses-and-audio-level-reactive-and-audio-effects).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `color` | `null` | `[r, g, b]`, or `null` for a new rainbow hue per press. |
+| `fade_s` | `1` | Seconds a press takes to fade. |
+| `speed` | `12` | `ripple` only: ring speed in key units per second. |
+| `width` | `1.5` | `ripple` only: ring width in key units. |
+
+### `audio_meter`
+
+The desk fills left to right with the system audio peak level, green to yellow to red. uncoild reads only
+Windows' peak level for the default playback device, one number, never the audio itself.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `sensitivity` | `1` | Multiplies the level before it is drawn. |
+
+### `studio`
+
+Layers of effects, bottom first. Each enabled layer is blended over the ones below it where its mask covers
+an LED. Reactive, ripple, starlight and the audio meter are transparent where they are dark, so they can sit
+on top of another effect.
+
+```json
+"effect": {
+  "kind": "studio",
+  "layers": [
+    { "name": "Base", "effect": { "kind": "wave" }, "mask": { "kind": "all" } },
+    { "name": "Mouse", "opacity": 0.5, "effect": { "kind": "static", "color": [255, 96, 0] },
+      "mask": { "kind": "devices", "ids": ["razer-basilisk-v3-pro"] } },
+    { "name": "WASD", "effect": { "kind": "reactive" },
+      "mask": { "kind": "keys", "device": "razer-blackwidow-v4-pro-75", "shapes": ["W", "A", "S", "D"] } }
+  ]
+}
+```
+
+| Layer key | Default | Meaning |
+|---|---|---|
+| `name` | `""` | Shown in the app. |
+| `enabled` | `true` | A disabled layer is skipped. |
+| `opacity` | `1` | 0–1. |
+| `effect` | required | Any effect above except `studio`. |
+| `mask` | `{ "kind": "all" }` | `all`, `devices` with `ids`, or `keys` with a `device` id and `shapes` (key and LED names from the device file). |
+
+Colours for `wave`, `spectrum` and the other rainbow effects come from FastLED's "rainbow" hue map rather
+than a plain HSV wheel. It is tuned for real LEDs, so no band of the rainbow looks wider or brighter than the
+rest.
 
 ## Display
 
@@ -113,6 +202,10 @@ listed use their defaults:
 | mouse | `20.75` | `3.1` |
 | mouse mat | `11.125` | `3.375` |
 
+A connected device the config doesn't place, beyond the first of its kind, is put next to the others of its
+kind (a second keyboard below the first, another mouse to the right). Devices without lighting never appear
+on the desk.
+
 To move the mouse a little further right:
 
 ```json
@@ -124,11 +217,15 @@ positions, a correct desk layout is what makes the bands line up from one device
 
 ## `openrgb_hardware_rainbow`
 
-When `true` and OpenRGB is installed at `C:\Program Files\OpenRGB\OpenRGB.exe`, uncoild runs it once at
-start to put the motherboard, GPU and RAM on their own built-in rainbow effects, then OpenRGB exits. uncoil
-does not drive those devices itself. If iCUE is running, the RAM is skipped, because RAM lighting shares the
-SMBus with iCUE and writing it from two programs at once is a bad idea. The device names it targets are set in
-`apps/uncoild/src/openrgb.rs` today.
+On by default. When `true` and OpenRGB is installed at `C:\Program Files\OpenRGB\OpenRGB.exe`, uncoild runs
+it once at start to put the motherboard, GPU and RAM on their own built-in rainbow effects, then OpenRGB
+exits. If OpenRGB is already running, uncoild closes it first. uncoil does not drive those devices itself. If
+iCUE is running, the RAM is skipped, because RAM lighting shares the SMBus with iCUE and writing it from two
+programs at once is a bad idea.
+
+The devices it targets are fixed in `apps/uncoild/src/openrgb.rs` today, by OpenRGB device-name substring:
+`ASUS ROG STRIX` (rainbow), `GeForce` (wave) and `Vengeance` (rainbow wave). Hardware with other names is left
+alone. If you don't want this, set the key to `false`.
 
 This key is read at start only; restart the task after changing it.
 
@@ -139,5 +236,6 @@ This key is read at start only; restart the task after changing it.
 | `%APPDATA%\uncoil\config.json` | you, the app | Settings (this page). |
 | `%APPDATA%\uncoil\devices\*.toml` | you | Extra or overriding [device definitions](/docs/devices/#adding-a-device), read at start. |
 | `%LOCALAPPDATA%\uncoil\status.json` | uncoild, every 2 s | Running devices, fps, retries, errors, and the daemon's own memory, CPU and size. |
-| `%LOCALAPPDATA%\uncoil\uncoild.log` | uncoild | Device opens and losses, display changes, reloads. Trimmed past 256 KB. |
-| `%LOCALAPPDATA%\uncoil\bin\uncoild.exe` | install script | The installed daemon. |
+| `%LOCALAPPDATA%\uncoil\uncoild.log` | uncoild | Device opens and losses, display changes, reloads, writes to device memory. Trimmed past 256 KB. |
+| `%LOCALAPPDATA%\uncoil\onboard-writes.jsonl` | uncoild | One line per write to a device's own memory. `keymap reset` uses it to restore a key's value from before uncoil first wrote it. |
+| `%ProgramFiles%\uncoil\uncoild.exe` | install script | The installed daemon. |

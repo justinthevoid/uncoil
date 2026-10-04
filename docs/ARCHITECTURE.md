@@ -30,16 +30,22 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
 | `crates/uncoil-core/src/layout.rs` | LED positions on the desk; which devices the desk shows and where unplaced ones go (`desk_devices`, `arrange`) | none |
 | `crates/uncoil-core/src/ipc.rs` | the pipe protocol: `Request`, `Response`, `Command` and its argument structs, result types, device-name resolution, a blocking `Client` | client only |
 | `crates/uncoil-core/src/effect.rs` | effects, studio layers and masks, `Frame` | none |
+| `crates/uncoil-core/src/color.rs` | `Rgb`, the FastLED rainbow hue map | none |
+| `crates/uncoil-core/src/config.rs` | `Config` (`config.json`) and `Status` (`status.json`) | reads / writes those files |
 | `crates/uncoil-core/src/scancode.rs` | scan code to layout shape name (reactive effects) | none |
+| `crates/uncoil-hid/src/display.rs` | display power state (`GUID_CONSOLE_DISPLAY_STATE`) on a hidden window | Windows |
 | `crates/uncoil-hid/src/keys.rs`, `audio.rs` | key press listener (Raw Input), audio peak meter (WASAPI) | Windows input / audio |
 | `apps/uncoild/src/inputs.rs` | press buffer (positions only), listener start/stop, desk geometry | via `uncoil-hid` |
 | `crates/uncoil-hid/src/transport.rs` | `LiveDevice`: frames, quirks, and `query()` (send + matching reply, busy/new retry) implementing `Transport` | HID |
+| `apps/uncoild/src/main.rs` | main loop (config reload, display fade, rescan, status), one renderer thread per device, single-instance mutex, `--fake` | everything above |
+| `apps/uncoild/src/log.rs`, `selfstat.rs`, `openrgb.rs` | the log (trimmed past 256 KB), the daemon's own memory / CPU / size, the one-shot OpenRGB hand-off | files, process launch |
 | `apps/uncoild/src/pipe.rs` | named-pipe server | pipe |
 | `apps/uncoild/src/control.rs` | request router, device registry, job queues | channels |
 | `apps/uncoild/src/exec.rs` | runs one command against any `Transport`; write gating, read-back, journal, left-click guard | via `Transport` |
 | `apps/uncoild/src/checks.rs` | read-only checks per feature, cached per connection; gate writes on experimental devices | via `Transport` |
 | `apps/uncoild/src/fake.rs` | a fake keyboard, mouse and experimental DeathAdder V3 Pro that answer like real ones (tests, `--fake`) | none |
 | `apps/uncoil-cli` | the `uncoil` binary | pipe |
+| `apps/uncoil/src-tauri` | the desktop app's shell (`uncoil-gui`): config read/write, `preview_frame` with the real engine, a `daemon` bridge to the pipe | config, status, pipe |
 
 Adding a feature is: a module in `features/` (pure, tested), a `Command` variant + args in `ipc.rs`, a
 match arm in `exec.rs`, a subcommand in the CLI, and the feature name in the device TOMLs that have it.
@@ -192,8 +198,9 @@ The daemon runs elevated (the logon task uses "highest privileges") as the logge
 security descriptor is `D:P(A;;GA;;;<that user's SID>)S:(ML;;NW;;;ME)`: a protected DACL with a single
 allow entry for that user, and a medium integrity label so the same user's *unelevated* CLI and GUI can
 connect. Other users, services without that SID, and remote machines (`PIPE_REJECT_REMOTE_CLIENTS`) are
-refused. `FILE_FLAG_FIRST_PIPE_INSTANCE` makes the daemon fail loudly instead of sharing the name if another
-process created `\\.\pipe\uncoil` first. At most 8 clients at a time; request lines are capped at 64 KB.
+refused. `FILE_FLAG_FIRST_PIPE_INSTANCE` makes the daemon refuse to share the name if another process
+created `\\.\pipe\uncoil` first: it logs `control pipe … unavailable` and keeps driving the lighting without
+a pipe. At most 8 clients at a time; request lines are capped at 64 KB.
 
 ## Commands run between frames
 
@@ -262,7 +269,7 @@ In the daemon (`apps/uncoild/src/inputs.rs`), the main loop starts and stops two
 
 ## Footprint
 
-Release `uncoild.exe`: 0.66 MB before the control channel, about 0.91 MB with it (serde for the requests,
+Release `uncoild.exe`: 0.66 MB before the control channel, about 0.93 MB with it (serde for the requests,
 the five feature modules, the pipe server). The CLI is a separate 0.6 MB binary that only runs when used.
 The layered effects, key listener and audio meter added about 82 KB (0.93 MB to 1.02 MB, measured
 2026-10-03); most of it is serde for the new effect, layer and mask types. Experimental devices, checks,

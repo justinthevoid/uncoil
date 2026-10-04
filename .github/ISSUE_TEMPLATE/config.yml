@@ -3,9 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/justinthevoid/uncoil/security/advisories/new
     about: Report privately through GitHub security advisories. Please don't open a public issue.
-  - name: Questions and setups
-    url: https://github.com/justinthevoid/uncoil/discussions
-    about: Ask a question or show your desk (if Discussions are enabled).
   - name: Getting help
     url: https://github.com/justinthevoid/uncoil/blob/main/SUPPORT.md
     about: Troubleshooting steps to try before filing a bug.

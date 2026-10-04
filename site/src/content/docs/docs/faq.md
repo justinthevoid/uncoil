@@ -13,7 +13,7 @@ uncoil works with.
 
 GPL-3.0-or-later. Free to use, study, change and share; changes you distribute stay under the same licence.
 Protocol facts and some device data derive from [OpenRazer](https://github.com/openrazer/openrazer) and
-[OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB), both GPL-2.0.
+[OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB), both GPL-2.0-or-later.
 
 ## How light is it, really?
 
@@ -28,21 +28,26 @@ Chroma Extended):
 | On disk | ~500 MB | 1.2 MB, one executable |
 | Kernel drivers | yes | none |
 
-That is one machine. uncoild measures itself and writes the numbers to `%LOCALAPPDATA%\uncoil\status.json`,
-so you can check yours.
+That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-03.
+uncoild measures itself and writes the numbers to `%LOCALAPPDATA%\uncoil\status.json` (`uncoil status` prints
+them), so you can check yours.
 
 ## What still needs Synapse?
 
 What uncoil doesn't do yet:
 
-- macros and DPI settings;
-- custom images on the BlackWidow's dial screen;
+- macros;
+- what each command-dial mode does, and custom images on the BlackWidow's dial screen (uncoil sets the active
+  mode and the screen's brightness);
+- switching onboard profiles;
 - firmware updates;
 - devices that aren't on the [list](/docs/devices/).
 
 Key and button remapping (normal and Fn layers) works from the app and the CLI. Only one remap, Fn+P to Print
 Screen, has been checked on a real keyboard so far; see the
-[protocol](/docs/protocol/#onboard-key-mappings-the-fn-layer-lives-in-the-keyboard).
+[protocol](/docs/protocol/#onboard-key-mappings-the-fn-layer-lives-in-the-keyboard). DPI, DPI stages, poll
+rate, battery and the sleep timer are there too, from OpenRazer's documented commands, but not yet confirmed on
+real hardware: uncoil reads each one first and won't change it unless the read makes sense.
 
 Anything already stored in a device's own memory stays there after Synapse is uninstalled. If you need one of
 the above occasionally, you can install Synapse, make the change, quit it properly, and uninstall it again.
@@ -50,13 +55,15 @@ the above occasionally, you can install Synapse, make the change, quit it proper
 ## Will it support my device?
 
 If it is a Razer device that OpenRGB or OpenRazer already knows, probably, and adding it is mostly a
-[data file](/docs/devices/#adding-a-device). Anything else is out of scope: uncoil drives Razer devices, and
+[data file](/docs/devices/#adding-a-device). 29 such devices already have an
+[experimental](/docs/devices/#experimental) file waiting for someone with the hardware to confirm it. Anything else is out of scope: uncoil drives Razer devices, and
 hands the rest of the PC to OpenRGB once at start.
 
 ## Does it collect anything?
 
 No. There is no account, no telemetry, no network access and no updater. It reads its config and device files,
-writes a status file and a small log under your profile, and talks to USB devices.
+writes a status file, a small log and a record of writes to device memory under your profile, talks to USB
+devices, and answers the app and the CLI over a local named pipe that only your user account can open.
 
 ## Why is the logon task elevated?
 

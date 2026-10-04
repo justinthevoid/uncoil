@@ -2,7 +2,7 @@
 
 Companion to `razer-devices.json` (30 devices, 40 USB PIDs; transaction id: 24 agree, 10 one source, 6 conflict). Facts only, transcribed from:
 
-- OpenRazer `master` @ `a84cd0ae` (GPL-2.0): `driver/razer{kbd,mouse,accessory}_driver.{c,h}`, `razerchromacommon.c`,
+- OpenRazer `master` @ `a84cd0ae` (GPL-2.0-or-later): `driver/razer{kbd,mouse,accessory}_driver.{c,h}`, `razerchromacommon.c`,
   `razercommon.{c,h}`, `daemon/openrazer_daemon/hardware/{keyboards,mouse,mouse_mat,accessory,device_base}.py`
 - OpenRGB `master` @ `df3024be` (GPL-2.0-or-later): `Controllers/RazerController/RazerDevices.{cpp,h}`,
   `RazerControllerDetect.cpp`, `RazerController/RazerController.{cpp,h}`

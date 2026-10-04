@@ -9,7 +9,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -19,12 +19,15 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  windows:
+  # Builds and tests with a read-only token; nothing here can touch the repository or its releases.
+  build:
     runs-on: windows-latest
     env:
       TAG: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Check the tag matches every version field
         shell: pwsh
@@ -39,14 +42,11 @@ jobs:
             exit 1
           }
 
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: release
-      - uses: pnpm/action-setup@v4
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 12
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -83,13 +83,31 @@ jobs:
           Pop-Location
           Get-ChildItem dist | Format-Table Name, Length
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: uncoil-${{ github.ref_name }}-windows
           path: dist/*
 
+  # Only this job can write, and it runs no project code: it downloads the built files and drafts the release.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: uncoil-${{ github.ref_name }}-windows
+          path: dist
+
+      - name: Check the checksums
+        working-directory: dist
+        run: sha256sum --check --strict SHA256SUMS.txt
+
+      # Build provenance (actions/attest-build-provenance) needs a public repository on this plan;
+      # add it when the repository goes public.
       - name: Create draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
@@ -98,7 +116,9 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/uncoild.exe
+            dist/uncoil.exe
             dist/install-task.ps1
+            dist/uninstall-task.ps1
             dist/uncoil-app-*-x64-setup.exe
             dist/SHA256SUMS.txt
           body: |
@@ -107,7 +127,9 @@ jobs:
             | File | What |
             |---|---|
             | `uncoild.exe` | the lighting daemon (single executable) |
+            | `uncoil.exe` | the command line: status, devices, key maps, DPI and other device settings |
             | `install-task.ps1` | installs the daemon as a logon task: `powershell -ExecutionPolicy Bypass -File install-task.ps1 -Exe .\uncoild.exe` |
+            | `uninstall-task.ps1` | removes the logon task and the installed daemon |
             | `uncoil-app-*-x64-setup.exe` | the optional desktop app (settings and live preview); does not install the daemon |
             | `SHA256SUMS.txt` | checksums: `Get-FileHash <file> -Algorithm SHA256` |
 

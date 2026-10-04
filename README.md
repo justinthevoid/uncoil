@@ -1,5 +1,3 @@
-<!-- FAC 00 · uncoil · catalogue sheet -->
-
 # uncoil
 
 **A small, open-source lighting daemon for Razer peripherals on Windows. It does the part of Synapse you
@@ -9,8 +7,6 @@ actually use, in one 1.2 MB process.**
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-f2f2f2?style=flat-square&labelColor=0b0b0b)](LICENSE)
 [![Platform: Windows 10 | 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-f2f2f2?style=flat-square&labelColor=0b0b0b)](#install)
 [![Status: pre-release](https://img.shields.io/badge/status-pre--release-d22?style=flat-square&labelColor=0b0b0b)](CHANGELOG.md)
-
-<sub>FAC 00 &nbsp;/&nbsp; UNCOIL &nbsp;/&nbsp; LIGHTING DAEMON + DESKTOP APP &nbsp;/&nbsp; WINDOWS &nbsp;/&nbsp; 0.1.0 PRE-RELEASE</sub>
 
 ---
 
@@ -25,10 +21,13 @@ actually use, in one 1.2 MB process.**
 | Kernel drivers | yes | **none**, plain user-mode HID |
 
 <sub>Measured on the maintainer's PC (Windows 11, BlackWidow V4 Pro 75%, Basilisk V3 Pro, Goliathus Chroma
-Extended, rainbow wave running). One machine, not a benchmark; yours will differ.</sub>
+Extended, rainbow wave running); memory and CPU on an earlier build, size on the build of 2026-10-03
+(1,208,320 bytes). One machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
+and size in `status.json`, so you can check yours.</sub>
 
 No services, no account, no telemetry; the daemon makes no network connections. The optional desktop app
-is opened when you want to change something and closed again. The daemon does the work.
+and the `uncoil` command line talk to it over a local named pipe that only your user account can open. The
+app is opened when you want to change something and closed again. The daemon does the work.
 
 ## What it does
 
@@ -39,15 +38,25 @@ is opened when you want to change something and closed again. The daemon does th
 - **Studio.** Stack effects as layers with opacity, and limit each layer to the whole desk, chosen devices or
   keys you paint. Reactive and ripple only ever learn where a key is, never which key it was.
 - **Keys and buttons.** Remap keys on the normal and Fn layers and the mouse's buttons, set the command dial
-  and its screen. These write to the device's own memory, so they keep working without uncoil.
+  mode and the screen's brightness, and save a device's own (firmware) effect. These write to the device's own
+  memory, so they keep working without uncoil. Every such write needs an explicit confirmation (`--write` on
+  the command line) and is logged; settings that can be read back are, and the result says so.
+- **Mouse settings:** DPI, DPI stages, polling rate, battery level, sleep timer and low-battery warning on
+  mice whose device file lists them, using OpenRazer's shared mouse commands. These are not yet confirmed on
+  the Basilisk V3 Pro, so uncoil reads each value first and only changes it if the read makes sense.
 - **Colour tuned for LEDs.** Uses FastLED's rainbow hue map, so no colour band looks wider or brighter than
   the rest.
 - **Behaves like Synapse where it matters.** Lighting fades out when Windows turns the display off, dims with
   it, and comes back on wake. Unplugged devices are picked up again within seconds.
 - **Leaves the firmware in charge.** Devices are kept in normal mode, so Fn keys, media keys and the volume
   dial work even when uncoil isn't running.
-- **Optional:** a one-shot hand-off of motherboard, GPU and RAM RGB to their own hardware rainbow via
-  [OpenRGB](https://openrgb.org), if it is installed.
+- **A command line,** `uncoil`, for status, devices, key maps (with TOML backups), the dial, the screen,
+  firmware effects, DPI, polling rate and power. Run `uncoil help` for the full list.
+- **Optional, on by default:** a one-shot hand-off of motherboard, GPU and RAM RGB to their own hardware
+  rainbow via [OpenRGB](https://openrgb.org), if it is installed at `C:\Program Files\OpenRGB`. The device
+  names it targets are fixed in `apps/uncoild/src/openrgb.rs` today (an ASUS ROG Strix board, a GeForce card,
+  Corsair Vengeance RAM), and it closes a running OpenRGB first. Turn it off with
+  `"openrgb_hardware_rainbow": false` in the config.
 
 ## Screenshots
 
@@ -87,9 +96,9 @@ if you can help test.
 ## Install
 
 > [!IMPORTANT]
-> uncoil is pre-release. There are no published binaries yet; build from source below. The first tagged
-> release will put `uncoild.exe` and an installer for the app on the
-> [Releases](https://github.com/justinthevoid/uncoil/releases) page.
+> uncoil is pre-release. Nothing has been released and there are no published binaries yet; build from
+> source below. The release workflow is set up so that a tagged release attaches `uncoild.exe`, the `uncoil`
+> CLI, the install scripts and an installer for the app to a GitHub release.
 
 **Close Synapse first.** Two programs driving the same keyboard is a race neither wins. Quit Synapse and
 disable its startup entry (or uninstall it). If Synapse left a device in driver mode, uncoil puts it back
@@ -100,26 +109,32 @@ in normal mode when it connects, so the dial and media keys come back.
 powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
 ```
 
-The script copies `uncoild.exe` to `%ProgramFiles%\uncoil` (admin-only, because the task runs elevated) and registers a logon task named `uncoil`.
-The task runs elevated so OpenRGB can reach RAM lighting over SMBus; see [SECURITY.md](SECURITY.md) for what
-that implies. It self-elevates if needed.
+The script self-elevates (one UAC prompt), copies `uncoild.exe` to `%ProgramFiles%\uncoil` (admin-only,
+because the task runs elevated), registers a logon task named `uncoil` and starts it. The task runs elevated
+so OpenRGB can reach RAM lighting over SMBus; see [SECURITY.md](SECURITY.md) for what that implies. The
+script installs only the daemon: the `uncoil` CLI (`target\release\uncoil.exe`) runs from wherever you put
+it, and the desktop app has its own installer.
 
 To remove it:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # task and binary
-Remove-Item -Recurse "$env:LOCALAPPDATA\uncoil"   # status and log
-Remove-Item -Recurse "$env:APPDATA\uncoil"        # your settings
+Remove-Item -Recurse "$env:LOCALAPPDATA\uncoil"   # status, log and the onboard-write journal
+Remove-Item -Recurse "$env:APPDATA\uncoil"        # your settings and extra device files
 ```
+
+Anything uncoil wrote into a device's own memory (key maps, a saved firmware effect, DPI stages) stays there.
 
 ### Files
 
 | Path | What |
 |---|---|
 | `%APPDATA%\uncoil\config.json` | settings; edited by the app, hot-reloaded by the daemon |
-| `%APPDATA%\uncoil\devices\*.toml` | extra or overriding device definitions |
+| `%APPDATA%\uncoil\devices\*.toml` | extra or overriding device definitions, read at start |
 | `%LOCALAPPDATA%\uncoil\status.json` | live device and engine status, read by the app |
 | `%LOCALAPPDATA%\uncoil\uncoild.log` | daemon log, trimmed at 256 KB |
+| `%LOCALAPPDATA%\uncoil\onboard-writes.jsonl` | one line per write to a device's memory; `keymap reset` restores from it |
+| `%ProgramFiles%\uncoil\uncoild.exe` | the installed daemon |
 
 ## Build from source
 
@@ -131,9 +146,9 @@ WebView2 runtime (already on Windows 11); see the [Tauri prerequisites](https://
 git clone https://github.com/justinthevoid/uncoil
 cd uncoil
 
-# daemon
-cargo test -p uncoil-core -p uncoil-hid -p uncoild
-cargo build --release -p uncoild                    # target\release\uncoild.exe
+# daemon and CLI
+cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli
+cargo build --release -p uncoild -p uncoil-cli      # target\release\uncoild.exe, target\release\uncoil.exe
 
 # desktop app (optional)
 cd apps\uncoil
@@ -148,13 +163,16 @@ for design work without hardware.
 ### Layout
 
 ```
-crates/uncoil-core   protocol, colour, effects, device definitions, desk layout (pure, unit-tested)
-crates/uncoil-hid    USB HID transport with per-device quirks; Windows display-power watcher
-apps/uncoild         background daemon (no window)
-apps/uncoil          desktop app: Tauri 2 + SvelteKit + Tailwind; its preview runs the real effect code
-devices/*.toml       one data file per device: USB endpoints, quirks, LED matrix, physical layout
-docs/PROTOCOL.md     how the protocol was learned, and the hardware quirks
-tools/reference      Python probes and log-mining scripts used for reverse engineering
+crates/uncoil-core    protocol, colour, effects, device definitions, desk layout, pipe types (pure, unit-tested)
+crates/uncoil-hid     USB HID transport with per-device quirks; display-power watcher; key and audio listeners
+apps/uncoild          background daemon (no window); serves the control pipe \.\pipe\uncoil
+apps/uncoil-cli       the `uncoil` command line, a client of that pipe
+apps/uncoil           desktop app: Tauri 2 + SvelteKit + Tailwind; its preview runs the real effect code
+devices/*.toml        one data file per device: USB endpoints, quirks, LED matrix, physical layout
+devices/experimental  experimental device files, generated by tools/devices/ from OpenRazer / OpenRGB data
+docs/PROTOCOL.md      how the protocol was learned, and the hardware quirks
+docs/ARCHITECTURE.md  how the daemon, the pipe and its clients fit together
+tools/reference       Python probes and log-mining scripts used for reverse engineering
 ```
 
 ## How it works
@@ -165,25 +183,26 @@ and [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB); uncoil re-implements 
 Synapse's own logs, which record every command it sends with a name and the raw bytes.
 
 `uncoild` places each device on a virtual desk, samples the effect at every LED's physical position, and
-streams custom frames at 30 fps, respecting per-device quirks (the BlackWidow wants every reply read back,
-or it quietly stops listening). The full write-up, with the expensive lessons, is in
-[docs/PROTOCOL.md](docs/PROTOCOL.md).
+streams custom frames (30 fps by default), respecting per-device quirks (the BlackWidow wants every reply
+read back, or it quietly stops listening). Other commands from the app or the CLI run on the same device
+thread between frames. The full write-up, with the expensive lessons, is in
+[docs/PROTOCOL.md](docs/PROTOCOL.md); how the code fits together is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 **The Fn layer lives in the keyboard.** The BlackWidow stores its Fn layer in onboard memory. Fn+P has
 Print Screen printed on the keycap but does nothing without Synapse, because that slot is empty. Writing
 one key code into it makes Fn+P a native Print Screen, handled by the firmware, on any PC, with nothing
-running. Today that is a reference script ([`tools/reference/obm_set_fnp.py`](tools/reference/obm_set_fnp.py));
-the editor is on the roadmap.
+running: `uncoil keymap set keyboard P key PRINT_SCREEN --layer fn --write`, or the app's Keys page.
 
 ## Roadmap
 
 Nothing here has a date.
 
-- **Fn-layer editor:** read and write the keyboard's onboard Hypershift layer, with a backup first.
-- **Command dial and OLED:** dial functions and display control for the BlackWidow.
-- **Hardware effects:** onboard firmware effects, so the desk keeps a look when uncoil isn't running.
-- **Profiles:** named sets of effect and device settings.
-- **More devices:** community device files and a guided, privacy-safe capture tool.
+- **Command dial and OLED:** the dial's per-mode functions and custom images for the BlackWidow's screen
+  (today: the active dial mode and the screen's brightness).
+- **Profiles:** named sets of effect and device settings, and switching onboard profiles.
+- **More devices:** confirming the experimental ones, community device files and a guided, privacy-safe
+  capture tool.
 - **Per-app profiles:** switch lighting when a given program is in front.
 - **Releases:** published binaries and an installer that sets up the daemon.
 
@@ -205,11 +224,11 @@ device file all help more than you'd think.
 ## License and trademarks
 
 uncoil is free software under the [GNU General Public License v3.0 or later](LICENSE). Protocol facts and
-some device data derive from OpenRazer and OpenRGB (both GPL-2.0); the keyboard key-mapping
+some device data derive from OpenRazer and OpenRGB (both GPL-2.0-or-later); the keyboard key-mapping
 commands were cross-checked against [OpenSynapse](https://github.com/A1mAssist/OpenSynapse) (MIT).
 
 uncoil is an independent project. It is not affiliated with, endorsed by or sponsored by Razer Inc.
-"Razer", "Synapse", "Chroma", "BlackWidow", "Basilisk" and "Goliathus" are trademarks of Razer Inc., used
-here only to identify compatible hardware and software.
+"Razer", "Synapse", "Chroma", "HyperSpeed" and the device names used here ("BlackWidow", "Basilisk",
+"Goliathus" and the rest) are trademarks of Razer Inc., used only to identify compatible hardware and
+software.
 
-<sub>FAC 00 &nbsp;/&nbsp; END OF SHEET</sub>

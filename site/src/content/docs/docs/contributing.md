@@ -9,7 +9,9 @@ This page is the short version.
 
 ## Most useful right now
 
-1. **Device definitions.** If you own a Razer device that isn't [supported](/docs/devices/), a working
+1. **Device reports and definitions.** If you own one of the [experimental devices](/docs/devices/#experimental),
+   a [report](https://github.com/justinthevoid/uncoil/issues/new?template=device_report.yml) saying whether it
+   works is the quickest way to get it supported. If you own a Razer device that isn't listed at all, a working
    `devices/*.toml` is the single most valuable contribution. [Devices](/docs/devices/#adding-a-device)
    explains the format and where the facts come from.
 2. **Protocol facts.** Anything on the [still to map](/docs/protocol/#still-to-map) list: dial functions,
@@ -30,8 +32,8 @@ This page is the short version.
 ## Building
 
 ```powershell
-cargo test --workspace --exclude uncoil-gui     # core, transport, daemon
-cargo build --release -p uncoild                # target\release\uncoild.exe
+cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli   # core, transport, daemon, CLI
+cargo build --release -p uncoild -p uncoil-cli                      # target\release\uncoild.exe, uncoil.exe
 ```
 
 The desktop app lives in `apps/uncoil` (Tauri + SvelteKit, pnpm). This website and these docs live in `site/`
@@ -40,4 +42,4 @@ The desktop app lives in `apps/uncoil` (Tauri + SvelteKit, pnpm). This website a
 ## Licence
 
 uncoil is GPL-3.0-or-later. By contributing you agree your contribution is licensed the same way. Protocol
-facts and some device data derive from OpenRazer and OpenRGB (GPL-2.0); credit sources in the file or commit.
+facts and some device data derive from OpenRazer and OpenRGB (GPL-2.0-or-later); credit sources in the file or commit.

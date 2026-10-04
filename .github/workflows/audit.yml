@@ -1,0 +1,31 @@
+name: audit
+
+# RustSec advisories for the Cargo workspace, weekly and whenever the lockfile changes.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  push:
+    branches: [main]
+    paths: ["Cargo.lock", "**/Cargo.toml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      checks: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # glib (RUSTSEC-2024-0429) comes in only through Tauri's Linux GTK stack and is not built for Windows.
+          ignore: RUSTSEC-2024-0429

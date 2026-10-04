@@ -6,9 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Experimental devices are set up from OpenRazer and OpenRGB data, and nobody has confirmed them on real hardware yet. One report that a device works is enough to mark it supported; a report that something is wrong is just as useful. The list is on the [Devices](https://justinthevoid.github.io/uncoil/docs/devices/) page.
+        Experimental devices are set up from OpenRazer and OpenRGB data, and nobody has confirmed them on real hardware yet. One report that a device works is enough to mark it supported; a report that something is wrong is just as useful. The list is in the README and in [`devices/experimental/`](https://github.com/justinthevoid/uncoil/tree/main/devices/experimental).
 
-        uncoil won't change settings stored on an experimental device (key remaps, DPI stages, polling rate, sleep timer) until a read-only check has passed, so trying one is safe.
+        uncoil won't change settings stored on an experimental device (key remaps, DPI stages, polling rate, sleep timer) until a read-only check has passed. `uncoil check <device>` runs those checks and only reads.
 
         **Please don't attach HID captures, Synapse logs or serial numbers.** Nothing below needs them. If a capture is ever useful, we'll agree on a safe, minimal one in the thread first.
 

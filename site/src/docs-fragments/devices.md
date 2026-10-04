@@ -42,6 +42,7 @@ id = "razer-goliathus-chroma-extended"   # stable id, used in config.json "desk"
 name = "Razer Goliathus Chroma Extended"
 kind = "mousemat"                        # keyboard | mouse | mousemat | headset | other
 vendor_id = 0x1532
+features = ["lighting", "hw_effects"]    # what it can do; the default is ["lighting"]
 
 [[usb]]                                  # one entry per way of connecting
 product_id = 0x0C02
@@ -65,7 +66,28 @@ type = "points"                          # explicit LED points, relative to the 
 width = 26.25                            # footprint in key units (1u = 19.05 mm)
 depth = 9.75
 points = [[0.0, 0.0]]                    # one [x, y] per LED, in matrix order
+
+[hw_effects]                             # the device's own (firmware) effects uncoil may set
+led = 0x00                               # LED / region id for 0F/02; 0 = whole device
+effects = ["off", "static", "breathing", "spectrum"]
 ```
+
+#### `features` and the sections that go with them
+
+`features` lists what the device can do: `lighting` (streamed frames, needs `[matrix]` and `[layout]`),
+`hw_effects`, `keymap`, `profiles`, `dial`, `oled`, `dpi`, `poll_rate` and `power`. The daemon refuses a
+command for a feature the file doesn't list. Most features need their own section: `[hw_effects]`, `[keymap]`
+(the key or button ids and their factory mappings), `[dpi]`, `[poll_rate]` and `[power]`. A device without RGB
+has no `[matrix]` or `[layout]` and is opened for commands only. The
+[BlackWidow](https://github.com/justinthevoid/uncoil/blob/main/devices/razer-blackwidow-v4-pro-75.toml) and
+[Basilisk](https://github.com/justinthevoid/uncoil/blob/main/devices/razer-basilisk-v3-pro.toml) files show
+every section in use.
+
+Also optional: `support = "experimental"` (and the file lives in `devices/experimental/`), `unverified = [...]`
+for features nobody has confirmed on that device yet (their writes wait for a read-only check), `[sources]`,
+and per `[[usb]]` entry `alt_usages`, `reply_wait_us` and `[usb.transaction_ids]`. Unknown keys are errors
+that name the file and the field. The full list is in
+[`docs/ARCHITECTURE.md`](https://github.com/justinthevoid/uncoil/blob/main/docs/ARCHITECTURE.md#device-capabilities-are-data).
 
 #### `[[usb]]`
 

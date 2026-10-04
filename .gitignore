@@ -27,8 +27,11 @@ __pycache__/
 
 # ── Logs, captures, local data ────────────────────────────────────────
 *.log
-# HID captures can contain typed keystrokes; never commit them
+# HID captures can contain typed keystrokes; never commit them (tools/reference/drv_capture.py writes to captures/)
+captures/
 *capture*.log
+*capture*.txt
+*capture*.csv
 *.pcap
 *.pcapng
 

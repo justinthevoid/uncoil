@@ -12,15 +12,14 @@ Everything so far. Nothing has been released yet.
 ### Added
 
 - **`uncoild`, the daemon.** One headless process that drives Razer lighting directly over user-mode HID:
-  no services, no kernel drivers, no network. Installed as a per-user logon task by
-  `scripts/install-task.ps1`.
-- **Desk-wide effects.** Wave (angle, speed, band width, direction), spectrum, static and off, with
+  no services, no kernel drivers, no network. Installed as a per-user, elevated logon task by
+  `scripts/install-task.ps1` into `%ProgramFiles%\uncoil`; removed by `scripts/uninstall-task.ps1`.
+- **Desk-wide effects:** wave (angle, speed, band width, direction), spectrum, breathing, static, starlight,
+  fire (flames rising from the front of the desk), wheel, reactive (keys light when pressed), ripple (rings
+  spread from each press), an audio meter that fills the desk with the system volume peak, and off, with
   brightness and saturation. Effects are sampled at each LED's physical position, so one wave crosses
-  keyboard, underglow, mouse and mat continuously. FastLED rainbow hue map for even-looking colour bands.
-- **More effects:** breathing, starlight, fire (flames rising from the front of the desk), wheel, reactive
-  (keys light when pressed), ripple (rings spread from each press) and an audio meter that fills the desk
-  with the system volume peak. Starlight and fire are deterministic per LED position, so every device
-  shares one field with no per-LED state.
+  keyboard, underglow, mouse and mat continuously. Starlight and fire are deterministic per LED position, so
+  every device shares one field with no per-LED state. FastLED rainbow hue map for even-looking colour bands.
 - **Studio:** stack effects as layers with opacity and masks (whole desk, chosen devices, or chosen keys
   and LEDs). Reactive, ripple, starlight and the audio meter are transparent where unlit.
 - **Key presses and audio stay private.** The key listener runs only while reactive or ripple is in use,
@@ -31,63 +30,66 @@ Everything so far. Nothing has been released yet.
 - **Normal-mode restore.** Devices are put back in normal mode on connect, which revives the dial and
   media keys after Synapse leaves them in driver mode.
 - **Device definitions as data.** One TOML file per device (USB endpoints, quirks, LED matrix, physical
-  layout), compiled in, with user overrides from `%APPDATA%\uncoil\devices`.
+  layout and the features it has), all compiled in by a build script, with user overrides from
+  `%APPDATA%\uncoil\devices`.
 - **Supported devices:** Razer BlackWidow V4 Pro 75% (wired; per-key plus 18 underglow LEDs), Basilisk V3
   Pro (wired and HyperSpeed dongle), Goliathus Chroma Extended.
-- **Hot-reloaded config** at `%APPDATA%\uncoil\config.json`; live status at
-  `%LOCALAPPDATA%\uncoil\status.json`; a small self-trimming log at `%LOCALAPPDATA%\uncoil\uncoild.log`.
-- **Optional OpenRGB hand-off:** one CLI run at start puts motherboard, GPU and RAM RGB on their own
-  hardware rainbow.
-- **Desktop app** (Tauri 2, SvelteKit, Tailwind; design in `DESIGN.md`): your desk drawn to scale and lit
-  with the live effect from the engine's real effect code, effect and display controls, device status, and
-  a browser mock for UI work without hardware.
-  - **Keys:** the keyboard drawn as solid keycaps from its real geometry, normal and Fn layers, remap any
-    key to a key (with modifiers), a mouse button or nothing from a searchable list; restore the original.
-    Mouse buttons too.
-  - **Dial & screen:** the command dial's mode, OLED brightness and readout, firmware effects per device,
-    onboard profile slots.
-  - Every onboard write takes a second, explicit confirmation and reports the read-back.
-- **Protocol documentation:** `docs/PROTOCOL.md`, a 30-command catalog mined from Synapse's own logs, the
-  BlackWidow key-id table, and the onboard key-map commands (verified by mapping Fn+P to Print Screen in
-  the keyboard's own memory).
-- **Control pipe and `uncoil` CLI.** The daemon now serves `\\.\pipe\uncoil` (newline-delimited JSON,
-  current user only) and stays the single owner of device I/O: commands are queued per device and run
-  between frames. The new `uncoil` command line covers status, devices, capabilities, onboard key maps
-  (get, dump, set, reset, TOML export/import of the Fn layer), profiles, the OLED command dial, OLED
-  settings and firmware lighting effects. Onboard writes need `--write`, print before/after, are read
-  back, logged and journaled. Design: `docs/ARCHITECTURE.md`.
-- **Feature modules** in `uncoil-core` (`features::{hw_effect, keymap, profile, dial, oled}`) and the
-  shared `ipc` types for the GUI; device files declare `features`, `[hw_effects]` and `[keymap]` (79 keys
-  of the BlackWidow V4 Pro 75%, 13 Basilisk V3 Pro buttons).
-- **Protocol documentation:** firmware-effect layout and per-device support, mouse button map, function-id
-  data layouts, profiles, command-dial modes and OLED getters, from a second pass over Synapse's logs and
-  read-only hardware probes (`tools/reference/readonly_probe.py`).
-- **Reverse-engineering tools** in `tools/reference` (log miners, read-only probes, capture and analysis).
-- **Experimental devices.** Device files can say `support = "experimental"`: set up from OpenRazer and
-  OpenRGB data, not yet confirmed on the device. They live in `devices/experimental/` and are compiled in
-  with the rest (a build script embeds every device file, so a new one needs no Rust change).
+- **Experimental devices:** 29 device files in `devices/experimental/`, set up from OpenRazer and OpenRGB data
+  and not yet confirmed on real hardware (`support = "experimental"`), generated by
+  `tools/devices/gen_experimental.py`.
 - **Read-only checks before writes.** On an experimental device, and for features a supported device lists
   as `unverified`, uncoil reads the current value first and refuses to change anything stored in the
   device until that read makes sense (`uncoil check DEVICE`, `check.run`). Lighting is never blocked.
+- **Control pipe and `uncoil` CLI.** The daemon serves `\\.\pipe\uncoil` (newline-delimited JSON, current
+  user only) and stays the single owner of device I/O: commands are queued per device and run between
+  frames. The `uncoil` command line covers status, devices, capabilities, onboard key maps (get, dump, set,
+  reset, TOML export/import of the normal and Fn layers), profiles, the command dial, OLED settings,
+  firmware effects, DPI and DPI stages, poll rate, power (battery, charging, sleep timer, low-battery
+  warning) and the read-only checks. Writes to a device's memory need `--write`, print before/after, are
+  read back where the device allows it, logged and journaled. Design: `docs/ARCHITECTURE.md`.
 - **Left-click guard:** on every mouse, a key map change that would leave no button that left-clicks is
   refused.
-- **DPI, poll rate and power** (from OpenRazer's shared mouse commands): `uncoil dpi` (live DPI, stored DPI
-  stages), `uncoil poll`, `uncoil power` (battery, charging, sleep timer, low-battery warning), and the
-  `performance.get/set` and `power.get/set` pipe commands. The Basilisk V3 Pro gets them as `unverified`:
-  not yet read on that mouse.
 - **Unknown Razer devices** (vendor 0x1532, no definition) are logged once and listed in the status
   (`unknown_devices`).
 - Devices without lighting (e.g. a mouse with no RGB) are opened for commands only and never sent frames.
 - Connected devices that the config does not place are put on the desk next to devices of their kind (a
   second keyboard below the first, another mouse to the right); the default desk is unchanged.
+- **Hot-reloaded config** at `%APPDATA%\uncoil\config.json`; live status at
+  `%LOCALAPPDATA%\uncoil\status.json`; a small self-trimming log at `%LOCALAPPDATA%\uncoil\uncoild.log`.
+- **Optional OpenRGB hand-off** (on by default): one CLI run at start puts motherboard, GPU and RAM RGB on
+  their own hardware rainbow. The target device names are fixed in `apps/uncoild/src/openrgb.rs`.
+- **Desktop app** (Tauri 2, SvelteKit, Tailwind; design in `DESIGN.md`): your desk drawn to scale and lit
+  with the live effect from the engine's real effect code, effect and display settings, device status, and
+  a browser mock for UI work without hardware.
+  - **Lighting and Studio** for the whole desk, with a card for every effect.
+  - **Keys / Buttons:** the keyboard drawn as solid keycaps from its real geometry, normal and Fn layers;
+    remap any key to a key (with modifiers), a mouse button or nothing from a searchable list; restore the
+    original. Mouse buttons too.
+  - **Dial & screen:** the command dial's mode, OLED brightness and readout.
+  - **Onboard effects, Performance** (DPI, stages, poll rate) and **Battery & sleep** per device, shown when
+    the device file lists the feature; experimental devices say what the read-only check found.
+  - Every onboard write takes a second, explicit confirmation and reports the read-back.
+- **Feature modules** in `uncoil-core` (`features::{hw_effect, keymap, profile, dial, oled, performance,
+  power}`) and the shared `ipc` types for the app; device files declare `features` and the matching sections
+  (79 keys of the BlackWidow V4 Pro 75%, 13 Basilisk V3 Pro buttons).
+- **Protocol documentation:** `docs/PROTOCOL.md`, a 30-command catalog mined from Synapse's own logs, the
+  BlackWidow key-id table, the onboard key-map commands (verified by mapping Fn+P to Print Screen in the
+  keyboard's own memory), and, from a second pass over Synapse's logs and read-only hardware probes
+  (`tools/reference/readonly_probe.py`), the firmware-effect layout and per-device support, the mouse button
+  map, function-id data layouts, profiles, command-dial modes and OLED getters. OpenRazer's shared mouse
+  commands (DPI, poll rate, power) are documented as prior art, not yet verified.
+- **Reverse-engineering tools** in `tools/reference` (log miners, read-only probes, capture and analysis).
+- `uncoild --fake` (cargo feature `fake`) serves fake devices on `\\.\pipe\uncoil-fake`, for trying the CLI
+  and the app without hardware.
 - Project scaffolding: CI, release workflow, issue and pull request templates, contributing guide, security
-  policy, code of conduct.
+  policy, code of conduct, and the website and docs in `site/`.
 
 ### Changed
 
-- The release daemon grew from 0.66 MB to about 0.93 MB for the control pipe and feature modules, and from
-  1.02 MB to 1.21 MB for experimental devices, checks, DPI / poll rate / power (the 32 embedded device
-  files are stored deflated).
+For anyone running an earlier build from source:
+
+- `scripts/install-task.ps1` installs the elevated daemon to `%ProgramFiles%\uncoil` instead of
+  `%LOCALAPPDATA%\uncoil\bin`, so no unelevated process can replace it, and deletes the old copy.
 - **Device files:** `matrix` and `layout` are only required with `lighting` or `hw_effects`; new optional
   `support`, `unverified`, `[sources]`, `alt_usages`, `reply_wait_us`, per-command-group
   `[usb.transaction_ids]`, `[dpi]`, `[poll_rate]` and `[power]`; unknown keys are now errors that name the
@@ -95,7 +97,7 @@ Everything so far. Nothing has been released yet.
 - **Pipe:** failed requests may carry a `code` (`check_failed`, `left_click_guard`, `not_supported`);
   `devices` and `capabilities` report `support`, `capabilities` also `checks` and `unverified`. A device
   query by kind (`keyboard`, `mouse`) now prefers connected devices; with two mice connected, name one.
-- `scripts/install-task.ps1` installs the elevated daemon to `%ProgramFiles%\uncoil` instead of
-  `%LOCALAPPDATA%\uncoil\bin`, so no unelevated process can replace it; `scripts/uninstall-task.ps1` added.
+- The release daemon is 1,208,320 bytes (about 1.2 MB, 2026-10-03), up from 0.66 MB before the control pipe;
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#footprint) has the breakdown.
 
 [Unreleased]: https://github.com/justinthevoid/uncoil/commits/main

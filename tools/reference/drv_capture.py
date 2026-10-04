@@ -5,7 +5,18 @@ from pynput import keyboard
 sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.abspath(__file__)))
 from rgb_effect import razer_report
 
-OUT, DURATION = sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 240
+# The log holds every key typed, so it goes in the repository's git-ignored captures/ folder (or anywhere
+# outside the repository); a path elsewhere inside the repository is refused so it can't be committed.
+_repo = __import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__), '..', '..'))
+_captures = __import__('os').path.join(_repo, 'captures')
+if len(sys.argv) < 2:
+    sys.exit('usage: drv_capture.py NAME [SECONDS]   (written to captures/NAME unless NAME is a path outside the repo)')
+OUT = sys.argv[1] if __import__('os').path.isabs(sys.argv[1]) else __import__('os').path.join(_captures, sys.argv[1])
+OUT = __import__('os').path.abspath(OUT)
+if OUT.startswith(_repo + __import__('os').sep) and not OUT.startswith(_captures + __import__('os').sep):
+    sys.exit(f'refusing to write keystrokes inside the repository outside captures/: {OUT}')
+__import__('os').makedirs(__import__('os').path.dirname(OUT), exist_ok=True)
+DURATION = int(sys.argv[2]) if len(sys.argv) > 2 else 240
 t0 = time.time(); lock = threading.Lock()
 def log(m):
     with lock, open(OUT, 'a', encoding='utf-8') as f:

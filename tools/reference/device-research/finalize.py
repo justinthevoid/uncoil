@@ -191,7 +191,7 @@ for d in raw["devices"]:
 out = {
     "generated": "2026-10-03",
     "sources": {
-        "openrazer": {"repo": "https://github.com/openrazer/openrazer", "commit": raw["sources"]["openrazer_commit"], "license": "GPL-2.0 (facts transcribed only)"},
+        "openrazer": {"repo": "https://github.com/openrazer/openrazer", "commit": raw["sources"]["openrazer_commit"], "license": "GPL-2.0-or-later (facts transcribed only)"},
         "openrgb": {"repo": "https://gitlab.com/CalcProgrammer1/OpenRGB", "commit": raw["sources"]["openrgb_commit"], "license": "GPL-2.0-or-later (facts transcribed only)"},
     },
     "legend": {

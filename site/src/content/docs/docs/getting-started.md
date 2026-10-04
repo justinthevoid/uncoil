@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Install uncoild as a logon task, retire Synapse without leaving devices in driver mode, check it is running, and remove it again.
+description: Build uncoild, install it as a logon task, retire Synapse without leaving devices in driver mode, check it is running, and remove it again.
 ---
 
 uncoil has no installer yet. Installing it means putting one executable somewhere and asking Windows to
@@ -9,23 +9,26 @@ start it at logon. This page does both, and covers the one step that can go wron
 ## What you need
 
 - Windows 10 or 11.
-- At least one [supported device](/docs/devices/), on its cable or dongle.
+- At least one [supported or experimental device](/docs/devices/), on its cable or dongle.
 - PowerShell (part of Windows) and administrator rights once, to register the logon task.
+- Until there is a release: Git and [Rust](https://rustup.rs) with the Visual Studio C++ build tools.
 
 ## 1. Get uncoild
 
-Download `uncoild.exe` and `install-task.ps1` from the
-[GitHub Releases page](https://github.com/justinthevoid/uncoil/releases).
-
-Or build it from source with a stable Rust toolchain (MSVC target):
+uncoil is pre-release and nothing has been released yet, so for now you build it from source with a stable
+Rust toolchain (1.85 or newer, MSVC target):
 
 ```powershell
 git clone https://github.com/justinthevoid/uncoil
 cd uncoil
-cargo build --release -p uncoild      # -> target\release\uncoild.exe
+cargo build --release -p uncoild -p uncoil-cli   # -> target\release\uncoild.exe and uncoil.exe
 ```
 
+Once there is a release, its GitHub release page will carry `uncoild.exe`, the `uncoil.exe` command line,
+`install-task.ps1`, `uninstall-task.ps1` and an installer for the desktop app.
+
 `uncoild --version` prints the version and exits; it is otherwise silent. It has no window and no console.
+`uncoil.exe` is the optional command line; it talks to the running daemon and needs no installing.
 
 ## 2. Retire Synapse safely
 
@@ -50,13 +53,14 @@ and the keyboard may be put back into driver mode. Pick one.
 
 ## 3. Run it at logon
 
-From the folder with the two downloaded files:
+From the source checkout, after building:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File install-task.ps1 -Exe .\uncoild.exe
+powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
 ```
 
-From a source checkout, `scripts\install-task.ps1` with no arguments installs `target\release\uncoild.exe`.
+With no arguments it installs `target\release\uncoild.exe`. To install an `uncoild.exe` from somewhere else
+(for example a release download, once there is one), pass it with `-Exe .\uncoild.exe`.
 
 The script asks for elevation (one UAC prompt), then:
 
@@ -86,6 +90,14 @@ Get-Content "$env:LOCALAPPDATA\uncoil\uncoild.log" -Tail 20
 The log records each device as it is opened (`opened Razer BlackWidow V4 Pro 75% (02B3, wired)`), display
 changes and config reloads.
 
+The command line asks the daemon directly:
+
+```powershell
+.\target\release\uncoil.exe status    # version, display state, the daemon's own memory and CPU, each device's fps
+.\target\release\uncoil.exe devices   # connected devices and what each supports
+.\target\release\uncoil.exe help      # every command
+```
+
 ## Change settings
 
 Either open the desktop app, or edit `%APPDATA%\uncoil\config.json` in any text editor. uncoild notices the
@@ -98,11 +110,16 @@ Run the install script again with the new `uncoild.exe`. It stops the running co
 
 ## Uninstall
 
+From the source checkout (or the folder with a release's `uninstall-task.ps1`, once there is one):
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File uninstall-task.ps1   # task and executable (asks for elevation)
-Remove-Item -Recurse "$env:LOCALAPPDATA\uncoil"            # status file and log
-Remove-Item -Recurse "$env:APPDATA\uncoil"                 # your settings and any extra device files
+powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # task and executable (asks for elevation)
+Remove-Item -Recurse "$env:LOCALAPPDATA\uncoil"   # status file, log and the onboard-write journal
+Remove-Item -Recurse "$env:APPDATA\uncoil"        # your settings and any extra device files
 ```
 
-uncoil leaves devices in normal mode, so the keys, dial and media controls keep working afterwards. Key
-remaps written to a keyboard's onboard memory stay there until something rewrites them.
+uncoil leaves devices in normal mode, so the keys, dial and media controls keep working afterwards. Anything
+written to a device's own memory (key remaps, a saved firmware effect, DPI stages) stays there until
+something rewrites it. To put a remapped key back first, use `uncoil keymap reset` or the app's Restore
+original, before deleting `%LOCALAPPDATA%\uncoil`: the journal there remembers what each key did before
+uncoil first wrote it.

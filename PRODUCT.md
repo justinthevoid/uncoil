@@ -23,7 +23,7 @@ uncoil replaces the parts of Razer Synapse people actually use with a tiny backg
 
 ## Positioning
 
-**Lightness leads.** Measured on the maintainer's PC: Synapse 4 ran 17 processes at ~1.4 GB RAM at start and leaked to multiple GB over days; uncoil's daemon is one 0.65 MB executable using ~3 MB RAM and under 1% of one core. No services, no account, no telemetry, no kernel drivers.
+**Lightness leads.** Measured on the maintainer's PC: Synapse 4 ran 17 processes at ~1.4 GB RAM at start and leaked to multiple GB over days; uncoil's daemon is one 1.2 MB executable using ~3 MB RAM (memory measured on an earlier build) and under 1% of one core. No services, no account, no telemetry, no kernel drivers.
 
 Supporting points (secondary, in this order):
 1. One effect across the whole desk, using each LED's real physical position (keyboard keys and underglow, mouse, mat).

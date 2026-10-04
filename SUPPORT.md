@@ -23,7 +23,7 @@ well-filed issue.
 | Report something broken | [Bug report](https://github.com/justinthevoid/uncoil/issues/new?template=bug_report.yml) |
 | Get a device supported | [Device support request](https://github.com/justinthevoid/uncoil/issues/new?template=device_support.yml) |
 | Suggest a feature | [Feature request](https://github.com/justinthevoid/uncoil/issues/new?template=feature_request.yml) |
-| Ask a question or share a setup | [Discussions](https://github.com/justinthevoid/uncoil/discussions), if enabled; otherwise an issue |
+| Ask a question or share a setup | an [issue](https://github.com/justinthevoid/uncoil/issues/new/choose) |
 | Report a security problem | [SECURITY.md](SECURITY.md), privately |
 
 When you post a log or screenshot, remove serial numbers, your Windows username and anything else personal.

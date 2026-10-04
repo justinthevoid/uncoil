@@ -39,18 +39,26 @@ combination is where the interesting bugs live.
   `%APPDATA%\uncoil\devices\*.toml`. Everything read from those files is untrusted input to a
   high-integrity process. Parsing bugs, path handling and anything that turns config into process launches
   or file writes are in scope.
-- **Elevated writes into user-writable folders.** The daemon writes `status.json` and `uncoild.log` under
-  `%LOCALAPPDATA%\uncoil`. Redirection attacks (junctions, symlinks, hard links) that turn those writes into
-  writes elsewhere are in scope.
-- **IPC between the app and the daemon.** Today the desktop app and the daemon communicate only through the
-  files above. If a named-pipe (or other) control channel is added, it is a trust boundary from day one: the
-  pipe must be created with a DACL limited to the interactive user, reject remote clients, and treat every
-  message as untrusted input to an elevated process. Weaknesses there are in scope.
+- **Elevated writes into user-writable folders.** The daemon writes `status.json`, `uncoild.log` and the
+  onboard-write journal `onboard-writes.jsonl` under `%LOCALAPPDATA%\uncoil`. Redirection attacks
+  (junctions, symlinks, hard links) that turn those writes into writes elsewhere are in scope.
+- **The control pipe.** The desktop app and the `uncoil` CLI run unelevated and talk to the elevated daemon
+  over `\\.\pipe\uncoil` (newline-delimited JSON). The pipe's security descriptor allows only the user the
+  daemon runs as (`D:P(A;;GA;;;<user SID>)`) with a medium integrity label so that user's unelevated
+  programs can connect; remote clients are rejected (`PIPE_REJECT_REMOTE_CLIENTS`), if another process
+  created the name first, the daemon leaves its pipe off and logs it rather than share it
+  (`FILE_FLAG_FIRST_PIPE_INSTANCE`), and it accepts at most 8 clients with request lines up to 64 KB. Every message is untrusted input to an elevated process. Note that
+  any program running as you can connect, so it can do what the CLI can, including writes to a device's
+  memory (which need `"write": true`). Ways past the DACL, parser bugs, and ways to reach something the
+  documented commands don't allow are in scope. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#who-may-talk-to-the-daemon).
 - **Raw HID.** The daemon and the reference tools send feature reports to devices. Anything that lets an
   untrusted party choose the device, the command or its arguments (for example a crafted device file aimed
-  at another vendor's hardware, or commands that write onboard memory) is in scope.
-- **External processes.** The optional OpenRGB hand-off launches `C:\Program Files\OpenRGB\OpenRGB.exe` and
-  `taskkill`. Search-path or argument injection issues there are in scope.
+  at another vendor's hardware, or a pipe request that writes onboard memory without `"write": true`) is in
+  scope.
+- **External processes.** The optional OpenRGB hand-off (on by default, `openrgb_hardware_rainbow`) runs
+  `tasklist`, `taskkill` (to close a running OpenRGB) and `C:\Program Files\OpenRGB\OpenRGB.exe`.
+  `tasklist` and `taskkill` are started by name. Search-path or argument injection issues there are in
+  scope.
 
 ### Key presses and audio level (reactive and audio effects)
 
@@ -63,7 +71,7 @@ all day, these are held to hard rules, and any way around them is in scope:
   (`apps/uncoild/src/inputs.rs`) and then dropped. Which key was pressed is never logged, written to disk,
   sent over the control pipe or kept as a sequence; memory holds at most 64 `(x, y, time)` entries from
   the last 5 seconds, and they are cleared when the listener stops. The log records only "key listener
-  on/off". The listener is unregistered on the config reload that stops needing it.
+  on", "off" or "unavailable". The listener is unregistered on the config reload that stops needing it.
 - **Audio.** Only while `audio_meter` is in use, the daemon reads the default playback device's peak level
   (`IAudioMeterInformation::GetPeakValue`, one number 0..1) at frame rate. No audio samples are captured,
   and nothing about audio is stored.

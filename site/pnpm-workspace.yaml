@@ -1,2 +1,7 @@
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - http-cache-semantics@4.3.0
+overrides:
+  # GHSA-ch52-4w7c-c8xp (via astro; build-time only for this static site)
+  http-cache-semantics: ">=4.3.0"

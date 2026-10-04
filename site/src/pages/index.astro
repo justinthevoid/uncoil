@@ -48,11 +48,11 @@ const faq = [
 	},
 	{
 		q: 'What does it cost, and what is the licence?',
-		a: `Nothing. uncoil is <a href="${REPO}/blob/main/LICENSE">GPL-3.0-or-later</a>. Protocol facts and some device data derive from OpenRazer and OpenRGB (both GPL-2.0).`,
+		a: `Nothing. uncoil is <a href="${REPO}/blob/main/LICENSE">GPL-3.0-or-later</a>. Protocol facts and some device data derive from OpenRazer and OpenRGB (both GPL-2.0-or-later).`,
 	},
 	{
 		q: 'What still needs Synapse?',
-		a: 'Anything uncoil does not do yet: macros, DPI settings, custom images on the BlackWidow’s dial screen, firmware updates, and devices that are not on the list. Key and button remapping works from the app, though only one remap (Fn+P to Print Screen) has been checked on a real keyboard so far. Settings already stored in a device’s own memory stay there after Synapse is gone.',
+		a: 'Anything uncoil does not do yet: macros, what each command-dial mode does, custom images on the BlackWidow’s dial screen, switching onboard profiles, firmware updates, and devices that are not on the list. Key and button remapping works from the app and the command line, though only one remap (Fn+P to Print Screen) has been checked on a real keyboard so far. DPI, polling rate and the sleep timer are there too, but not yet confirmed on real hardware, so uncoil reads each value before it changes anything. Settings already stored in a device’s own memory stay there after Synapse is gone.',
 	},
 	{
 		q: 'Can Synapse stay installed?',
@@ -60,7 +60,7 @@ const faq = [
 	},
 	{
 		q: 'Does it work alongside OpenRGB, SignalRGB or iCUE?',
-		a: `Leave the Razer devices to uncoil; any other app driving them will fight it for the LEDs. For the rest of the PC, uncoil can optionally run OpenRGB once at start to put the motherboard, GPU and RAM on their own hardware rainbow, and skips the RAM while iCUE is running because they share the SMBus.`,
+		a: `Leave the Razer devices to uncoil; any other app driving them will fight it for the LEDs. For the rest of the PC, uncoil can run OpenRGB once at start (on by default, if OpenRGB is installed) to put the motherboard, GPU and RAM on their own hardware rainbow, and skips the RAM while iCUE is running because they share the SMBus. Which devices it targets is fixed in the code today; see <a href="${url('docs/configuration/#openrgb_hardware_rainbow')}">configuration</a>.`,
 	},
 	{
 		q: 'Why does the logon task run elevated?',
@@ -68,7 +68,7 @@ const faq = [
 	},
 	{
 		q: 'Does it phone home?',
-		a: 'No. There is no account, no telemetry and no updater. uncoild reads one config file and writes a status file and a small log, all under your user profile.',
+		a: 'No. There is no account, no telemetry and no updater. uncoild reads one config file, writes a status file, a small log and a record of writes to device memory, all under your user profile, and answers the app and the command line over a local pipe only your account can open.',
 	},
 	{
 		q: 'Mac or Linux?',
@@ -78,7 +78,7 @@ const faq = [
 
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const shotAlt =
-	'The uncoil desktop app’s Lighting screen: the desk drawn to scale and lit with the wave, cards for every effect from Wave to Audio meter plus Studio, and the wave’s direction, speed, band width, brightness and saturation controls.';
+	'The uncoil desktop app’s Lighting screen: the desk drawn to scale and lit with the wave, cards for every effect from Wave to Off plus Studio, and the wave’s direction, speed, band width, reverse, brightness and saturation controls.';
 ---
 
 <Base
@@ -94,12 +94,10 @@ const shotAlt =
 					Uninstall Synapse; keep the desk.
 				</p>
 				<p class="sublede">Open source. No services, no account, no telemetry, no kernel drivers.</p>
+				<p class="sublede">Pre-release: nothing has been released yet, so for now you build it from source.</p>
 				<div class="ctas">
-					<a class="btn" href={RELEASES}>
-						<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>
-						Download for Windows
-					</a>
-					<a class="btn-quiet" href={url('docs/getting-started/')}>Read the setup guide</a>
+					<a class="btn" href={url('docs/getting-started/')}>Read the setup guide</a>
+					<a class="btn-quiet" href={REPO}>Source on GitHub</a>
 				</div>
 			</div>
 		</div>
@@ -138,7 +136,7 @@ const shotAlt =
 			</dl>
 			<p class="fine">
 				A Ryzen desktop with a BlackWidow V4 Pro 75%, Basilisk V3 Pro and Goliathus Chroma Extended, where Synapse’s
-				memory grew to several GB over a few days. One machine; yours will differ.
+				memory grew to several GB over a few days. Memory and CPU were measured on an earlier build. One machine; yours will differ.
 			</p>
 		</div>
 	</section>
@@ -177,8 +175,9 @@ const shotAlt =
 				</div>
 			</div>
 			<p class="prose-ink also">
-				Also: an optional one-shot hand-off of motherboard, GPU and RAM lighting to their own hardware rainbow via
-				OpenRGB, so the rest of the case matches without anything else running.
+				Also: a command line, <code>uncoil</code>, for everything the app does with devices; and an optional one-shot
+				hand-off (on by default) of motherboard, GPU and RAM lighting to their own hardware rainbow via OpenRGB, so the
+				rest of the case matches without anything else running.
 			</p>
 		</div>
 	</section>
@@ -189,7 +188,7 @@ const shotAlt =
 				<SectionHead id="app-title" title="The app" />
 				<div class="prose-ink">
 					<p>
-						A small desktop app sets the effect, layers effects and painted keys in Studio, remaps keys and buttons, and shows whether each device is live. You open it, change something,
+						A small desktop app sets the effect, layers effects and painted keys in Studio, remaps keys and buttons, sets the dial, the screen, DPI, polling rate and sleep timer, and shows whether each device is live. You open it, change something,
 						close it. The daemon does not need it running. The app shows the daemon’s own memory and CPU in its top bar,
 						so the numbers above stay checkable.
 					</p>
@@ -324,12 +323,14 @@ const shotAlt =
 
 	<section id="install" class="sec" aria-labelledby="install-title">
 		<div class="wrap">
-			<SectionHead id="install-title" title="Install" lede="Three steps, about a minute. There is no installer yet; there is not much to install." />
+			<SectionHead id="install-title" title="Install" lede="Three steps. There is no installer yet; there is not much to install." />
 			<ol class="steps">
 				<li>
-					<h3>Download</h3>
+					<h3>Build</h3>
 					<p class="prose-ink">
-						Get <code>uncoild.exe</code> and <code>install-task.ps1</code> from <a href={RELEASES}>GitHub Releases</a>.
+						Nothing has been released yet, so build it: <code>cargo build --release -p uncoild</code> in a clone of the
+						<a href={REPO}>repository</a>. Once there is a release, <code>uncoild.exe</code> and <code>install-task.ps1</code> will be
+						on <a href={RELEASES}>GitHub Releases</a>.
 					</p>
 				</li>
 				<li>
@@ -342,15 +343,15 @@ const shotAlt =
 				</li>
 				<li>
 					<h3>Run it at logon</h3>
-					<pre><code>powershell -ExecutionPolicy Bypass -File install-task.ps1 -Exe .\uncoild.exe</code></pre>
+					<pre><code>powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1</code></pre>
 					<p class="prose-ink">
-						Copies the executable to <code>%LOCALAPPDATA%\uncoil\bin</code>, registers a scheduled task named{' '}
+						Copies the executable to <code>%ProgramFiles%\uncoil</code>, registers a scheduled task named{' '}
 						<code>uncoil</code> that starts at logon, and starts it now. The lighting should change within a second.
 					</p>
 				</li>
 			</ol>
 			<p class="prose-ink after-table">
-				Building from source instead: <code>cargo build --release -p uncoild</code>. Removing it again, changing
+				The optional command line builds the same way (<code>-p uncoil-cli</code>). Removing it again, changing
 				settings and everything else: <a href={url('docs/getting-started/')}>getting started</a>.
 			</p>
 		</div>

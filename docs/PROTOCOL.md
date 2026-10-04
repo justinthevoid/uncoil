@@ -98,7 +98,7 @@ reads each value back (read-only check) before changing it.
 | `04/06` | set DPI stages | `[1, active, count, count × [index, x_hi, x_lo, y_hi, y_lo, 0, 0]]` (size `0x26`) | always VARSTORE (stored); active is 1-based, each record's index 0-based; at most 5 stages |
 | `04/86` | get DPI stages | `[1]` (size `0x26`) → same layout | |
 | `00/05` / `00/85` | poll rate, classic | `[code]` (size 1): `1` = 1000, `2` = 500, `8` = 125 Hz | most mice |
-| `00/40` / `00/C0` | poll rate, HyperPolling | `[arg, code]` (size 2): `0x01` 8000, `0x02` 4000, `0x04` 2000, `0x08` 1000, `0x10` 500, `0x20` 250, `0x40` 125 Hz; reply code in argument 1 | DeathAdder V3, Viper V3 Pro wireless, Viper 8K, Viper Mini SE, DeathAdder V4 Pro, the HyperPolling dongle; OpenRazer sends the set twice to these, argument `0` then `1` |
+| `00/40` / `00/C0` | poll rate, HyperPolling | `[arg, code]` (size 2): `0x01` 8000, `0x02` 4000, `0x04` 2000, `0x08` 1000, `0x10` 500, `0x20` 250, `0x40` 125 Hz; reply code in argument 1 | DeathAdder V3, Viper V3 Pro wireless, Viper 8K, Viper Mini SE, DeathAdder V4 Pro, the HyperPolling dongle, and (among uncoil's experimental files) the BlackWidow V4 / V4 Pro / V4 75% and Huntsman V2 / V2 Tenkeyless keyboards. OpenRazer sends the set twice to some of these mice, argument `0` then `1` (`set_twice` in the device file) |
 | `07/80` | battery | size 2 → `[_, 0–255]` | shown as a percentage |
 | `07/84` | charging | size 2 → `[_, 0/1]` | |
 | `07/03` / `07/83` | sleep timer | `[secs_hi, secs_lo]` | 60–900 s, no storage byte |

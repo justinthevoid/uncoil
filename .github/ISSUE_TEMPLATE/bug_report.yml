@@ -37,6 +37,7 @@ body:
       options:
         - Daemon (uncoild)
         - Desktop app
+        - Command line (uncoil)
         - Installer / logon task
         - Device definition
         - Documentation

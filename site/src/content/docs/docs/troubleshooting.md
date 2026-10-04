@@ -16,11 +16,13 @@ errors.
 ## Nothing lights up
 
 - **Is it running?** `Get-Process uncoild`. If not, `Start-ScheduledTask uncoil`, or run
-  `%LOCALAPPDATA%\uncoil\bin\uncoild.exe` directly to rule out the task.
+  `%ProgramFiles%\uncoil\uncoild.exe` directly to rule out the task.
 - **Is something else holding the devices?** Synapse, OpenRGB, SignalRGB or another lighting app driving the
   same Razer device will fight uncoil for it. Quit them.
-- **Is the device supported?** Only the [listed devices](/docs/devices/) are driven. A missing line like
-  `opened Razer Basilisk V3 Pro (00AA, wired)` in the log means uncoil didn't find a matching USB endpoint.
+- **Is the device supported?** Only the [listed devices](/docs/devices/), supported and experimental, are
+  driven. A missing line like `opened Razer Basilisk V3 Pro (00AA, wired)` in the log means uncoil didn't find
+  a matching USB endpoint. A Razer device uncoil has no file for is logged once by product ID and listed by
+  `uncoil status`; that is a good start for a [device support request](https://github.com/justinthevoid/uncoil/issues/new?template=device_support.yml).
 - **Is the effect `off`, or `brightness` 0?** Check `%APPDATA%\uncoil\config.json`.
 
 ## Keyboard lighting froze on one frame
@@ -61,7 +63,8 @@ The same applies to Fn shortcuts that stopped working: in normal mode the firmwa
 - **Razer devices:** let one program drive them. uncoil talks to them directly over HID; two programs writing
   frames at once looks like flicker or a freeze.
 - **OpenRGB:** uncoil only uses it once, at start, to put non-Razer hardware (motherboard, GPU, RAM) on its own
-  hardware rainbow, then OpenRGB exits. Don't also run OpenRGB's SDK server against the Razer devices; in
+  hardware rainbow, then OpenRGB exits. It closes a running OpenRGB first, and only targets the device names
+  listed under [`openrgb_hardware_rainbow`](/docs/configuration/#openrgb_hardware_rainbow). Don't also run OpenRGB's SDK server against the Razer devices; in
   testing, OpenRGB 1.0's SDK server accepted per-LED updates for them but never pushed them to the hardware.
   To turn the hand-off off, set `"openrgb_hardware_rainbow": false` and restart the task.
 - **iCUE:** RAM lighting shares the SMBus with iCUE, so uncoil skips the RAM in the OpenRGB hand-off while
@@ -85,6 +88,31 @@ Windows dims it, and fades back in on wake. That is the behaviour of
 
 The Basilisk V3 Pro's HyperSpeed dongle answers "no answer" while the mouse is connected by cable, and
 uncoil waits for it. Unplug the cable and the mouse is picked up on the dongle within 5 seconds.
+
+## The app or `uncoil` can't reach the daemon
+
+Both talk to uncoild over the named pipe `\\.\pipe\uncoil`. If they say the daemon is unreachable:
+
+- Check it is running (`Get-Process uncoild`).
+- Look for `control pipe … unavailable` in the log. The daemon won't share the pipe name with another
+  process, so this means something else created `\\.\pipe\uncoil` first. Lighting keeps working; restart the
+  task once the other process is gone. (A second copy of uncoild exits at start, logging `another uncoild is
+  already running`.)
+- The pipe only accepts your own user account, from this PC.
+
+## A setting won't save
+
+Changes stored in a device's own memory (key remaps, the dial, the screen, DPI stages, poll rate, sleep
+timer) are refused in these cases, with a message saying why:
+
+- **`check_failed`:** the device is experimental, or the feature isn't confirmed on it yet, and the read-only
+  check didn't pass: the device didn't answer the way its file expects. `uncoil check <device>` shows what was
+  read. Reads and lighting still work. Please [report it](https://github.com/justinthevoid/uncoil/issues/new?template=device_report.yml).
+- **`left_click_guard`:** the change would leave the mouse with no button that left-clicks. Map another button
+  to left click first.
+- **`not_supported`:** the device file doesn't list that feature.
+- On the command line, a command that writes device memory is refused without `--write` (`keymap import`
+  without it shows what differs from the file instead).
 
 ## Still stuck
 
