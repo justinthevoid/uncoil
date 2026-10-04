@@ -21,7 +21,11 @@ import perfMouse from './daemon/performance-mouse.json';
 import perfDeathAdder from './daemon/performance-deathadder.json';
 import powerMouse from './daemon/power-mouse.json';
 import powerDeathAdder from './daemon/power-deathadder.json';
-import type { Capabilities, DeviceInfo, DialState, Dpi, Feature, FeatureCheck, KeyMapping, Layer, OledState, PerformanceState, PowerState } from '../types';
+import scrollMouse from './daemon/scroll-mouse.json';
+import infoKeyboard from './daemon/info-keyboard.json';
+import infoMouse from './daemon/info-mouse.json';
+import infoDeathAdder from './daemon/info-deathadder.json';
+import type { Capabilities, DeviceDetails, DeviceInfo, DialState, Dpi, Feature, FeatureCheck, KeyMapping, Layer, OledState, PerformanceState, PowerState, ScrollState } from '../types';
 import { describeFunction } from '../keys';
 import type { DaemonFailure, ErrorCode } from '../api';
 
@@ -44,7 +48,9 @@ const state = {
 	original: new Map<string, string>(),
 	profiles: { [KB]: profilesKeyboard, [MOUSE]: profilesMouse, [DA]: profilesDeathAdder } as Record<string, unknown>,
 	dial: structuredClone(dialState) as DialState,
-	oled: structuredClone(oledState) as OledState
+	oled: structuredClone(oledState) as OledState,
+	scroll: { [MOUSE]: structuredClone(scrollMouse) } as Record<string, ScrollState>,
+	info: { [KB]: infoKeyboard, [MOUSE]: infoMouse, [DA]: infoDeathAdder } as Record<string, DeviceDetails>
 };
 
 // The maintainer's board has Fn+P remapped to Print Screen (docs/PROTOCOL.md); show that, with its factory
@@ -270,6 +276,32 @@ export async function mockDaemon(cmd: string, device: string | null, args: Recor
 			}
 			return write(before, structuredClone(p));
 		}
+		case 'scroll.get': {
+			const dev = resolve(device);
+			needs(dev, 'scroll');
+			return structuredClone(state.scroll[dev]);
+		}
+		case 'scroll.set': {
+			const dev = resolve(device);
+			needs(dev, 'scroll');
+			needWrite(args, dev);
+			gate(dev, 'scroll');
+			const sc = state.scroll[dev];
+			const before = structuredClone(sc);
+			if (args.mode !== undefined) {
+				if (sc.mode === null) throw fail('This mouse has no scroll mode switch.', 'not_supported');
+				if (args.mode !== 'tactile' && args.mode !== 'free_spin') throw fail('The scroll mode is tactile or free_spin.');
+				sc.mode = args.mode;
+			}
+			for (const k of ['acceleration', 'smart_reel'] as const) {
+				if (args[k] === undefined) continue;
+				if (sc[k] === null) throw fail(`This mouse has no ${k.replace('_', ' ')} setting.`, 'not_supported');
+				sc[k] = args[k] === true;
+			}
+			return write(before, structuredClone(sc));
+		}
+		case 'info.get':
+			return structuredClone(state.info[resolve(device)] ?? { firmware: null, layout: null, layout_code: null, variant: null });
 		default:
 			throw fail(`mock daemon: unknown command ${cmd}`);
 	}

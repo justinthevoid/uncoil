@@ -6,11 +6,40 @@
 // The colour maths is the shared port in ../effect.ts (uncoil_core::{color::rainbow, effect}), studio masks,
 // simulated key presses and audio level included.
 import desk from './desk.json';
-import type { Config, DeskDevice, PreviewPress, Status } from '../types';
+import type { AppSettings, Config, Conflict, DeskDevice, OpenRgbStatus, PreviewPress, Status } from '../types';
 import { deskInputs, frameWith, hex } from '../effect';
 import { defaultConfig } from './config';
 
 let stored: Config | null = null;
+let appSettings: AppSettings = { close_to_tray: false, start_in_tray: false, battery_notifications: true, battery_threshold: 20 };
+
+const param = (name: string) => (typeof location !== 'undefined' ? new URLSearchParams(location.search).get(name) : null);
+
+/** `?conflict=1` in the dev URL shows Synapse running, to see the notice. */
+function conflicts(): Conflict[] {
+	if (!param('conflict')) return [];
+	return [
+		{
+			app: 'Razer Synapse',
+			detail: 'Razer Synapse is running. Two programs driving the same devices fight over them; quit Synapse or turn off its start-up entry.'
+		}
+	];
+}
+
+/** Live OpenRGB follows the stored config: connected with three PC devices when the mode is live. */
+function openrgb(): OpenRgbStatus {
+	if ((stored ?? defaultConfig()).openrgb?.mode !== 'live') return { state: 'off', detail: null, devices: [], ours: false };
+	return {
+		state: 'connected',
+		detail: null,
+		devices: [
+			{ id: 'openrgb:asus-rog-strix-b550-f-gaming', name: 'ASUS ROG STRIX B550-F GAMING', leds: 8 },
+			{ id: 'openrgb:corsair-vengeance-pro-rgb', name: 'Corsair Vengeance Pro RGB', leds: 10 },
+			{ id: 'openrgb:nvidia-geforce-rtx-3070', name: 'NVIDIA GeForce RTX 3070', leds: 4 }
+		],
+		ours: true
+	};
+}
 
 function status(): Status {
 	const now = Math.floor(Date.now() / 1000);
@@ -30,7 +59,9 @@ function status(): Status {
 			{ id: 'razer-goliathus-chroma-extended', name: 'Razer Goliathus Chroma Extended', product_id: 0x0c02, connection: 'wired', fps: 30.0, busy_retries: 0, errors: 0 },
 			{ id: 'razer-deathadder-v3-pro', name: 'Razer DeathAdder V3 Pro', product_id: 0x00b6, connection: 'wired', fps: 0, busy_retries: 0, errors: 0 }
 		],
-		unknown_devices: [{ product_id: 0x0ffe, interfaces: [0, 1, 2] }]
+		unknown_devices: [{ product_id: 0x0ffe, interfaces: [0, 1, 2] }],
+		conflicts: conflicts(),
+		openrgb: openrgb()
 	};
 }
 
@@ -53,6 +84,11 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
 		}
 		case 'get_status':
 			return status() as T;
+		case 'get_app_settings':
+			return structuredClone(appSettings) as T;
+		case 'save_app_settings':
+			appSettings = structuredClone(args.settings as AppSettings);
+			return undefined as T;
 		case 'daemon': {
 			const { mockDaemon } = await import('./daemon');
 			return (await mockDaemon(args.cmd as string, args.device as string | null, (args.args as Record<string, unknown>) ?? {})) as T;

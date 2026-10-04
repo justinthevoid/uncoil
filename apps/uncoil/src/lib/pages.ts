@@ -1,7 +1,7 @@
 // One name per page, used by the rail, the page title and the "engine isn't answering" notice, so they
 // can't drift apart.
 
-export type PageId = 'lighting' | 'studio' | 'devices' | 'keys' | 'buttons' | 'performance' | 'power' | 'dial' | 'effects' | 'info' | 'settings' | 'about';
+export type PageId = 'lighting' | 'studio' | 'devices' | 'keys' | 'buttons' | 'performance' | 'power' | 'dial' | 'effects' | 'info' | 'settings' | 'app' | 'about';
 
 export interface Page {
 	/** Rail label, and the page title unless `title` says otherwise. */
@@ -23,6 +23,7 @@ export const PAGES: Record<PageId, Page> = {
 	effects: { label: 'Onboard effects' },
 	info: { label: 'Device info' },
 	settings: { label: 'Display & RGB' },
+	app: { label: 'Tray & notifications' },
 	about: { label: 'About', title: 'About uncoil' }
 };
 

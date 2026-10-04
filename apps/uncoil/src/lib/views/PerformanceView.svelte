@@ -1,7 +1,7 @@
 <script lang="ts">
-	// DPI and polling rate. The current DPI is live (sent as you drag, never stored, like pressing the mouse's
-	// DPI button). DPI stages and the polling rate are stored in the mouse, so they go through the two-step
-	// onboard write and report what the mouse read back.
+	// DPI, polling rate and the scroll wheel. The current DPI is live (sent as you drag, never stored, like
+	// pressing the mouse's DPI button). DPI stages, the polling rate and the scroll wheel settings are stored in
+	// the mouse, so they go through the two-step onboard write and report what the mouse read back.
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { Plus, X } from '@lucide/svelte';
@@ -17,7 +17,7 @@
 	import { pipe, loadDevices, errorText, experimentalBadge } from '#lib/daemon.svelte.ts';
 	import { locked } from '#lib/checks.ts';
 	import { ms } from '#lib/motion.ts';
-	import type { Capabilities, Dpi, Feature, FeatureCheck, PerformanceState, WriteResult } from '#lib/types.ts';
+	import type { Capabilities, Dpi, Feature, FeatureCheck, PerformanceState, ScrollState, WriteResult } from '#lib/types.ts';
 
 	let { deviceId }: { deviceId: string } = $props();
 
@@ -28,6 +28,7 @@
 
 	let caps = $state<Capabilities | null>(null);
 	let perf = $state<PerformanceState | null>(null);
+	let scroll = $state<ScrollState | null>(null);
 	let loadError = $state<string | null>(null);
 
 	// Drafts, reset from what the mouse reports.
@@ -51,17 +52,24 @@
 	$effect(() => {
 		if (!device) return;
 		loadError = null;
-		Promise.all([daemon<Capabilities>('capabilities', deviceId), daemon<PerformanceState>('performance.get', deviceId)])
-			.then(([c, p]) => {
+		const has = (f: Feature) => device.features.includes(f);
+		Promise.all([
+			daemon<Capabilities>('capabilities', deviceId),
+			has('dpi') || has('poll_rate') ? daemon<PerformanceState>('performance.get', deviceId) : null,
+			has('scroll') ? daemon<ScrollState>('scroll.get', deviceId) : null
+		])
+			.then(([c, p, sc]) => {
 				caps = c;
-				adopt(p);
+				if (p) adopt(p);
+				if (sc) adoptScroll(sc);
 			})
 			.catch((e) => (loadError = errorText(e)));
 	});
 
-	const features = $derived((['dpi', 'poll_rate'] as Feature[]).filter((f) => device?.features.includes(f)));
+	const features = $derived((['dpi', 'poll_rate', 'scroll'] as Feature[]).filter((f) => device?.features.includes(f)));
 	const dpiLocked = $derived(locked(caps, 'dpi'));
 	const pollLocked = $derived(locked(caps, 'poll_rate'));
+	const scrollLocked = $derived(locked(caps, 'scroll'));
 	const onchecks = (checks: FeatureCheck[]) => caps && (caps = { ...caps, checks });
 
 	const min = $derived(perf?.dpi_min ?? 100);
@@ -157,6 +165,58 @@
 			pollBusy = false;
 		}
 	}
+
+	// ---- scroll wheel ---------------------------------------------------------------------------------
+	type ScrollMode = 'tactile' | 'free_spin';
+	let mode = $state<ScrollMode>('tactile');
+	let accel = $state(false);
+	let reel = $state(false);
+	function adoptScroll(sc: ScrollState) {
+		scroll = sc;
+		if (sc.mode !== null) mode = sc.mode;
+		if (sc.acceleration !== null) accel = sc.acceleration;
+		if (sc.smart_reel !== null) reel = sc.smart_reel;
+	}
+	const hasScroll = $derived(!!scroll && (scroll.mode !== null || scroll.acceleration !== null || scroll.smart_reel !== null));
+	/** Only what changed and the mouse supports. */
+	const scrollChanges = $derived.by(() => {
+		const out: Partial<ScrollState> = {};
+		if (!scroll) return out;
+		if (scroll.mode !== null && mode !== scroll.mode) out.mode = mode;
+		if (scroll.acceleration !== null && accel !== scroll.acceleration) out.acceleration = accel;
+		if (scroll.smart_reel !== null && reel !== scroll.smart_reel) out.smart_reel = reel;
+		return out;
+	});
+	const scrollDirty = $derived(Object.keys(scrollChanges).length > 0);
+	const MODES: { value: ScrollMode; label: string }[] = [
+		{ value: 'tactile', label: 'Tactile' },
+		{ value: 'free_spin', label: 'Free spin' }
+	];
+	const onOff = (b: boolean) => (b ? 'on' : 'off');
+	function scrollText(sc: ScrollState) {
+		const parts: string[] = [];
+		if (sc.mode !== null) parts.push(sc.mode === 'tactile' ? 'tactile' : 'free spin');
+		if (sc.acceleration !== null) parts.push(`acceleration ${onOff(sc.acceleration)}`);
+		if (sc.smart_reel !== null) parts.push(`Smart Reel ${onOff(sc.smart_reel)}`);
+		return parts.join(', ') || 'nothing';
+	}
+	let scrollBusy = $state(false);
+	let scrollOutcome = $state<Outcome>(null);
+	async function saveScroll() {
+		scrollBusy = true;
+		scrollOutcome = null;
+		try {
+			const r = await daemon<WriteResult<ScrollState>>('scroll.set', deviceId, { ...$state.snapshot(scrollChanges), write: true });
+			adoptScroll(r.after);
+			scrollOutcome = r.unchanged
+				? { ok: true, text: 'It was already set that way.' }
+				: { ok: r.verified, text: `${r.verified ? 'Saved.' : 'Saved, but'} The mouse reads back ${scrollText(r.after)}.` };
+		} catch (e) {
+			scrollOutcome = { ok: false, text: errorText(e) };
+		} finally {
+			scrollBusy = false;
+		}
+	}
 </script>
 
 {#if !pipe.loaded}
@@ -167,14 +227,16 @@
 	<Workspace
 		title={pageTitle('performance')}
 		badge={experimentalBadge(deviceId)}
-		subtitle="The current DPI changes right away and isn't stored. DPI stages and the polling rate are saved in the mouse, so they keep working without uncoil."
+		subtitle={perf
+			? `The current DPI changes right away and isn't stored. DPI stages${hasScroll ? ', the polling rate and the scroll wheel settings are' : ' and the polling rate are'} saved in the mouse, so they keep working without uncoil.`
+			: 'The scroll wheel settings are saved in the mouse, so they keep working without uncoil.'}
 	>
 		{#if loadError}
 			<p class="outcome bad" role="alert">{loadError}</p>
-		{:else if perf}
+		{:else if perf || scroll}
 			<CheckNotice {deviceId} {caps} {features} {onchecks} />
 			<div class="grid">
-				{#if perf.dpi}
+				{#if perf?.dpi}
 					<section class="card live" aria-labelledby="live-title">
 						<h2 id="live-title" class="section-title">Current DPI</h2>
 						<fieldset disabled={dpiLocked}>
@@ -200,7 +262,7 @@
 					</section>
 				{/if}
 
-				{#if perf.stages && stagesMax > 0}
+				{#if perf?.stages && stagesMax > 0}
 					<section class="card stages" aria-labelledby="stages-title">
 						<h2 id="stages-title" class="section-title">DPI stages</h2>
 						<p class="hint">The mouse's DPI button steps through these. The chosen stage is the one it starts on.</p>
@@ -240,6 +302,32 @@
 						{#if stagesOutcome}<p class="outcome" class:bad={!stagesOutcome.ok} role="status" in:fade={{ duration: ms(160) }}>{stagesOutcome.text}</p>{/if}
 					</section>
 				{/if}
+
+				{#if scroll && hasScroll}
+					<section class="card scroll" aria-labelledby="scroll-title">
+						<h2 id="scroll-title" class="section-title">Scroll wheel</h2>
+						<fieldset disabled={scrollLocked}>
+							{#if scroll.mode !== null}
+								<Segmented label="Scroll mode" options={MODES} value={mode} onchange={(v) => (mode = v)} />
+								<p class="hint">Tactile scrolls in steps you can feel. Free spin lets the wheel spin on by itself. The mouse's scroll mode button switches it too.</p>
+							{/if}
+							{#if scroll.acceleration !== null}
+								<Toggle label="Acceleration" bind:checked={accel} hint="Scrolls further the faster you turn the wheel." />
+							{/if}
+							{#if scroll.smart_reel !== null}
+								<Toggle label="Smart Reel" bind:checked={reel} hint="Switches to free spin by itself when you flick the wheel fast, and back to tactile when it slows down." />
+							{/if}
+						</fieldset>
+						<WriteButton
+							label="Save to mouse"
+							warning="The scroll wheel settings are saved in the mouse's own memory. Change them back and save again to undo."
+							disabled={!scrollDirty || scrollLocked}
+							busy={scrollBusy}
+							onconfirm={saveScroll}
+						/>
+						{#if scrollOutcome}<p class="outcome" class:bad={!scrollOutcome.ok} role="status" in:fade={{ duration: ms(160) }}>{scrollOutcome.text}</p>{/if}
+					</section>
+				{/if}
 			</div>
 		{:else}
 			<p class="loading-inline">Reading the mouse…</p>
@@ -259,8 +347,8 @@
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		grid-template-areas: 'live stages' 'poll stages';
-		grid-template-rows: auto 1fr;
+		grid-template-areas: 'live stages' 'poll stages' 'scroll stages';
+		grid-template-rows: auto auto 1fr;
 		gap: 16px;
 		align-items: start;
 		max-width: 980px;
@@ -273,6 +361,9 @@
 	}
 	.stages {
 		grid-area: stages;
+	}
+	.scroll {
+		grid-area: scroll;
 	}
 	.card {
 		display: grid;
@@ -402,7 +493,7 @@
 	@container view (max-width: 760px) {
 		.grid {
 			grid-template-columns: minmax(0, 1fr);
-			grid-template-areas: 'live' 'poll' 'stages';
+			grid-template-areas: 'live' 'poll' 'stages' 'scroll';
 			grid-template-rows: auto;
 		}
 	}

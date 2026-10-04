@@ -1,6 +1,6 @@
 // App-wide state: the config being edited and the daemon's last reported status.
 import { getConfig, getStatus, saveConfig } from './api';
-import type { Config, Status } from './types';
+import type { Config, Status, OpenRgbDevice } from './types';
 
 export const app = $state({
 	config: null as Config | null,
@@ -13,6 +13,14 @@ export const app = $state({
 
 /** Ids of the devices the daemon reports as connected, sorted (for the desk and the preview). */
 export const connectedIds = (): string[] => (app.status?.devices.map((d) => d.id) ?? []).toSorted();
+
+/** What the desk depends on besides the config: connected device ids and the devices OpenRGB reports.
+ * `key` changes when either changes, so the desk is fetched again only then. */
+export function deskSources() {
+	const connected = connectedIds();
+	const external = $state.snapshot(app.status?.openrgb?.devices ?? []) as OpenRgbDevice[];
+	return { connected, external, key: `${connected.join(',')}|${external.map((d) => `${d.id}:${d.leds}`).join(',')}` };
+}
 
 export async function loadConfig() {
 	try {

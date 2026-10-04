@@ -3,7 +3,7 @@
 // Outside Tauri (plain `pnpm dev` in a browser, for design work) calls go to a local mock instead.
 // The mock is a dynamic import, so it ships as a separate chunk the Tauri app never loads.
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import type { Config, DeskDevice, PreviewPress, Status } from './types';
+import type { AppSettings, Config, DeskDevice, PreviewPress, Status, OpenRgbDevice } from './types';
 
 export const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -16,13 +16,26 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 export const getConfig = () => invoke<Config>('get_config');
 export const saveConfig = (config: Config) => invoke<void>('save_config', { config });
 /** `connected`: ids of connected devices, so experimental devices with a layout join the desk. */
-export const getDesk = (config: Config, connected: string[] = []) => invoke<DeskDevice[]>('get_desk', { config, connected });
+/** `external`: the devices OpenRGB reports (`status.openrgb.devices`), drawn as the PC column. */
+export const getDesk = (config: Config, connected: string[] = [], external: OpenRgbDevice[] = []) =>
+	invoke<DeskDevice[]>('get_desk', { config, connected, external });
 /** Hex colour per shape per device, same order as `getDesk`, from the real effect engine. */
 /** `presses` simulate key presses (reactive, ripple); `audio` simulates the audio level 0..1 (audio meter). */
-export const previewFrame = (config: Config, t: number, presses: PreviewPress[] = [], audio = 0, connected: string[] = []) =>
-	invoke<string[][]>('preview_frame', { config, t, presses, audio, connected });
+export const previewFrame = (config: Config, t: number, presses: PreviewPress[] = [], audio = 0, connected: string[] = [], external: OpenRgbDevice[] = []) =>
+	invoke<string[][]>('preview_frame', { config, t, presses, audio, connected, external });
 /** `null` when the daemon is not running (no status file, or it is more than 10 s old). */
 export const getStatus = () => invoke<Status | null>('get_status');
+
+/** The app's own preferences (tray, start with Windows, battery notifications), kept apart from the engine's config. */
+export const getAppSettings = () => invoke<AppSettings>('get_app_settings');
+export const saveAppSettings = (settings: AppSettings) => invoke<void>('save_app_settings', { settings });
+
+/** Called when something outside this window changed config.json (the tray's effect menu). Returns an unsubscribe. */
+export async function onConfigChanged(handler: () => void): Promise<() => void> {
+	if (!inTauri) return () => {};
+	const { listen } = await import('@tauri-apps/api/event');
+	return listen('config-changed', handler);
+}
 
 /** Open a web page in the system browser (the Tauri opener plugin; a new tab under `pnpm dev`). */
 export async function openExternal(url: string) {

@@ -1,17 +1,25 @@
 //! uncoil desktop GUI. The window is a thin view over `uncoil-core`: it edits the shared config (which
 //! the daemon hot-reloads), previews the effect with the exact engine code, and reads the daemon's status.
+//! A tray icon switches the effect, and a background thread sends battery notifications (tray.rs, battery.rs);
+//! the app's own preferences live in settings.rs.
 
 // No console window in release builds on Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod battery;
+mod settings;
+mod tray;
+
 use serde::Serialize;
-use std::sync::OnceLock;
+use settings::AppSettings;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uncoil_core::config::{Config, Status};
 use uncoil_core::device::{self, DeviceDef, Kind};
 use uncoil_core::effect::Press;
-use uncoil_core::ipc::{self, Client, Command};
-use uncoil_core::layout::{Desk, PlacedDevice};
+use uncoil_core::ipc::{self, Client, Command, OpenRgbDeviceStatus};
+use uncoil_core::layout::{self, Desk, PlacedDevice};
 
 /// The daemon rewrites status.json continuously; older than this means it is not running.
 const STATUS_STALE_S: u64 = 10;
@@ -22,10 +30,12 @@ fn defs() -> &'static [DeviceDef] {
     DEFS.get_or_init(|| if cfg!(test) { device::builtin() } else { device::load_installed().0 })
 }
 
-/// The desk the daemon renders: supported devices, devices the config places, and the `connected` ones (ids
-/// from the daemon's `devices`), auto-placed next to their kind when the config does not place them.
-fn desk(config: &Config, connected: &[String]) -> Desk {
-    Desk::new(defs(), &config.desk, |id| connected.iter().any(|c| c == id))
+/// The desk the daemon renders: supported devices, devices the config places, the `connected` ones (ids
+/// from the daemon's `devices`), auto-placed next to their kind when the config does not place them, and the
+/// OpenRGB devices the daemon drives (`external`: `status.openrgb.devices`, whose zones give their LEDs).
+fn desk(config: &Config, connected: &[String], external: &[OpenRgbDeviceStatus]) -> Desk {
+    let external: Vec<DeviceDef> = external.iter().filter(|d| layout::is_external(&d.id)).map(|d| d.def()).collect();
+    Desk::new(defs().iter().chain(&external), &config.desk, |id| connected.iter().any(|c| c == id))
 }
 
 /// A placed device plus its kind, so the preview can draw a mat differently from a mouse.
@@ -42,14 +52,58 @@ fn get_config() -> Config {
 }
 
 #[tauri::command]
-fn save_config(config: Config) -> Result<(), String> {
-    config.save().map_err(|e| format!("could not save {}: {e}", Config::path().display()))
+fn save_config(app: tauri::AppHandle, config: Config) -> Result<(), String> {
+    use tauri::Manager;
+    // The tray remembers the effect being left, so its menu can switch back to the same settings.
+    let old = Config::load_reporting().0.effect;
+    if tray::kind_of(&old) != tray::kind_of(&config.effect) {
+        app.state::<tray::TrayState>().remember(&old);
+    }
+    config.save().map_err(|e| format!("could not save {}: {e}", Config::path().display()))?;
+    tray::refresh(&app);
+    Ok(())
+}
+
+/// App-wide state the tray, the window and the battery thread share.
+pub struct AppState {
+    pub settings: Mutex<AppSettings>,
+}
+
+#[tauri::command]
+fn get_app_settings(state: tauri::State<AppState>) -> AppSettings {
+    state.settings.lock().map(|s| s.clone()).unwrap_or_default()
+}
+
+/// Save the app's preferences, and add or remove the start-with-Windows entry to match.
+#[tauri::command]
+fn save_app_settings(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+    settings: AppSettings,
+) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let settings = settings.sanitized();
+    settings.save().map_err(|e| format!("could not save {}: {e}", AppSettings::path().display()))?;
+    let autostart = app.autolaunch();
+    if autostart.is_enabled().ok() != Some(settings.start_in_tray) {
+        let r = if settings.start_in_tray { autostart.enable() } else { autostart.disable() };
+        r.map_err(|e| format!("could not change the start-with-Windows entry: {e}"))?;
+    }
+    if let Ok(mut s) = state.settings.lock() {
+        *s = settings;
+    }
+    Ok(())
 }
 
 /// `connected` (optional): ids of connected devices, so experimental devices with a layout join the desk.
+/// `external` (optional): `status.openrgb.devices`, so the PC's OpenRGB devices join it too.
 #[tauri::command]
-fn get_desk(config: Config, connected: Option<Vec<String>>) -> Vec<DeskDevice> {
-    desk(&config, &connected.unwrap_or_default())
+fn get_desk(
+    config: Config,
+    connected: Option<Vec<String>>,
+    external: Option<Vec<OpenRgbDeviceStatus>>,
+) -> Vec<DeskDevice> {
+    desk(&config, &connected.unwrap_or_default(), &external.unwrap_or_default())
         .devices
         .into_iter()
         .map(|(kind, placed)| DeskDevice { kind, placed })
@@ -66,8 +120,9 @@ fn preview_frame(
     presses: Option<Vec<Press>>,
     audio: Option<f32>,
     connected: Option<Vec<String>>,
+    external: Option<Vec<OpenRgbDeviceStatus>>,
 ) -> Vec<Vec<String>> {
-    let desk = desk(&config, &connected.unwrap_or_default());
+    let desk = desk(&config, &connected.unwrap_or_default(), &external.unwrap_or_default());
     let presses = presses.unwrap_or_default();
     let frame =
         config.effect.at_with(t, config.saturation, config.brightness, &desk.inputs(&presses, audio.unwrap_or(0.0)));
@@ -101,6 +156,11 @@ impl DaemonFailure {
     }
 }
 
+/// The control pipe: `UNCOIL_PIPE` points the app at another daemon, e.g. `uncoild --fake` while developing.
+pub fn pipe_name() -> String {
+    std::env::var("UNCOIL_PIPE").unwrap_or_else(|_| ipc::PIPE_NAME.to_string())
+}
+
 /// Forward one typed command to uncoild's control pipe (the same surface the `uncoil` CLI uses).
 /// `UNCOIL_PIPE` points the app at another daemon, e.g. `uncoild --fake` while developing.
 #[tauri::command]
@@ -112,8 +172,7 @@ async fn daemon(
     tauri::async_runtime::spawn_blocking(move || {
         let args = args.map(|a| a.to_string());
         let command = Command::from_parts(&cmd, args.as_deref()).map_err(|e| DaemonFailure::new(e, false))?;
-        let pipe = std::env::var("UNCOIL_PIPE").unwrap_or_else(|_| ipc::PIPE_NAME.to_string());
-        let mut client = Client::connect_to(&pipe).map_err(|e| DaemonFailure::new(e, true))?;
+        let mut client = Client::connect_to(&pipe_name()).map_err(|e| DaemonFailure::new(e, true))?;
         let response = client.call(device.as_deref(), &command).map_err(|e| DaemonFailure::new(e, true))?;
         response.into_result::<serde_json::Value>().map_err(|e| DaemonFailure::new(e, false))
     })
@@ -121,10 +180,20 @@ async fn daemon(
     .map_err(|e| DaemonFailure::new(e.into(), false))?
 }
 
+/// Show the window, sized to its monitor the first time (it may start hidden in the tray).
+pub fn show_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+    static SIZED: AtomicBool = AtomicBool::new(false);
+    if SIZED.swap(true, Ordering::Relaxed) {
+        let _ = window.show();
+    } else {
+        size_to_monitor(window);
+    }
+}
+
 /// Size the window to the monitor it opens on: about 56% x 62.5% of it (1440x900 on a 2560x1440 screen),
 /// never below the minimum and never past 1600x1000, then centre and show it. The window starts hidden so
 /// it never flashes at the config's fallback size.
-fn size_to_monitor(window: &tauri::WebviewWindow) {
+fn size_to_monitor<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
     if let Ok(Some(monitor)) = window.current_monitor() {
         let scale = monitor.scale_factor();
         let screen = monitor.size().to_logical::<f64>(scale);
@@ -136,17 +205,50 @@ fn size_to_monitor(window: &tauri::WebviewWindow) {
     let _ = window.show();
 }
 
+/// The start-with-Windows entry launches the app with this, to start hidden in the tray.
+const TRAY_ARG: &str = "--tray";
+
 fn main() {
     tauri::Builder::default()
+        // First, so a second launch (e.g. the start-menu entry while autostart already runs it in the tray)
+        // shows the running window instead of starting another copy.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::open_window(app)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![TRAY_ARG])))
+        .manage(AppState { settings: Mutex::new(AppSettings::load()) })
+        .manage(tray::TrayState::default())
         .setup(|app| {
             use tauri::Manager;
-            if let Some(window) = app.get_webview_window("main") {
-                size_to_monitor(&window);
+            tray::create(app.handle())?;
+            battery::spawn(app.handle().clone());
+            if !std::env::args().any(|a| a == TRAY_ARG) {
+                if let Some(window) = app.get_webview_window("main") {
+                    show_window(&window);
+                }
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_config, save_config, get_desk, preview_frame, get_status, daemon])
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let hide = window.app_handle().state::<AppState>().settings.lock().is_ok_and(|s| s.hide_on_close());
+                if hide {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_config,
+            save_config,
+            get_desk,
+            preview_frame,
+            get_status,
+            daemon,
+            get_app_settings,
+            save_app_settings
+        ])
         .run(tauri::generate_context!())
         .expect("error while running uncoil");
 }
@@ -160,7 +262,7 @@ mod tests {
     #[test]
     fn mock_desk_matches_default_desk() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/lib/mock/desk.json");
-        let real = serde_json::to_string_pretty(&get_desk(Config::default(), None)).unwrap() + "\n";
+        let real = serde_json::to_string_pretty(&get_desk(Config::default(), None, None)).unwrap() + "\n";
         if std::env::var_os("UNCOIL_UPDATE_MOCK").is_some() {
             std::fs::write(&path, &real).unwrap();
         }
@@ -210,9 +312,9 @@ mod tests {
             .iter()
             .find(|d| d.is_experimental() && d.lit().is_some())
             .expect("devices/experimental/ has a device with a layout");
-        let base = get_desk(Config::default(), None);
+        let base = get_desk(Config::default(), None, None);
         assert!(!base.iter().any(|d| d.placed.id == extra.id));
-        let with = get_desk(Config::default(), Some(vec![extra.id.clone()]));
+        let with = get_desk(Config::default(), Some(vec![extra.id.clone()]), None);
         assert_eq!(with.len(), base.len() + 1);
         for (a, b) in base.iter().zip(with.iter().filter(|d| d.placed.id != extra.id)) {
             assert_eq!((a.placed.x, a.placed.y), (b.placed.x, b.placed.y), "{} moved", a.placed.id);
@@ -220,10 +322,31 @@ mod tests {
     }
 
     #[test]
+    fn openrgb_devices_from_status_join_the_desk() {
+        use uncoil_core::layout::{ExternalZone, ZoneKind};
+        let ram = OpenRgbDeviceStatus {
+            id: "openrgb:corsair-vengeance-pro-rgb".into(),
+            name: "Corsair Vengeance Pro RGB".into(),
+            leds: 10,
+            zones: vec![ExternalZone { name: "DRAM".into(), kind: ZoneKind::Linear, leds: 10, matrix: None }],
+        };
+        let not_external = OpenRgbDeviceStatus { id: "razer-blackwidow-v4-pro-75".into(), ..ram.clone() };
+        let base = get_desk(Config::default(), None, None);
+        let with = get_desk(Config::default(), None, Some(vec![ram.clone(), not_external.clone()]));
+        assert_eq!(with.len(), base.len() + 1, "only openrgb: ids are added");
+        let dev = with.iter().find(|d| d.placed.id == ram.id).unwrap();
+        assert_eq!((dev.kind, dev.placed.shapes.len()), (Kind::Other, 10));
+        let config = with_effect(r#"{"kind":"static","color":[255,0,0]}"#);
+        let frame = preview_frame(config, 0.0, None, None, None, Some(vec![ram, not_external]));
+        assert_eq!(frame.len(), with.len());
+        assert_eq!(shape_color(&frame, &with, "openrgb:corsair-vengeance-pro-rgb", "DRAM 1"), "#ff0000");
+    }
+
+    #[test]
     fn preview_frame_matches_desk_shape() {
         let config = Config::default();
-        let desk = get_desk(config.clone(), None);
-        let frame = preview_frame(config, 1.5, None, None, None);
+        let desk = get_desk(config.clone(), None, None);
+        let frame = preview_frame(config, 1.5, None, None, None, None);
         assert_eq!(frame.len(), desk.len());
         for (colors, dev) in frame.iter().zip(&desk) {
             assert_eq!(colors.len(), dev.placed.shapes.len());
@@ -253,8 +376,8 @@ mod tests {
                  "mask":{"kind":"keys","device":"razer-blackwidow-v4-pro-75","shapes":["W","Left Shift"]}}
             ]}"#,
         );
-        let desk = get_desk(config.clone(), None);
-        let frame = preview_frame(config, 0.0, None, None, None);
+        let desk = get_desk(config.clone(), None, None);
+        let frame = preview_frame(config, 0.0, None, None, None, None);
         let kb = "razer-blackwidow-v4-pro-75";
         assert_eq!(shape_color(&frame, &desk, kb, "W"), "#00ff00");
         assert_eq!(shape_color(&frame, &desk, kb, "Left Shift"), "#00ff00");
@@ -266,20 +389,20 @@ mod tests {
     #[test]
     fn preview_uses_presses_and_audio() {
         let config = with_effect(r#"{"kind":"reactive","color":[255,255,255],"fade_s":1}"#);
-        let desk = get_desk(config.clone(), None);
+        let desk = get_desk(config.clone(), None, None);
         let kb = "razer-blackwidow-v4-pro-75";
         let keyboard = desk.iter().find(|d| d.placed.id == kb).unwrap();
         let w = keyboard.placed.shapes.iter().find(|s| s.name == "W").unwrap();
         let press = vec![Press { x: w.x, y: w.y, t: 2.0 }];
-        let lit = preview_frame(config.clone(), 2.0, Some(press), None, None);
+        let lit = preview_frame(config.clone(), 2.0, Some(press), None, None, None);
         assert_eq!(shape_color(&lit, &desk, kb, "W"), "#ffffff");
         assert_eq!(shape_color(&lit, &desk, kb, "Q"), "#000000");
-        let idle = preview_frame(config, 2.0, None, None, None);
+        let idle = preview_frame(config, 2.0, None, None, None, None);
         assert_eq!(shape_color(&idle, &desk, kb, "W"), "#000000");
 
         let meter = with_effect(r#"{"kind":"audio_meter","sensitivity":1}"#);
-        let loud = preview_frame(meter.clone(), 0.0, None, Some(1.0), None);
-        let quiet = preview_frame(meter, 0.0, None, Some(0.0), None);
+        let loud = preview_frame(meter.clone(), 0.0, None, Some(1.0), None, None);
+        let quiet = preview_frame(meter, 0.0, None, Some(0.0), None, None);
         assert_ne!(shape_color(&loud, &desk, kb, "Escape"), "#000000");
         assert_eq!(shape_color(&quiet, &desk, kb, "Escape"), "#000000");
     }

@@ -6,7 +6,7 @@
 	import { app } from '#lib/state.svelte.ts';
 	import { pipe, loadDevices, errorText, experimentalBadge, shortName } from '#lib/daemon.svelte.ts';
 	import { EXPERIMENTAL, EXPERIMENTAL_TEXT, FEATURE_NAMES, REPORT_URL, STATE_NAMES, checkReads, productId } from '#lib/checks.ts';
-	import type { Capabilities, DeskDevice, DeviceKind, FeatureCheck, ProfileInfo } from '#lib/types.ts';
+	import type { Capabilities, DeskDevice, DeviceDetails, DeviceKind, FeatureCheck, ProfileInfo } from '#lib/types.ts';
 
 	let { device, desk = null }: { device: { id: string; name: string; kind: DeviceKind }; desk?: DeskDevice | null } = $props();
 
@@ -26,6 +26,16 @@
 				.catch((e) => (profileError = errorText(e)));
 		}
 	});
+
+	// Firmware, keyboard layout and colour: read once per connection by the engine (read-only, any device).
+	let details = $state<DeviceDetails | null>(null);
+	$effect(() => {
+		if (!info) return;
+		daemon<DeviceDetails>('info.get', device.id)
+			.then((d) => (details = d))
+			.catch(() => (details = null));
+	});
+	const layoutText = $derived(!details ? null : details.layout ?? (details.layout_code !== null ? `Not recognised (code ${details.layout_code})` : null));
 
 	// Checks (experimental devices): what has been confirmed on this connection.
 	let checks = $state<FeatureCheck[]>([]);
@@ -61,11 +71,14 @@
 <Workspace title={shortName(device.name)} subtitle={kind[device.kind]} badge={experimentalBadge(device.id)}>
 	<div class="grid">
 		<section class="card" aria-labelledby="conn-title">
-			<h2 id="conn-title" class="section-title">Connection</h2>
+			<h2 id="conn-title" class="section-title">Device</h2>
 			<dl>
 				<div><dt>Status</dt><dd><span class="dot" class:on={!!s} class:warn={!!s?.errors}></span>{statusText}</dd></div>
 				<div><dt>Link</dt><dd>{s?.connection ? s.connection[0].toUpperCase() + s.connection.slice(1) : '—'}</dd></div>
 				<div><dt>USB product id</dt><dd class="num">{pid !== null ? productId(pid) : '—'}</dd></div>
+				{#if details?.firmware}<div><dt>Firmware</dt><dd class="num">{details.firmware}</dd></div>{/if}
+				{#if layoutText}<div><dt>Keyboard layout</dt><dd>{layoutText}</dd></div>{/if}
+				{#if details?.variant}<div><dt>Colour</dt><dd>{details.variant}</dd></div>{/if}
 				{#if lit}
 					<div><dt>Lighting updates</dt><dd class="num">{s ? `${s.fps.toFixed(0)} per second` : '—'}</dd></div>
 					<div><dt>LEDs</dt><dd class="num">{leds ?? '—'}</dd></div>

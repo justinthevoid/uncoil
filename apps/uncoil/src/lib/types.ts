@@ -86,9 +86,21 @@ export interface Config {
 	fps: number;
 	display: DisplayPolicy;
 	desk: Record<string, Placement>;
-	openrgb_hardware_rainbow: boolean;
-	/** What the OpenRGB hand-off sets: each device (part of its OpenRGB name) and the hardware mode to use. */
-	openrgb?: { devices: { match: string; mode: string; ram?: boolean }[] };
+	/** Older configs: `true` means `openrgb.mode = "hardware"`. Kept while the engine still reads it. */
+	openrgb_hardware_rainbow?: boolean;
+	openrgb?: OpenRgbConfig;
+}
+
+/** How uncoil uses OpenRGB for the PC's other lighting (motherboard, RAM, GPU). */
+export type OpenRgbMode = 'off' | 'hardware' | 'live';
+
+export interface OpenRgbConfig {
+	/** `hardware`: hand off once at sign-in (each listed device on its own built-in mode). `live`: follow the desk effect. */
+	mode?: OpenRgbMode;
+	/** What the hardware hand-off sets: each device (part of its OpenRGB name) and the hardware mode to use. */
+	devices: { match: string; mode: string; ram?: boolean }[];
+	/** Live mode: the SDK server port (default 6742) and device names (parts of) to leave alone. */
+	live?: { port: number; exclude: string[] };
 }
 
 export interface Shape {
@@ -139,6 +151,43 @@ export interface Status {
 	exe_bytes: number;
 	/** Razer devices (vendor 0x1532) connected with no device definition. Missing from older engines. */
 	unknown_devices: UnknownDevice[];
+	/** Other programs running that drive the same devices. Missing from older engines. */
+	conflicts?: Conflict[];
+	/** The live OpenRGB connection. Missing from older engines. */
+	openrgb?: OpenRgbStatus;
+}
+
+/** A program that drives the same devices, seen running: its name and a plain sentence about what to do. */
+export interface Conflict {
+	app: string;
+	detail: string;
+}
+
+export type OpenRgbState = 'off' | 'waiting' | 'connected' | 'error';
+
+/** One zone of an OpenRGB device, enough for the desk to lay its LEDs out (`uncoil_core::layout::ExternalZone`). */
+export interface ExternalZone {
+	name: string;
+	kind: 'single' | 'linear' | 'matrix';
+	leds: number;
+	matrix?: { width: number; height: number; map: (number | null)[] };
+}
+
+export interface OpenRgbDevice {
+	id: string;
+	name: string;
+	leds: number;
+	zones?: ExternalZone[];
+}
+
+export interface OpenRgbStatus {
+	state: OpenRgbState;
+	/** Plain words about the state (why it failed, what it waits for). */
+	detail: string | null;
+	/** `id` is `openrgb:<slug>`, the id the desk uses. */
+	devices: OpenRgbDevice[];
+	/** The OpenRGB server was started by uncoil's own task. */
+	ours: boolean;
 }
 
 export interface UnknownDevice {
@@ -148,7 +197,7 @@ export interface UnknownDevice {
 
 // ---- control pipe (uncoil_core::ipc). Keep in sync with crates/uncoil-core/src/{ipc,features/*}.rs ----
 
-export type Feature = 'lighting' | 'hw_effects' | 'keymap' | 'profiles' | 'dial' | 'oled' | 'dpi' | 'poll_rate' | 'power';
+export type Feature = 'lighting' | 'hw_effects' | 'keymap' | 'profiles' | 'dial' | 'oled' | 'dpi' | 'poll_rate' | 'power' | 'scroll';
 /** `experimental`: set up from OpenRazer/OpenRGB data, not yet confirmed on real hardware. */
 export type Support = 'supported' | 'experimental';
 /** A read-only check that gates onboard writes on experimental devices. Supported devices: `not_needed`. */
@@ -282,4 +331,33 @@ export interface PowerState {
 	idle_range: [number, number] | null;
 	low_battery_pct: number | null;
 	low_battery_range: [number, number] | null;
+}
+
+/** `scroll.get`. null = not supported or unreadable. `scroll.set` takes any of them plus `write: true`. */
+export interface ScrollState {
+	mode: 'tactile' | 'free_spin' | null;
+	acceleration: boolean | null;
+	smart_reel: boolean | null;
+}
+
+/** `info.get` (any device, read-only). null = not reported. */
+export interface DeviceDetails {
+	/** e.g. "1.04". */
+	firmware: string | null;
+	/** Keyboards: e.g. "US (ANSI)"; null for a code uncoil doesn't know (then `layout_code` has it). */
+	layout: string | null;
+	layout_code: number | null;
+	/** "Black", "Quartz", "Mercury". */
+	variant: string | null;
+}
+
+/** The app's own preferences (src-tauri `AppSettings`, `%APPDATA%\uncoil\app.json`), not the engine's config. */
+export interface AppSettings {
+	/** Closing the window hides it to the tray instead of quitting. */
+	close_to_tray: boolean;
+	/** Start hidden in the tray when Windows starts (autostart with `--tray`). */
+	start_in_tray: boolean;
+	battery_notifications: boolean;
+	/** Percent; a second warning comes at 10 %. */
+	battery_threshold: number;
 }
