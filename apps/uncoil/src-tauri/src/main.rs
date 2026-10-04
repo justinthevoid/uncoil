@@ -9,23 +9,23 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uncoil_core::config::{Config, Status};
 use uncoil_core::device::{self, DeviceDef, Kind};
-use uncoil_core::effect::{Inputs, Press};
+use uncoil_core::effect::Press;
 use uncoil_core::ipc::{self, Client, Command};
-use uncoil_core::layout::{self, PlacedDevice};
+use uncoil_core::layout::{Desk, PlacedDevice};
 
 /// The daemon rewrites status.json continuously; older than this means it is not running.
 const STATUS_STALE_S: u64 = 10;
 
+/// The same devices the daemon loads: built-ins plus the user's device folder (tests: built-ins only).
 fn defs() -> &'static [DeviceDef] {
     static DEFS: OnceLock<Vec<DeviceDef>> = OnceLock::new();
-    DEFS.get_or_init(|| device::load_all(None))
+    DEFS.get_or_init(|| if cfg!(test) { device::builtin() } else { device::load_installed().0 })
 }
 
-/// The desk: supported devices, devices the config places, and the `connected` ones (ids from the daemon's
-/// `devices`), auto-placed next to their kind when the config does not place them (`layout::arrange`).
-fn placed(config: &Config, connected: &[String]) -> Vec<(Kind, PlacedDevice)> {
-    let shown = layout::desk_devices(defs(), &config.desk, |id| connected.iter().any(|c| c == id));
-    layout::arrange(&shown, &config.desk).into_iter().map(|(def, _, p)| (def.kind, p)).collect()
+/// The desk the daemon renders: supported devices, devices the config places, and the `connected` ones (ids
+/// from the daemon's `devices`), auto-placed next to their kind when the config does not place them.
+fn desk(config: &Config, connected: &[String]) -> Desk {
+    Desk::new(defs(), &config.desk, |id| connected.iter().any(|c| c == id))
 }
 
 /// A placed device plus its kind, so the preview can draw a mat differently from a mouse.
@@ -49,7 +49,8 @@ fn save_config(config: Config) -> Result<(), String> {
 /// `connected` (optional): ids of connected devices, so experimental devices with a layout join the desk.
 #[tauri::command]
 fn get_desk(config: Config, connected: Option<Vec<String>>) -> Vec<DeskDevice> {
-    placed(&config, &connected.unwrap_or_default())
+    desk(&config, &connected.unwrap_or_default())
+        .devices
         .into_iter()
         .map(|(kind, placed)| DeskDevice { kind, placed })
         .collect()
@@ -66,16 +67,12 @@ fn preview_frame(
     audio: Option<f32>,
     connected: Option<Vec<String>>,
 ) -> Vec<Vec<String>> {
-    let desk = placed(&config, &connected.unwrap_or_default());
+    let desk = desk(&config, &connected.unwrap_or_default());
     let presses = presses.unwrap_or_default();
-    let inputs = Inputs {
-        presses: &presses,
-        audio: audio.unwrap_or(0.0),
-        bounds: layout::desk_bounds(desk.iter().map(|(_, d)| d)),
-        keyboard_center: desk.iter().find(|(k, _)| *k == Kind::Keyboard).map(|(_, d)| d.center()),
-    };
-    let frame = config.effect.at_with(t, config.saturation, config.brightness, &inputs);
-    desk.iter()
+    let frame =
+        config.effect.at_with(t, config.saturation, config.brightness, &desk.inputs(&presses, audio.unwrap_or(0.0)));
+    desk.devices
+        .iter()
         .map(|(_, dev)| dev.shapes.iter().map(|s| frame.color_led(&dev.id, &s.name, s.x, s.y).to_hex()).collect())
         .collect()
 }
@@ -88,42 +85,43 @@ fn get_status() -> Option<Status> {
     (now.saturating_sub(status.updated_unix) <= STATUS_STALE_S).then_some(status)
 }
 
+/// A failed `daemon` call, as the UI gets it: plain words, the daemon's code if it gave one
+/// (`check_failed`, `left_click_guard`, `not_supported`), and whether uncoild could not be reached at all.
+#[derive(Debug, Serialize, PartialEq)]
+struct DaemonFailure {
+    message: String,
+    code: Option<&'static str>,
+    unreachable: bool,
+}
+
+impl DaemonFailure {
+    fn new(e: anyhow::Error, unreachable: bool) -> DaemonFailure {
+        let code = e.downcast_ref::<ipc::CodedError>().map(|c| c.code);
+        DaemonFailure { message: format!("{e:#}"), code, unreachable }
+    }
+}
+
 /// Forward one typed command to uncoild's control pipe (the same surface the `uncoil` CLI uses).
-/// Errors from failing to reach the daemon start with `unreachable:` so the UI can explain them; errors the
-/// daemon marks with a code (`check_failed`, `left_click_guard`, `not_supported`) start with that code and
-/// `: `, e.g. `check_failed: uncoil couldn't confirm …`.
 /// `UNCOIL_PIPE` points the app at another daemon, e.g. `uncoild --fake` while developing.
 #[tauri::command]
 async fn daemon(
     device: Option<String>,
     cmd: String,
     args: Option<serde_json::Value>,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, DaemonFailure> {
     tauri::async_runtime::spawn_blocking(move || {
         let args = args.map(|a| a.to_string());
-        let command = Command::from_parts(&cmd, args.as_deref()).map_err(|e| e.to_string())?;
+        let command = Command::from_parts(&cmd, args.as_deref()).map_err(|e| DaemonFailure::new(e, false))?;
         let pipe = std::env::var("UNCOIL_PIPE").unwrap_or_else(|_| ipc::PIPE_NAME.to_string());
-        let mut client = Client::connect_to(&pipe).map_err(|e| format!("unreachable: {e}"))?;
-        let response = client.call(device.as_deref(), &command).map_err(|e| format!("unreachable: {e}"))?;
-        if !response.ok {
-            return Err(error_text(response.code.as_deref(), response.error.as_deref()));
-        }
-        response.into_result::<serde_json::Value>().map_err(|e| e.to_string())
+        let mut client = Client::connect_to(&pipe).map_err(|e| DaemonFailure::new(e, true))?;
+        let response = client.call(device.as_deref(), &command).map_err(|e| DaemonFailure::new(e, true))?;
+        response.into_result::<serde_json::Value>().map_err(|e| DaemonFailure::new(e, false))
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| DaemonFailure::new(e.into(), false))?
 }
 
-/// A daemon error as the UI reads it: `code: message` when the daemon gave a code, else the message.
-fn error_text(code: Option<&str>, error: Option<&str>) -> String {
-    let message = error.unwrap_or("daemon reported an error");
-    match code {
-        Some(c) => format!("{c}: {message}"),
-        None => message.to_string(),
-    }
-}
-
-/// Size the window to the monitor it opens on: about 56% x 65% of it (1440x900 on a 2560x1440 screen),
+/// Size the window to the monitor it opens on: about 56% x 62.5% of it (1440x900 on a 2560x1440 screen),
 /// never below the minimum and never past 1600x1000, then centre and show it. The window starts hidden so
 /// it never flashes at the config's fallback size.
 fn size_to_monitor(window: &tauri::WebviewWindow) {
@@ -184,23 +182,34 @@ mod tests {
         assert_eq!(key["name"], "P");
         let refused =
             run(Some("keyboard"), "keymap.set", Some(serde_json::json!({ "key": "P", "function": "key F5" })));
-        assert!(refused.unwrap_err().contains("write=true"), "onboard writes need write=true");
-        assert!(run(None, "no.such.command", None).is_err());
+        assert!(refused.unwrap_err().message.contains("write=true"), "onboard writes need write=true");
+        let guard = run(
+            Some("basilisk"),
+            "keymap.set",
+            Some(serde_json::json!({ "key": "LEFT_CLICK", "function": "button 2", "write": true })),
+        );
+        assert_eq!(guard.unwrap_err().code, Some(ipc::codes::LEFT_CLICK_GUARD));
+        assert!(!run(None, "no.such.command", None).unwrap_err().unreachable);
     }
 
     #[test]
-    fn coded_errors_become_a_prefix() {
+    fn failures_keep_their_code() {
+        let e = DaemonFailure::new(ipc::coded(ipc::codes::LEFT_CLICK_GUARD, "This would leave no button."), false);
         assert_eq!(
-            error_text(Some("left_click_guard"), Some("This would leave no button that left-clicks.")),
-            "left_click_guard: This would leave no button that left-clicks."
+            serde_json::to_string(&e).unwrap(),
+            r#"{"message":"This would leave no button.","code":"left_click_guard","unreachable":false}"#
         );
-        assert_eq!(error_text(None, Some("boom")), "boom");
+        let e = DaemonFailure::new(anyhow::anyhow!("cannot reach uncoild"), true);
+        assert_eq!(e, DaemonFailure { message: "cannot reach uncoild".into(), code: None, unreachable: true });
     }
 
     #[test]
     fn connected_experimental_devices_join_the_desk() {
         // any experimental device with a layout from devices/experimental/
-        let Some(extra) = defs().iter().find(|d| d.is_experimental() && d.lit().is_some()) else { return };
+        let extra = defs()
+            .iter()
+            .find(|d| d.is_experimental() && d.lit().is_some())
+            .expect("devices/experimental/ has a device with a layout");
         let base = get_desk(Config::default(), None);
         assert!(!base.iter().any(|d| d.placed.id == extra.id));
         let with = get_desk(Config::default(), Some(vec![extra.id.clone()]));

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import OptionList from '#lib/components/OptionList.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
@@ -67,9 +68,9 @@
 {#if !pipe.loaded}
 	<p class="loading">Connecting to the engine…</p>
 {:else if pipe.unreachable || !device}
-	<PipeUnavailable what="Onboard effects" unreachable={pipe.unreachable} />
+	<PipeUnavailable page="effects" unreachable={pipe.unreachable} />
 {:else}
-	<Workspace title="Onboard effects" badge={experimentalBadge(deviceId)} subtitle="Let the {word} run one of its built-in effects by itself: no CPU at all, but it won't flow across the desk. Nothing is saved; unplugging or switching back ends it.">
+	<Workspace title={pageTitle('effects')} badge={experimentalBadge(deviceId)} subtitle="Let the {word} run one of its built-in effects by itself: no CPU at all, but it won't flow across the desk. Nothing is saved; unplugging or switching back ends it.">
 		<div class="card">
 			<div class="cols">
 				<OptionList label="Effect" options={(caps?.hw_effects ?? []).map((e) => ({ value: e, label: LABEL[e] ?? e }))} value={name} onchange={(v) => (name = v)} />

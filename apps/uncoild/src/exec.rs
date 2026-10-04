@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use uncoil_core::device::{DeviceDef, Kind};
-use uncoil_core::features::dial::{self, DialMode};
+use uncoil_core::features::dial::{self, DialMode, DialState};
 use uncoil_core::features::hw_effect::{self, HwEffect, Storage};
 use uncoil_core::features::keymap::{self, Function, KeyDef, KeymapDef, Layer};
 use uncoil_core::features::oled::{self, OledState};
@@ -97,6 +97,24 @@ struct JournalEntry {
     after: String,
 }
 
+impl JournalEntry {
+    /// A `pending` entry for `cmd` on `def`; the fields the command does not use stay empty.
+    fn new(def: &DeviceDef, cmd: &str) -> JournalEntry {
+        let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        JournalEntry {
+            t,
+            device: def.id.clone(),
+            cmd: cmd.into(),
+            state: State::Pending,
+            profile: None,
+            key: None,
+            layer: None,
+            before: String::new(),
+            after: String::new(),
+        }
+    }
+}
+
 impl Journal {
     pub fn default_path() -> PathBuf {
         let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
@@ -128,14 +146,6 @@ impl Journal {
     }
 }
 
-fn unix_now() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
-}
-
-fn to_json<T: Serialize>(t: &T) -> Raw {
-    ipc::raw(t)
-}
-
 fn not_supported(def: &DeviceDef, what: &str) -> anyhow::Error {
     coded(codes::NOT_SUPPORTED, format!("{} does not support {what}", def.name))
 }
@@ -153,44 +163,6 @@ fn profile_of(cmd: &Command) -> Option<u8> {
     })
 }
 
-/// A journal entry for `def` (fields the command does not use stay empty).
-fn entry(def: &DeviceDef, cmd: &str, before: String, after: String) -> JournalEntry {
-    JournalEntry {
-        t: unix_now(),
-        device: def.id.clone(),
-        cmd: cmd.into(),
-        state: State::Pending,
-        profile: None,
-        key: None,
-        layer: None,
-        before,
-        after,
-    }
-}
-
-/// Features whose read-only check must pass before this command may write.
-fn gated_features(cmd: &Command) -> Vec<Feature> {
-    match cmd {
-        Command::KeymapSet(_) | Command::KeymapReset(_) => vec![Feature::Keymap],
-        Command::DialSet(_) => vec![Feature::Dial],
-        Command::OledSet(_) => vec![Feature::Oled],
-        Command::PerformanceSet(a) => {
-            let mut v = vec![];
-            if a.dpi.is_some() || a.stages.is_some() {
-                v.push(Feature::Dpi);
-            }
-            if a.poll_hz.is_some() {
-                v.push(Feature::PollRate);
-            }
-            v
-        }
-        Command::PowerSet(_) => vec![Feature::Power],
-        // a session effect is never refused; saving one to the device is an onboard write like any other
-        Command::EffectHw(a) if a.storage == Storage::Onboard => vec![Feature::HwEffects],
-        _ => vec![],
-    }
-}
-
 /// Run one device-level command. `checks` is the device's check cache for this connection.
 pub fn run(
     t: &mut dyn Transport,
@@ -200,31 +172,11 @@ pub fn run(
     journal: &Journal,
     checks: &mut Checks,
 ) -> Result<Outcome> {
-    if let Some(f) = cmd.feature() {
-        if !def.has(f) {
-            return Err(not_supported(def, f.as_str()));
-        }
+    let policy = cmd.policy(def);
+    if let Some(what) = policy.unsupported(def) {
+        return Err(not_supported(def, &what));
     }
-    match cmd {
-        Command::PerformanceGet if !def.has(Feature::Dpi) && !def.has(Feature::PollRate) => {
-            return Err(not_supported(def, "dpi or poll_rate"));
-        }
-        Command::PerformanceSet(a) => {
-            if (a.dpi.is_some() || a.stages.is_some()) && !def.has(Feature::Dpi) {
-                return Err(not_supported(def, "dpi"));
-            }
-            if a.poll_hz.is_some() && !def.has(Feature::PollRate) {
-                return Err(not_supported(def, "poll_rate"));
-            }
-            if a.stages.is_some() && def.dpi.as_ref().is_some_and(|d| d.stages_max == 0) {
-                return Err(not_supported(def, "DPI stages"));
-            }
-        }
-        _ => {}
-    }
-    let stored_dpi = matches!(cmd, Command::PerformanceSet(a)
-        if a.dpi.is_some() && def.dpi.as_ref().is_some_and(|d| d.storage == DpiStorage::Varstore));
-    if (cmd.writes_onboard() || stored_dpi) && !cmd.write_confirmed() {
+    if policy.needs_write && !cmd.write_confirmed() {
         bail!("this writes {}'s onboard memory; repeat with write=true (CLI: --write)", def.name);
     }
     if let Some(p) = profile_of(cmd) {
@@ -232,103 +184,95 @@ pub fn run(
             bail!("profile {p} does not exist (profiles are 1 to {MAX_PROFILES})");
         }
     }
-    for f in gated_features(cmd) {
+    for f in policy.gated {
         checks.require(t, def, tid, f)?;
     }
     match cmd {
         Command::KeymapGet(a) => {
-            let (km, key) = key_of(def, &a.key, a.layer)?;
-            Ok(Outcome::value(to_json(&read_key(t, tid, km, key, a.profile, a.layer)?)))
+            let at = key_of(def, &a.key, a.layer, a.profile)?;
+            Ok(Outcome::value(ipc::raw(&read_key(t, tid, at)?)))
         }
         Command::KeymapDump(a) => {
             let km = keymap_of(def)?;
             check_layer(km, a.layer)?;
-            let rows: Vec<KeyMapping> =
-                km.keys.iter().map(|k| read_key(t, tid, km, k, a.profile, a.layer)).collect::<Result<_>>()?;
-            Ok(Outcome::value(to_json(&rows)))
+            let rows: Vec<KeyMapping> = km
+                .keys
+                .iter()
+                .map(|key| read_key(t, tid, KeyAt { km, key, profile: a.profile, layer: a.layer }))
+                .collect::<Result<_>>()?;
+            Ok(Outcome::value(ipc::raw(&rows)))
         }
         Command::KeymapSet(a) => {
-            let (km, key) = key_of(def, &a.key, a.layer)?;
-            write_key(t, tid, def, km, key, a.profile, a.layer, &a.function, journal, "keymap.set")
+            let at = key_of(def, &a.key, a.layer, a.profile)?;
+            write_key(t, tid, def, at, &a.function, journal, cmd.name())
         }
         Command::KeymapReset(a) => {
-            let (km, key) = key_of(def, &a.key, a.layer)?;
-            let target = match journal.original(&def.id, a.profile, key.id, a.layer) {
+            let at = key_of(def, &a.key, a.layer, a.profile)?;
+            let target = match journal.original(&def.id, a.profile, at.key.id, a.layer) {
                 Some(spec) => Function::parse_spec(&spec).with_context(|| format!("journal entry `{spec}`"))?,
-                None => key.default_function().ok_or_else(|| {
-                    anyhow!("no recorded original and no default for {} in the device definition", key.name)
+                None => at.key.default_function().ok_or_else(|| {
+                    anyhow!("no recorded original and no default for {} in the device definition", at.key.name)
                 })?,
             };
-            write_key(t, tid, def, km, key, a.profile, a.layer, &target, journal, "keymap.reset")
+            write_key(t, tid, def, at, &target, journal, cmd.name())
         }
         Command::ProfileList => {
             let max = profile::parse_byte(&query_read(t, &profile::get_max(tid))?);
             let count = profile::parse_byte(&query_read(t, &profile::get_count(tid))?);
             let ids = profile::parse_ids(&query_read(t, &profile::get_ids(tid))?);
             let active = query_read(t, &profile::get_active(tid)).ok().map(|r| profile::parse_byte(&r));
-            Ok(Outcome::value(to_json(&ProfileInfo { max, count, ids, active })))
+            Ok(Outcome::value(ipc::raw(&ProfileInfo { max, count, ids, active })))
         }
         Command::DialGet(a) => {
-            Ok(Outcome::value(to_json(&dial::parse_state(&query_read(t, &dial::get_active_mode(tid, a.profile))?))))
+            Ok(Outcome::value(ipc::raw(&dial::parse_state(&query_read(t, &dial::get_active_mode(tid, a.profile))?))))
         }
         Command::DialSet(a) => {
             let enabled = a.enabled.clone().unwrap_or_else(|| DialMode::DEFAULT_ENABLED.to_vec());
             let report = dial::set_active_mode(tid, a.profile, a.mode, &enabled)?;
-            let before = dial::parse_state(&query_read(t, &dial::get_active_mode(tid, a.profile))?);
-            if before.mode == Some(a.mode) {
-                return Ok(Outcome::value(to_json(&WriteResult {
-                    after: before.clone(),
-                    before,
-                    verified: true,
-                    unchanged: true,
-                })));
-            }
-            let mut e = entry(def, "dial", name_of_mode(before.mode_id), a.mode.name().into());
-            e.profile = Some(a.profile);
-            journal.record(&e, State::Pending);
-            query_ok(t, &report)?;
-            let after = dial::parse_state(&query_read(t, &dial::get_active_mode(tid, a.profile))?);
-            let verified = after.mode == Some(a.mode);
-            let line = format!(
-                "ONBOARD WRITE {}: dial mode profile {} {} -> {} (verified {verified})",
-                def.id,
-                a.profile,
-                name_of_mode(before.mode_id),
-                a.mode.name()
-            );
-            journal.record(&JournalEntry { after: name_of_mode(after.mode_id), ..e }, State::Done);
-            Ok(Outcome {
-                result: to_json(&WriteResult { before, after, verified, unchanged: false }),
-                lighting: Lighting::Unchanged,
-                log: vec![line],
-            })
+            let read = |t: &mut dyn Transport| -> Result<DialState> {
+                Ok(dial::parse_state(&query_read(t, &dial::get_active_mode(tid, a.profile))?))
+            };
+            let mut entry = JournalEntry::new(def, "dial");
+            entry.profile = Some(a.profile);
+            let w = OnboardWrite {
+                entry,
+                requested: Some(a.mode.name().into()),
+                tag: "",
+                read: &read,
+                wants: &|s: &DialState| s.mode == Some(a.mode),
+                show: &|s: &DialState| name_of_mode(s.mode_id),
+            };
+            let label = format!("dial mode {}", a.mode.name());
+            verified_write(
+                t,
+                journal,
+                w,
+                |_, _| Ok(vec![(label, vec![report])]),
+                |b, af, _| {
+                    format!(
+                        "dial mode profile {} {} -> {}",
+                        a.profile,
+                        name_of_mode(b.mode_id),
+                        name_of_mode(af.mode_id)
+                    )
+                },
+            )
         }
-        Command::OledGet => Ok(Outcome::value(to_json(&read_oled(t, tid)?))),
+        Command::OledGet => Ok(Outcome::value(ipc::raw(&read_oled(t, tid)?))),
         Command::OledSet(a) => {
             let pct = a.brightness.ok_or_else(|| anyhow!("nothing to set (supported: brightness)"))?.min(100);
             let read =
                 |t: &mut dyn Transport| -> Result<u8> { Ok(query_read(t, &oled::get(tid, oled::BRIGHTNESS))?.raw[0]) };
-            let before = read(t)?;
-            if before == pct {
-                return Ok(Outcome::value(to_json(&WriteResult {
-                    before,
-                    after: before,
-                    verified: true,
-                    unchanged: true,
-                })));
-            }
-            let e = entry(def, "oled.brightness", before.to_string(), pct.to_string());
-            journal.record(&e, State::Pending);
-            query_ok(t, &oled::set_brightness(tid, pct))?;
-            let after = read(t)?;
-            let verified = after == pct;
-            journal.record(&JournalEntry { after: after.to_string(), ..e }, State::Done);
-            let line = format!("ONBOARD WRITE {}: OLED brightness {before}% -> {after}% (verified {verified})", def.id);
-            Ok(Outcome {
-                result: to_json(&WriteResult { before, after, verified, unchanged: false }),
-                lighting: Lighting::Unchanged,
-                log: vec![line],
-            })
+            let w = OnboardWrite {
+                entry: JournalEntry::new(def, "oled.brightness"),
+                requested: Some(pct.to_string()),
+                tag: "",
+                read: &read,
+                wants: &|v: &u8| *v == pct,
+                show: &|v: &u8| v.to_string(),
+            };
+            let step = (format!("OLED brightness {pct}%"), vec![oled::set_brightness(tid, pct)]);
+            verified_write(t, journal, w, |_, _| Ok(vec![step]), |b, af, _| format!("OLED brightness {b}% -> {af}%"))
         }
         Command::EffectHw(a) => {
             let hw = def.hw_effects.as_ref().ok_or_else(|| anyhow!("{} has no firmware effects", def.name))?;
@@ -339,7 +283,8 @@ pub fn run(
             let mut log = vec![];
             if a.storage == Storage::Onboard {
                 // the device has no getter for its saved effect, so there is no before-state to record
-                let e = entry(def, "effect", String::new(), serde_json::to_string(&a.effect).unwrap_or_default());
+                let after = serde_json::to_string(&a.effect).unwrap_or_default();
+                let e = JournalEntry { after, ..JournalEntry::new(def, "effect") };
                 journal.record(&e, State::Pending);
                 query_ok(t, &report)?;
                 journal.record(&e, State::Done);
@@ -348,7 +293,7 @@ pub fn run(
                 query_ok(t, &report)?;
             }
             Ok(Outcome {
-                result: to_json(&EffectState { effect: Some(a.effect.clone()), storage: a.storage }),
+                result: ipc::raw(&EffectState { effect: Some(a.effect.clone()), storage: a.storage }),
                 lighting: Lighting::Hardware(a.effect.clone()),
                 log,
             })
@@ -357,15 +302,15 @@ pub fn run(
             query_ok(t, &proto::set_device_mode(tid, DeviceMode::Normal))?;
             query_ok(t, &proto::effect_custom_frame(tid))?;
             Ok(Outcome {
-                result: to_json(&EffectState { effect: None, storage: Storage::Session }),
+                result: ipc::raw(&EffectState { effect: None, storage: Storage::Session }),
                 lighting: Lighting::Software,
                 log: vec![],
             })
         }
-        Command::CheckRun => Ok(Outcome::value(to_json(&checks.run_all(t, def, tid)))),
-        Command::PerformanceGet => Ok(Outcome::value(to_json(&read_performance(t, def, tid)))),
+        Command::CheckRun => Ok(Outcome::value(ipc::raw(&checks.run_all(t, def, tid)))),
+        Command::PerformanceGet => Ok(Outcome::value(ipc::raw(&read_performance(t, def, tid)))),
         Command::PerformanceSet(a) => set_performance(t, def, tid, a, journal),
-        Command::PowerGet => Ok(Outcome::value(to_json(&read_power(t, def, tid)))),
+        Command::PowerGet => Ok(Outcome::value(ipc::raw(&read_power(t, def, tid)))),
         Command::PowerSet(a) => set_power(t, def, tid, a, journal),
         Command::Status | Command::Devices | Command::Capabilities(_) => bail!("{:?} is answered by the daemon", cmd),
     }
@@ -435,42 +380,39 @@ fn set_performance(
         if let Some(d) = dpi {
             query_ok(t, &dpi_report(d))?;
         }
-        return Ok(Outcome::value(to_json(&read_performance(t, def, tid))));
+        return Ok(Outcome::value(ipc::raw(&read_performance(t, def, tid))));
     }
 
-    let before = read_performance(t, def, tid);
+    let read = |t: &mut dyn Transport| -> Result<PerformanceState> { Ok(read_performance(t, def, tid)) };
     let wants = |s: &PerformanceState| {
         dpi.is_none_or(|d| s.dpi == Some(d))
             && stages.as_ref().is_none_or(|x| s.stages.as_ref() == Some(x))
             && poll.is_none_or(|(hz, _)| s.poll_hz == Some(hz))
     };
-    if wants(&before) {
-        let r = WriteResult { after: before.clone(), before, verified: true, unchanged: true };
-        return Ok(Outcome::value(to_json(&r)));
-    }
-    let mut steps: Vec<(String, Vec<Report>)> = vec![];
-    if let Some(d) = dpi {
-        steps.push((format!("DPI {d}"), vec![dpi_report(d)]));
-    }
-    if let Some(s) = &stages {
-        let l: Vec<String> = s.list.iter().map(|d| d.to_string()).collect();
-        steps.push((format!("DPI stages [{}] active {}", l.join(", "), s.active), vec![perf::set_stages(tid, s)?]));
-    }
-    if let Some((hz, p)) = poll {
-        let from = before.poll_hz.map_or("?".into(), |h| h.to_string());
-        steps.push((format!("poll rate {from} -> {hz} Hz"), perf::set_poll(tid, p.kind, hz, p.set_twice)?));
-    }
-    let show = |s: &PerformanceState| serde_json::to_string(s).unwrap_or_default();
-    let parts = apply_steps(t, journal, entry(def, "performance", show(&before), String::new()), steps)?;
-    let after = read_performance(t, def, tid);
-    let verified = wants(&after);
-    journal.record(&entry(def, "performance", show(&before), show(&after)), State::Done);
-    let line = format!("ONBOARD WRITE {}: {} (verified {verified})", def.id, parts.join(", "));
-    Ok(Outcome {
-        result: to_json(&WriteResult { before, after, verified, unchanged: false }),
-        lighting: Lighting::Unchanged,
-        log: vec![line],
-    })
+    let w = OnboardWrite {
+        entry: JournalEntry::new(def, "performance"),
+        requested: None,
+        tag: "",
+        read: &read,
+        wants: &wants,
+        show: &|s: &PerformanceState| serde_json::to_string(s).unwrap_or_default(),
+    };
+    let steps = |_: &mut dyn Transport, before: &PerformanceState| -> Result<Vec<Step>> {
+        let mut steps: Vec<Step> = vec![];
+        if let Some(d) = dpi {
+            steps.push((format!("DPI {d}"), vec![dpi_report(d)]));
+        }
+        if let Some(s) = &stages {
+            let l: Vec<String> = s.list.iter().map(|d| d.to_string()).collect();
+            steps.push((format!("DPI stages [{}] active {}", l.join(", "), s.active), vec![perf::set_stages(tid, s)?]));
+        }
+        if let Some((hz, p)) = poll {
+            let from = before.poll_hz.map_or("?".into(), |h| h.to_string());
+            steps.push((format!("poll rate {from} -> {hz} Hz"), perf::set_poll(tid, p.kind, hz, p.set_twice)?));
+        }
+        Ok(steps)
+    };
+    verified_write(t, journal, w, steps, |_, _, labels| labels.join(", "))
 }
 
 fn read_power(t: &mut dyn Transport, def: &DeviceDef, tid: u8) -> PowerState {
@@ -512,55 +454,110 @@ fn set_power(t: &mut dyn Transport, def: &DeviceDef, tid: u8, a: &PowerSetArgs, 
         idle.is_none_or(|v| s.idle_s == Some(v))
             && low_raw.is_none_or(|r| s.low_battery_pct == Some(power::raw_to_pct(r)))
     };
-    let before = read_power(t, def, tid);
-    if wants(&before) {
+    let read = |t: &mut dyn Transport| -> Result<PowerState> { Ok(read_power(t, def, tid)) };
+    let w = OnboardWrite {
+        entry: JournalEntry::new(def, "power"),
+        requested: None,
+        tag: "",
+        read: &read,
+        wants: &wants,
+        show: &|s: &PowerState| serde_json::to_string(s).unwrap_or_default(),
+    };
+    let steps = |_: &mut dyn Transport, before: &PowerState| -> Result<Vec<Step>> {
+        let opt = |v: Option<u16>| v.map_or("?".to_string(), |x| x.to_string());
+        let mut steps: Vec<Step> = vec![];
+        if let Some(v) = idle {
+            steps.push((format!("sleep after {} -> {v} s", opt(before.idle_s)), vec![power::set_idle(tid, v)]));
+        }
+        if let Some(r) = low_raw {
+            let pct = power::raw_to_pct(r);
+            let label = format!("low battery {}% -> {pct}%", opt(before.low_battery_pct.map(u16::from)));
+            steps.push((label, vec![power::set_low_battery(tid, r)]));
+        }
+        Ok(steps)
+    };
+    verified_write(t, journal, w, steps, |_, _, labels| labels.join(", "))
+}
+
+/// One labelled part of an onboard write: its reports, sent in order.
+type Step = (String, Vec<Report>);
+
+/// One onboard write for [`verified_write`]: how to read the value, when it is what was asked for, and how
+/// the journal shows it.
+struct OnboardWrite<'a, T> {
+    /// Device, command and (for keys) profile, key and layer; `before` and `after` are filled in.
+    entry: JournalEntry,
+    /// What the `pending` entry records as asked for; `None`: the labels of the steps.
+    requested: Option<String>,
+    /// Goes right after the device id in the log line (`" (keymap.set)"`).
+    tag: &'a str,
+    read: &'a dyn Fn(&mut dyn Transport) -> Result<T>,
+    wants: &'a dyn Fn(&T) -> bool,
+    show: &'a dyn Fn(&T) -> String,
+}
+
+/// Every onboard write goes through here: read the value; if the device already holds what was asked for,
+/// send nothing; else build the steps (`steps` may still refuse, as the left-click guard does), journal
+/// `pending` with the value from before, send each step (one that fails journals `failed` with what was
+/// already applied), read back, journal `done` with what the device now holds, and log `ONBOARD WRITE …`
+/// (`describe` gives the middle of that line).
+fn verified_write<T: Serialize + Clone>(
+    t: &mut dyn Transport,
+    journal: &Journal,
+    w: OnboardWrite<T>,
+    steps: impl FnOnce(&mut dyn Transport, &T) -> Result<Vec<Step>>,
+    describe: impl FnOnce(&T, &T, &[String]) -> String,
+) -> Result<Outcome> {
+    let before = (w.read)(t)?;
+    if (w.wants)(&before) {
         let r = WriteResult { after: before.clone(), before, verified: true, unchanged: true };
-        return Ok(Outcome::value(to_json(&r)));
+        return Ok(Outcome::value(ipc::raw(&r)));
     }
-    let opt = |v: Option<u16>| v.map_or("?".to_string(), |x| x.to_string());
-    let mut steps: Vec<(String, Vec<Report>)> = vec![];
-    if let Some(v) = idle {
-        steps.push((format!("sleep after {} -> {v} s", opt(before.idle_s)), vec![power::set_idle(tid, v)]));
-    }
-    if let Some(r) = low_raw {
-        let pct = power::raw_to_pct(r);
-        let label = format!("low battery {}% -> {pct}%", opt(before.low_battery_pct.map(u16::from)));
-        steps.push((label, vec![power::set_low_battery(tid, r)]));
-    }
-    let show = |s: &PowerState| serde_json::to_string(s).unwrap_or_default();
-    let parts = apply_steps(t, journal, entry(def, "power", show(&before), String::new()), steps)?;
-    let after = read_power(t, def, tid);
-    let verified = wants(&after);
-    journal.record(&entry(def, "power", show(&before), show(&after)), State::Done);
-    let line = format!("ONBOARD WRITE {}: {} (verified {verified})", def.id, parts.join(", "));
+    let steps = steps(t, &before)?;
+    let entry = JournalEntry { before: (w.show)(&before), ..w.entry };
+    let labels = send_journalled(t, journal, &entry, w.requested, &steps)?;
+    let after = (w.read)(t)?;
+    let verified = (w.wants)(&after);
+    let line = format!(
+        "ONBOARD WRITE {}{}: {} (verified {verified})",
+        entry.device,
+        w.tag,
+        describe(&before, &after, &labels)
+    );
+    journal.record(&JournalEntry { after: (w.show)(&after), ..entry }, State::Done);
     Ok(Outcome {
-        result: to_json(&WriteResult { before, after, verified, unchanged: false }),
+        result: ipc::raw(&WriteResult { before, after, verified, unchanged: false }),
         lighting: Lighting::Unchanged,
         log: vec![line],
     })
 }
 
-/// Send a write made of several labelled steps, journalling it `pending` first. If a step fails, a
-/// `failed` entry records which steps were applied, and the error says so too. Returns the labels.
-fn apply_steps(
+/// The part of [`verified_write`] that is the same for every value type (kept out of the generic function,
+/// so it is compiled once): journal `pending`, send each step, and on a failed report journal `failed` with
+/// what was already applied. Returns the step labels.
+fn send_journalled(
     t: &mut dyn Transport,
     journal: &Journal,
-    pending: JournalEntry,
-    steps: Vec<(String, Vec<Report>)>,
+    entry: &JournalEntry,
+    requested: Option<String>,
+    steps: &[Step],
 ) -> Result<Vec<String>> {
     let labels: Vec<String> = steps.iter().map(|(l, _)| l.clone()).collect();
-    journal.record(
-        &JournalEntry { after: format!("requested: {}", labels.join(", ")), ..pending.clone() },
-        State::Pending,
-    );
+    let requested = requested.unwrap_or_else(|| format!("requested: {}", labels.join(", ")));
+    journal.record(&JournalEntry { after: requested, ..entry.clone() }, State::Pending);
     let mut applied: Vec<&str> = vec![];
-    for (label, reports) in &steps {
+    for (label, reports) in steps {
         for r in reports {
             if let Err(e) = query_ok(t, r) {
                 let done = if applied.is_empty() { "nothing".to_string() } else { applied.join(", ") };
                 let after = format!("applied: {done}; failed at {label}: {e:#}");
-                journal.record(&JournalEntry { after, ..pending }, State::Failed);
-                return Err(e.context(format!("{label} failed (already applied: {done})")));
+                journal.record(&JournalEntry { after, ..entry.clone() }, State::Failed);
+                // one step: its own error says it all
+                return Err(if steps.len() > 1 {
+                    e.context(format!("{label} failed (already applied: {done})"))
+                } else {
+                    e
+                });
             }
         }
         applied.push(label);
@@ -600,90 +597,77 @@ fn check_layer(km: &KeymapDef, layer: Layer) -> Result<()> {
     }
 }
 
-fn key_of<'a>(def: &'a DeviceDef, key: &str, layer: Layer) -> Result<(&'a KeymapDef, &'a KeyDef)> {
+/// One key of a key map, on one layer of one profile.
+#[derive(Clone, Copy)]
+struct KeyAt<'a> {
+    km: &'a KeymapDef,
+    key: &'a KeyDef,
+    profile: u8,
+    layer: Layer,
+}
+
+fn key_of<'a>(def: &'a DeviceDef, key: &str, layer: Layer, profile: u8) -> Result<KeyAt<'a>> {
     let km = keymap_of(def)?;
     check_layer(km, layer)?;
     let k = km.find(key).ok_or_else(|| {
         let names: Vec<&str> = km.keys.iter().map(|k| k.name.as_str()).collect();
         anyhow!("{} has no key \"{key}\" (keys: {})", def.name, names.join(" "))
     })?;
-    Ok((km, k))
+    Ok(KeyAt { km, key: k, profile, layer })
 }
 
-fn read_key(
-    t: &mut dyn Transport,
-    tid: u8,
-    km: &KeymapDef,
-    key: &KeyDef,
-    profile: u8,
-    layer: Layer,
-) -> Result<KeyMapping> {
-    let reply = query_read(t, &km.get_report(tid, profile, key.id, layer))?;
-    let f = keymap::parse_reply(&reply, profile, key.id)?;
-    Ok(KeyMapping::new(profile, key.id, key.name.clone(), layer, f))
+fn read_key(t: &mut dyn Transport, tid: u8, at: KeyAt) -> Result<KeyMapping> {
+    let reply = query_read(t, &at.km.get_report(tid, at.profile, at.key.id, at.layer))?;
+    let f = keymap::parse_reply(&reply, at.profile, at.key.id)?;
+    Ok(KeyMapping::new(at.profile, at.key.id, at.key.name.clone(), at.layer, f))
 }
 
-#[allow(clippy::too_many_arguments)]
 fn write_key(
     t: &mut dyn Transport,
     tid: u8,
     def: &DeviceDef,
-    km: &KeymapDef,
-    key: &KeyDef,
-    profile: u8,
-    layer: Layer,
+    at: KeyAt,
     f: &Function,
     journal: &Journal,
     cmd: &str,
 ) -> Result<Outcome> {
-    let report = km.set_report(tid, profile, key.id, layer, f)?;
-    let before = read_key(t, tid, km, key, profile, layer)?;
-    if &before.function == f {
-        let r = WriteResult { after: before.clone(), before, verified: true, unchanged: true };
-        return Ok(Outcome::value(to_json(&r)));
-    }
-    left_click_guard(t, tid, def, km, key, profile, layer, &before.function, f)?;
-    let mut e = entry(def, "keymap", before.function.to_string(), f.to_string());
-    (e.profile, e.key, e.layer) = (Some(profile), Some(key.id), Some(layer));
-    journal.record(&e, State::Pending);
-    query_ok(t, &report)?;
-    let after = read_key(t, tid, km, key, profile, layer)?;
-    let verified = &after.function == f;
-    journal.record(&JournalEntry { after: after.function.to_string(), ..e }, State::Done);
-    let line = format!(
-        "ONBOARD WRITE {} ({cmd}): profile {profile} {} {} `{}` -> `{}` (verified {verified})",
-        def.id,
-        layer.as_str(),
-        key.name,
-        before.function,
-        after.function
-    );
-    Ok(Outcome {
-        result: to_json(&WriteResult { before, after, verified, unchanged: false }),
-        lighting: Lighting::Unchanged,
-        log: vec![line],
+    let report = at.km.set_report(tid, at.profile, at.key.id, at.layer, f)?;
+    let read = |t: &mut dyn Transport| -> Result<KeyMapping> { read_key(t, tid, at) };
+    let mut entry = JournalEntry::new(def, "keymap");
+    (entry.profile, entry.key, entry.layer) = (Some(at.profile), Some(at.key.id), Some(at.layer));
+    let tag = format!(" ({cmd})");
+    let w = OnboardWrite {
+        entry,
+        requested: Some(f.to_string()),
+        tag: &tag,
+        read: &read,
+        wants: &|m: &KeyMapping| &m.function == f,
+        show: &|m: &KeyMapping| m.function.to_string(),
+    };
+    let steps = |t: &mut dyn Transport, before: &KeyMapping| -> Result<Vec<Step>> {
+        left_click_guard(t, tid, def, at, &before.function, f)?;
+        Ok(vec![(format!("{} {}", at.layer.as_str(), at.key.name), vec![report])])
+    };
+    verified_write(t, journal, w, steps, |b, a, _| {
+        format!("profile {} {} {} `{}` -> `{}`", at.profile, at.layer.as_str(), at.key.name, b.function, a.function)
     })
 }
 
 /// On a mouse's normal layer, refuse to take left click away from the last button that has it.
-#[allow(clippy::too_many_arguments)]
 fn left_click_guard(
     t: &mut dyn Transport,
     tid: u8,
     def: &DeviceDef,
-    km: &KeymapDef,
-    key: &KeyDef,
-    profile: u8,
-    layer: Layer,
+    at: KeyAt,
     current: &Function,
     new: &Function,
 ) -> Result<()> {
     let left = Function::MouseButton { button: 1 };
-    if def.kind != Kind::Mouse || layer != Layer::Normal || current != &left || new == &left {
+    if def.kind != Kind::Mouse || at.layer != Layer::Normal || current != &left || new == &left {
         return Ok(());
     }
-    for other in km.keys.iter().filter(|k| k.id != key.id) {
-        if read_key(t, tid, km, other, profile, layer)?.function == left {
+    for key in at.km.keys.iter().filter(|k| k.id != at.key.id) {
+        if read_key(t, tid, KeyAt { key, ..at })?.function == left {
             return Ok(());
         }
     }
@@ -740,9 +724,8 @@ mod tests {
         Command::from_parts(name, Some(&args.to_string())).unwrap()
     }
 
-    #[allow(clippy::boxed_local)]
-    fn from_raw<T: serde::de::DeserializeOwned>(r: Raw) -> serde_json::Result<T> {
-        serde_json::from_str(r.get())
+    fn from_raw<T: serde::de::DeserializeOwned>(r: impl AsRef<serde_json::value::RawValue>) -> serde_json::Result<T> {
+        serde_json::from_str(r.as_ref().get())
     }
 
     #[test]
@@ -1112,6 +1095,41 @@ mod tests {
     }
 
     #[test]
+    fn single_report_writes_journal_like_the_others() {
+        let def = kb();
+        let mut dev = FakeDevice::keyboard();
+        let (j, path) = journal();
+        let lines = || -> Vec<serde_json::Value> {
+            std::fs::read_to_string(&path).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect()
+        };
+        let out = go(&mut dev, &def, 0x1F, &cmd("dial.set", json!({"mode": "ZOOM", "write": true})), &j).unwrap();
+        assert_eq!(
+            out.log,
+            ["ONBOARD WRITE razer-blackwidow-v4-pro-75: dial mode profile 1 VOLUME -> ZOOM (verified true)"]
+        );
+        let l = lines();
+        assert_eq!(
+            (l[0]["state"].as_str(), l[0]["before"].as_str(), l[0]["after"].as_str()),
+            (Some("pending"), Some("VOLUME"), Some("ZOOM"))
+        );
+        assert_eq!(
+            (l[1]["state"].as_str(), l[1]["after"].as_str(), l[1]["profile"].as_u64()),
+            (Some("done"), Some("ZOOM"), Some(1))
+        );
+        // a single report that fails: `failed`, nothing applied, and the device's own error
+        dev.fail_on(0x17, 0x03);
+        let e = go(&mut dev, &def, 0x1F, &cmd("oled.set", json!({"brightness": 60, "write": true})), &j).unwrap_err();
+        assert!(!format!("{e:#}").contains("already applied"), "{e:#}");
+        let last = lines().pop().unwrap();
+        assert_eq!((last["cmd"].as_str(), last["state"].as_str()), (Some("oled.brightness"), Some("failed")));
+        assert!(
+            last["after"].as_str().unwrap().starts_with("applied: nothing; failed at OLED brightness 60%"),
+            "{last}"
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
     fn left_click_guard_keeps_one_left_click() {
         let def = mouse();
         let mut dev = FakeDevice::for_def(&def);
@@ -1131,5 +1149,36 @@ mod tests {
         // the Hypershift layer is not guarded
         let fnl = cmd("keymap.set", json!({"key": "BACK", "layer": "fn", "function": "button 3", "write": true}));
         assert!(go(&mut dev, &def, 0x1F, &fnl, &j).is_ok());
+    }
+
+    #[test]
+    fn left_click_guard_covers_reset_too() {
+        let def = mouse();
+        let mut dev = FakeDevice::for_def(&def);
+        let (j, path) = journal();
+        // left click moves to the back button, then the main button gives it up
+        go(&mut dev, &def, 0x1F, &cmd("keymap.set", json!({"key": "BACK", "function": "button 1", "write": true})), &j)
+            .unwrap();
+        go(
+            &mut dev,
+            &def,
+            0x1F,
+            &cmd("keymap.set", json!({"key": "LEFT_CLICK", "function": "button 3", "write": true})),
+            &j,
+        )
+        .unwrap();
+        // resetting the back button to what it was (button 4) would leave nothing that left-clicks
+        let n = dev.writes().len();
+        let e = go(&mut dev, &def, 0x1F, &cmd("keymap.reset", json!({"key": "BACK", "write": true})), &j).unwrap_err();
+        assert_eq!(code(&e), Some(codes::LEFT_CLICK_GUARD));
+        assert_eq!(dev.writes().len(), n, "nothing sent");
+        // reset the main button first, then the back button may go back too
+        go(&mut dev, &def, 0x1F, &cmd("keymap.reset", json!({"key": "LEFT_CLICK", "write": true})), &j).unwrap();
+        let r: WriteResult<KeyMapping> = from_raw(
+            go(&mut dev, &def, 0x1F, &cmd("keymap.reset", json!({"key": "BACK", "write": true})), &j).unwrap().result,
+        )
+        .unwrap();
+        assert_eq!(r.after.function.to_string(), "button 4");
+        let _ = std::fs::remove_file(path);
     }
 }

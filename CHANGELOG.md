@@ -89,6 +89,14 @@ Everything so far. Nothing has been released yet.
 
 For anyone running an earlier build from source:
 
+- **Errors keep their code end to end.** The desktop app gets `{message, code, unreachable}` from the
+  bridge instead of parsing text; `uncoil --json` prints errors as `{"error", "code"}` on stderr.
+- **The app loads your extra device files** from `%APPDATA%\uncoil\devices`, like the daemon, so they
+  join the desk preview and Studio.
+- **A broken config file is reported** in the daemon's log (at start and on reload) instead of silently
+  falling back to defaults.
+- The browser mock now matches the real daemon's check states, and tests keep it and the TypeScript
+  effect code in step with the engine.
 - **The daemon runs unelevated by default.** `scripts/install-task.ps1` registers the `uncoil` task with run
   level Limited. `-OpenRgb` adds the elevated one-shot task `uncoil-openrgb` (`uncoild --openrgb-once`) for
   the OpenRGB hand-off; `-Elevated` is the fallback that runs the daemon itself elevated. The binary goes to

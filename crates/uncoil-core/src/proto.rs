@@ -280,15 +280,6 @@ pub fn custom_frame_row(tid: u8, row: u8, start: u8, colors: &[[u8; 3]]) -> anyh
     Ok(Report::new(tid, 0x0F, 0x03, &args))
 }
 
-/// OLED command dial (BlackWidow V4 Pro 75%): which function the dial drives.
-pub fn set_command_dial_mode(tid: u8, profile: u8, mode: u8, display_order: u8, enabled_functions: u8) -> Report {
-    Report::new(tid, 0x17, 0x00, &[profile, mode, display_order, enabled_functions])
-}
-
-pub fn set_oled_brightness(tid: u8, percent: u8) -> Report {
-    Report::new(tid, 0x17, 0x03, &[percent.min(100)])
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,13 +289,6 @@ mod tests {
         // From Synapse's log: dataSend [0,5,0,0,0,2,0,4,3,0,...] for "Set Device Mode" (driver), tid 5
         let w = Report::new(0x05, 0x00, 0x04, &[3, 0]).to_wire();
         assert_eq!(&w[1..11], &[0, 5, 0, 0, 0, 2, 0, 4, 3, 0]);
-    }
-
-    #[test]
-    fn command_dial_report_matches_synapse_bytes() {
-        // "Set OLED Command dial active mode": dataSend [0,6,0,0,0,4,23,0,1,0,1,6,...]
-        let w = set_command_dial_mode(6, 1, 0, 1, 6).to_wire();
-        assert_eq!(&w[1..13], &[0, 6, 0, 0, 0, 4, 23, 0, 1, 0, 1, 6]);
     }
 
     #[test]
@@ -362,7 +346,7 @@ mod tests {
         assert_eq!(G::of(&Report::new(1, 0x07, 0x81, &[])), G::LowBattery);
         assert_eq!(G::of(&Report::new(1, 0x07, 0x83, &[])), G::Power);
         assert_eq!(G::of(&set_device_mode(1, DeviceMode::Normal)), G::Device);
-        assert_eq!(G::of(&set_oled_brightness(1, 50)), G::Other);
+        assert_eq!(G::of(&crate::features::oled::set_brightness(1, 50)), G::Other);
     }
 
     struct Echo(Vec<(u8, u8)>);

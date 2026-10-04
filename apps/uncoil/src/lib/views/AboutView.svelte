@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ExternalLink } from '@lucide/svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import { openExternal as open } from '#lib/api.ts';
 	import { app } from '#lib/state.svelte.ts';
 
@@ -9,7 +10,7 @@
 	const mb = (b: number) => (b / 1048576).toFixed(1);
 </script>
 
-<Workspace title="About uncoil" subtitle="Version {s?.version ?? '0.1.0'} · free and open source (GPL-3.0-or-later)">
+<Workspace title={pageTitle('about')} subtitle="Version {s?.version ?? '0.1.0'} · free and open source (GPL-3.0-or-later)">
 	<section class="card">
 		<p class="lead">A small background engine that runs your Razer lighting, and this app to adjust it. Close the app whenever you like; the engine keeps running on its own.</p>
 		<p>Changes saved into the devices themselves, like Fn+P for Print Screen, keep working even without uncoil.</p>

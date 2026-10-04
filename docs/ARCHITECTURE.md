@@ -43,7 +43,7 @@ elevated; that daemon then does the hand-off itself.
 | `crates/uncoil-core/src/scancode.rs` | scan code to layout shape name (reactive effects) | none |
 | `crates/uncoil-hid/src/display.rs` | display power state (`GUID_CONSOLE_DISPLAY_STATE`) on a hidden window | Windows |
 | `crates/uncoil-hid/src/keys.rs`, `audio.rs` | key press listener (Raw Input), audio peak meter (WASAPI) | Windows input / audio |
-| `apps/uncoild/src/inputs.rs` | press buffer (positions only), listener start/stop, desk geometry | via `uncoil-hid` |
+| `apps/uncoild/src/inputs.rs` | press buffer (positions only), listener start/stop (desk geometry: `uncoil_core::layout::Desk`) | via `uncoil-hid` |
 | `crates/uncoil-hid/src/transport.rs` | `LiveDevice`: frames, quirks, and `query()` (send + matching reply, busy/new retry) implementing `Transport` | HID |
 | `apps/uncoild/src/main.rs` | main loop (config reload, display fade, rescan, status), one renderer thread per device; the control pipe doubles as the single-instance lock; `--fake`, `--openrgb-once` | everything above |
 | `apps/uncoild/src/log.rs`, `selfstat.rs` | the log (trimmed past 256 KB), the daemon's own memory / CPU / size | files |
@@ -55,10 +55,13 @@ elevated; that daemon then does the hand-off itself.
 | `apps/uncoild/src/checks.rs` | read-only checks per feature, cached per connection; gate writes on experimental devices | via `Transport` |
 | `apps/uncoild/src/fake.rs` | a fake keyboard, mouse and experimental DeathAdder V3 Pro that answer like real ones (tests, `--fake`) | none |
 | `apps/uncoil-cli` | the `uncoil` binary | pipe |
-| `apps/uncoil/src-tauri` | the desktop app's shell (`uncoil-gui`): config read/write, `preview_frame` with the real engine, a `daemon` bridge to the pipe | config, status, pipe |
+| `apps/uncoil/src-tauri` | the desktop app's shell (`uncoil-gui`): config read/write, `preview_frame` with the real engine, a `daemon` bridge to the pipe; loads the same device files as the daemon (`device::load_installed`: built-ins plus `%APPDATA%\uncoil\devices`) | config, status, pipe |
 
-Adding a feature is: a module in `features/` (pure, tested), a `Command` variant + args in `ipc.rs`, a
-match arm in `exec.rs`, a subcommand in the CLI, and the feature name in the device TOMLs that have it.
+Adding a feature is: a module in `features/` (pure, tested), one line in the `commands!` table in `ipc.rs`
+(variant, wire name, args) plus an arm in `Command::policy` (which features it needs, whether it writes
+the device, which read-only checks gate it), a match arm in `exec.rs`, a subcommand in the CLI, and the
+feature name in the device TOMLs that have it. The `every_write_is_gated_by_a_check` test fails if a
+command that writes the device is not gated by a check or listed as an exemption.
 
 ## Device capabilities are data
 
@@ -220,8 +223,8 @@ gets the typed values for free. Spec strings instead of tagged JSON objects, and
 refused before a report is sent.
 
 A failed request is `{"id":…, "ok":false, "error":"<plain words>", "code":"<code>"}`; `code` is present
-only for `check_failed`, `left_click_guard` and `not_supported`. The desktop app's bridge turns it into the
-error text `"<code>: <plain words>"`, next to the existing `unreachable:` prefix. Errors that answer the
+only for `check_failed`, `left_click_guard` and `not_supported`. The desktop app's bridge returns
+`{message, code, unreachable}` to the front end (`unreachable` when the pipe can't be reached at all). Errors that answer the
 connection rather than a request (`too many clients`, `request too long`) carry no `id`; `ipc::Client`
 treats such an error as the answer to whatever it is waiting for.
 
@@ -318,8 +321,13 @@ In the daemon (`apps/uncoild/src/inputs.rs`), the main loop starts and stops two
   (with made-up DPI 1600, stages 400/800/1600/3200/6400, 1000 Hz, battery 78 %, sleep 300 s, warning 15 %)
   and the experimental DeathAdder V3 Pro from its device file (checks start untested; `check.run` passes
   them), and reports one unknown Razer device, product ID 0x0FFE.
-- The browser mock's daemon answers (`apps/uncoil/src/lib/mock/daemon/*.json`) are the fake's answers:
-  `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoild gui_mock` rewrites them.
+- The browser mock's daemon answers (`apps/uncoil/src/lib/mock/daemon/*.json`) are the fake's answers.
+  `cargo test -p uncoild gui_mock` fails when they drift (or when the folder holds a file it doesn't
+  generate); `UNCOIL_UPDATE_MOCK=1` rewrites them.
+- The TypeScript mirrors (`effect.ts`, `effects.ts`, `keys.ts` and the mock's default config) are checked
+  against `apps/uncoil/src/lib/mock/fixtures.json`, which `cargo test -p uncoil-core ts_mirror` writes
+  from the Rust engine (and compares when not updating). `pnpm check` runs
+  `apps/uncoil/scripts/check-mirror.mjs` (colours within one step).
 
 ## Footprint
 
@@ -333,4 +341,5 @@ experimental), about 171 KB code, mostly TOML and JSON (de)serialisers for the n
 Deflating the device files into one blob (inflated once, on first use) brought it to 1,208,320 bytes.
 Running unelevated and treating device files and the pipe as untrusted (validation, the pipe idle timeout
 and server check, `winsec.rs`, the config-driven OpenRGB hand-off) took it to 1,257,472 bytes (about
-1.3 MB, measured 2026-10-03).
+1.3 MB, measured 2026-10-03). The command-policy and write-helper refactor left it at 1,260,544 bytes
+(measured 2026-10-04).

@@ -5,8 +5,9 @@
 //! * Access: the DACL grants the daemon's own user account (the logged-in user; the scheduled task runs as
 //!   that user) and nobody else; the medium mandatory label (no write up, no read up) lets that user's
 //!   non-elevated GUI and CLI connect when the daemon runs elevated. Remote clients are rejected, and
-//!   `FILE_FLAG_FIRST_PIPE_INSTANCE` makes startup fail rather than share a name another process already
-//!   took (the daemon uses that as its single-instance lock).
+//!   `FILE_FLAG_FIRST_PIPE_INSTANCE` on the first instance makes [`serve`] fail rather than share a name
+//!   another process already took; the daemon then exits before opening any device (its single-instance
+//!   lock).
 //! * At most [`imp::MAX_CLIENTS`] clients; one that sends no request for [`IDLE`] is disconnected, so idle
 //!   connections cannot lock the GUI out.
 

@@ -955,4 +955,125 @@ mod tests {
         let l: StudioLayer = serde_json::from_str(r#"{"effect":{"kind":"off"}}"#).unwrap();
         assert!(l.enabled && l.opacity == 1.0 && l.mask == Mask::All);
     }
+
+    /// `apps/uncoil/src/lib/mock/fixtures.json`: what the engine answers, for the TypeScript mirrors
+    /// (`effect.ts`, `effects.ts`, `keys.ts`, the mock's default config) to be checked against by
+    /// `apps/uncoil/scripts/check-mirror.mjs` (part of `pnpm check`). Regenerate with
+    /// `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoil-core ts_mirror`.
+    #[test]
+    fn ts_mirror_fixtures() {
+        use crate::config::Config;
+        use serde_json::{json, Value};
+        let defs = crate::device::builtin();
+        let desk = crate::layout::Desk::new(&defs, &Default::default(), |_| false);
+        // a spread of LEDs over the three devices: corners, middle, underglow, mouse, mat
+        let wanted = [
+            ("razer-blackwidow-v4-pro-75", ["Escape", "W", "Left Shift", "Space", "Delete", "LU1", "RU5"].as_slice()),
+            ("razer-basilisk-v3-pro", &["Logo", "Wheel"]),
+            ("razer-goliathus-chroma-extended", &["Edge"]),
+        ];
+        let mut points: Vec<(String, String, f32, f32)> = vec![];
+        for (id, shapes) in wanted {
+            let dev = &desk.devices.iter().find(|(_, d)| d.id == id).unwrap().1;
+            for s in dev.shapes.iter().filter(|s| shapes.contains(&s.name.as_str())) {
+                points.push((id.into(), s.name.clone(), s.x, s.y));
+            }
+        }
+        // and some points between and around the devices (no LED: device and shape are empty)
+        for (x, y) in [(-1.75, -1.25), (3.3, 2.7), (12.0, 7.9), (23.9, 0.1), (18.6, 5.55)] {
+            points.push((String::new(), String::new(), x, y));
+        }
+        let w = desk.devices[0].1.shape_position("W").unwrap();
+        let presses =
+            [Press { x: w.0, y: w.1, t: 0.5 }, Press { x: 14.0, y: 4.0, t: 2.9 }, Press { x: 20.9, y: 3.3, t: 3.0 }];
+        let studio = r#"{"kind":"studio","layers":[
+            {"name":"base","enabled":true,"opacity":1,"effect":{"kind":"wave","angle_deg":20,"period_s":9,"wavelength":18,"reverse":false},"mask":{"kind":"all"}},
+            {"name":"mouse","enabled":true,"opacity":0.6,"effect":{"kind":"static","color":[255,40,0]},"mask":{"kind":"devices","ids":["razer-basilisk-v3-pro"]}},
+            {"name":"off","enabled":false,"opacity":1,"effect":{"kind":"static","color":[0,255,0]},"mask":{"kind":"all"}},
+            {"name":"keys","enabled":true,"opacity":0.75,"effect":{"kind":"reactive","color":null,"fade_s":1.5},"mask":{"kind":"keys","device":"razer-blackwidow-v4-pro-75","shapes":["W","Escape"]}},
+            {"name":"stars","enabled":true,"opacity":0.5,"effect":{"kind":"starlight","colors":[],"density":0.4,"twinkle_s":1.1},"mask":{"kind":"all"}},
+            {"name":"rings","enabled":true,"opacity":1,"effect":{"kind":"ripple","color":[0,120,255],"speed":9,"width":2,"fade_s":2},"mask":{"kind":"all"}}
+        ]}"#;
+        let effects: Vec<(&str, &str)> = vec![
+            ("wave", r#"{"kind":"wave","angle_deg":35,"period_s":14,"wavelength":26,"reverse":false}"#),
+            ("wave reversed", r#"{"kind":"wave","angle_deg":120,"period_s":3,"wavelength":7.5,"reverse":true}"#),
+            ("spectrum", r#"{"kind":"spectrum","period_s":5}"#),
+            ("static", r#"{"kind":"static","color":[224,163,62]}"#),
+            ("off", r#"{"kind":"off"}"#),
+            ("breathing rainbow", r#"{"kind":"breathing","colors":[],"period_s":4}"#),
+            ("breathing two", r#"{"kind":"breathing","colors":[[255,0,0],[0,0,255]],"period_s":2.5}"#),
+            ("starlight", r#"{"kind":"starlight","colors":[],"density":0.5,"twinkle_s":1.5}"#),
+            (
+                "starlight gels",
+                r#"{"kind":"starlight","colors":[[255,217,168],[38,198,218]],"density":0.3,"twinkle_s":0.7}"#,
+            ),
+            ("fire", r#"{"kind":"fire","speed":1,"height":0.6}"#),
+            ("fire fast", r#"{"kind":"fire","speed":2.5,"height":0.3}"#),
+            ("wheel", r#"{"kind":"wheel","period_s":6,"reverse":false,"center":null}"#),
+            ("wheel centred", r#"{"kind":"wheel","period_s":4,"reverse":true,"center":[20,3]}"#),
+            ("reactive", r#"{"kind":"reactive","color":null,"fade_s":1}"#),
+            ("reactive gel", r#"{"kind":"reactive","color":[106,168,79],"fade_s":3}"#),
+            ("ripple", r#"{"kind":"ripple","color":null,"speed":14,"width":2,"fade_s":1.5}"#),
+            ("audio meter", r#"{"kind":"audio_meter","sensitivity":1.5}"#),
+            ("studio", studio),
+        ];
+        let times = [0.0f32, 0.7, 3.3, 12.9];
+        let (sat, val, audio) = (0.85f32, 0.9f32, 0.45f32);
+        let inputs = desk.inputs(&presses, audio);
+        let samples: Vec<Value> = effects
+            .iter()
+            .map(|(name, src)| {
+                let effect: Effect = serde_json::from_str(src).unwrap_or_else(|e| panic!("{name}: {e}"));
+                let colors: Vec<Vec<[u8; 3]>> = times
+                    .iter()
+                    .map(|&t| {
+                        let f = effect.at_with(t, sat, val, &inputs);
+                        points.iter().map(|(d, s, x, y)| f.color_led(d, s, *x, *y).bytes()).collect()
+                    })
+                    .collect();
+                json!({"name": name, "effect": effect, "colors": colors})
+            })
+            .collect();
+        let kinds = [
+            "wave",
+            "spectrum",
+            "static",
+            "off",
+            "breathing",
+            "starlight",
+            "fire",
+            "wheel",
+            "reactive",
+            "ripple",
+            "audio_meter",
+        ];
+        let mut defaults = serde_json::Map::new();
+        for k in kinds {
+            let src = if k == "static" { json!({"kind": k, "color": [0, 0, 0]}) } else { json!({"kind": k}) };
+            let e: Effect = serde_json::from_value(src).unwrap();
+            defaults.insert(k.into(), serde_json::to_value(&e).unwrap());
+        }
+        assert!(effects.iter().all(|(_, src)| kinds.iter().any(|k| src.contains(&format!("\"kind\":\"{k}\"")))));
+        let usage_names: Vec<String> = (0..=255u8).filter_map(crate::features::keymap::usage_name).collect();
+        let fixtures = json!({
+            "about": "Written by `ts_mirror_fixtures` in crates/uncoil-core/src/effect.rs; checked by scripts/check-mirror.mjs.",
+            "config_default": Config::default(),
+            "effect_defaults": defaults,
+            "usage_names": usage_names,
+            "inputs": {"presses": presses, "audio": audio, "bounds": inputs.bounds.map(|b| json!({"minX": b.min_x, "minY": b.min_y, "maxX": b.max_x, "maxY": b.max_y})), "keyboard_center": inputs.keyboard_center},
+            "sat": sat,
+            "val": val,
+            "times": times,
+            "points": points,
+            "samples": samples,
+        });
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/uncoil/src/lib/mock/fixtures.json");
+        let real = serde_json::to_string(&fixtures).unwrap() + "\n";
+        if std::env::var_os("UNCOIL_UPDATE_MOCK").is_some() {
+            std::fs::write(&path, &real).unwrap();
+        }
+        let file = std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n");
+        assert!(file == real, "{} is stale; rerun with UNCOIL_UPDATE_MOCK=1", path.display());
+    }
 }

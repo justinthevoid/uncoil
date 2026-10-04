@@ -6,6 +6,7 @@
 	import { fade } from 'svelte/transition';
 	import { Plus, X } from '@lucide/svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import Slider from '#lib/components/Slider.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
@@ -161,10 +162,10 @@
 {#if !pipe.loaded}
 	<p class="loading">Connecting to the engine…</p>
 {:else if pipe.unreachable || !device}
-	<PipeUnavailable what="Performance" unreachable={pipe.unreachable} />
+	<PipeUnavailable page="performance" unreachable={pipe.unreachable} />
 {:else}
 	<Workspace
-		title="Performance"
+		title={pageTitle('performance')}
 		badge={experimentalBadge(deviceId)}
 		subtitle="The current DPI changes right away and isn't stored. DPI stages and the polling rate are saved in the mouse, so they keep working without uncoil."
 	>

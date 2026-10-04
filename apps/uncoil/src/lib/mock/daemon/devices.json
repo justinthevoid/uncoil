@@ -38,6 +38,7 @@
     "connection": "fake",
     "features": [
       "keymap",
+      "profiles",
       "dpi",
       "poll_rate",
       "power"

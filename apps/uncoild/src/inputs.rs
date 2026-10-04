@@ -1,5 +1,5 @@
-//! Live inputs for the effects: recent key presses and the system audio level, plus the desk geometry the
-//! effects need (bounds, keyboard centre, where each key sits).
+//! Live inputs for the effects: recent key presses and the system audio level, plus the current desk
+//! (`uncoil_core::layout::Desk`: bounds, keyboard centre, where each key sits).
 //!
 //! PRIVACY (hard rule): a key press becomes a desk position and a time the moment it arrives, inside the
 //! listener callback. Which key it was is never logged, stored, sent anywhere or kept as a sequence; the
@@ -9,14 +9,14 @@
 
 use crate::control::Registry;
 use crate::log;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use uncoil_core::config::Config;
-use uncoil_core::device::{DeviceDef, Kind};
-use uncoil_core::effect::{Bounds, Press};
-use uncoil_core::layout::{self, PlacedDevice, Placement};
+use uncoil_core::device::DeviceDef;
+use uncoil_core::effect::Press;
+use uncoil_core::layout::Desk;
 use uncoil_core::scancode;
 use uncoil_hid::audio::AudioMeter;
 use uncoil_hid::keys::KeyListener;
@@ -27,43 +27,9 @@ pub const MAX_PRESSES: usize = 64;
 /// A key-down at a position already held within this long is auto-repeat, not a new press.
 const REPEAT_WINDOW: Duration = Duration::from_millis(1000);
 
-/// Desk geometry derived from the config and the connected devices, rebuilt when either changes.
-#[derive(Default)]
-pub struct Desk {
-    pub bounds: Option<Bounds>,
-    pub keyboard_center: Option<(f32, f32)>,
-    keyboards: Vec<PlacedDevice>,
-    /// Where each desk device sits (configured, default or auto-placed).
-    placements: HashMap<String, Placement>,
-}
-
-impl Desk {
-    /// The desk the GUI preview shows: supported devices, configured devices and the connected devices in
-    /// `connected`, at their configured place or auto-placed next to their kind (`layout::arrange`).
-    pub fn new(defs: &[Arc<DeviceDef>], cfg: &Config, connected: &[String]) -> Desk {
-        let shown = layout::desk_devices(defs.iter().map(|d| &**d), &cfg.desk, |id| connected.iter().any(|c| c == id));
-        let arranged = layout::arrange(&shown, &cfg.desk);
-        let placements = arranged.iter().map(|(d, at, _)| (d.id.clone(), *at)).collect();
-        let bounds = layout::desk_bounds(arranged.iter().map(|(_, _, p)| p));
-        let keyboards: Vec<PlacedDevice> =
-            arranged.into_iter().filter(|(d, _, _)| d.kind == Kind::Keyboard).map(|(_, _, p)| p).collect();
-        Desk { bounds, keyboard_center: keyboards.first().map(PlacedDevice::center), keyboards, placements }
-    }
-
-    /// Where a device sits on the desk; its kind's default spot when the desk does not show it.
-    pub fn placement(&self, def: &DeviceDef) -> Placement {
-        self.placements.get(&def.id).copied().unwrap_or_else(|| layout::default_placement(def))
-    }
-
-    pub fn same_places(&self, other: &Desk) -> bool {
-        self.placements == other.placements
-    }
-
-    /// Where the key with this shape name sits: on a connected keyboard if one has it, else the first.
-    fn key_position(&self, name: &str, connected: impl Fn(&str) -> bool) -> Option<(f32, f32)> {
-        let on = |kb: &PlacedDevice| kb.shape_position(name);
-        self.keyboards.iter().filter(|kb| connected(&kb.id)).find_map(on).or_else(|| self.keyboards.iter().find_map(on))
-    }
+/// The desk for the config and the connected devices (rebuilt when either changes).
+pub fn desk(defs: &[Arc<DeviceDef>], cfg: &Config, connected: &[String]) -> Desk {
+    Desk::new(defs.iter().map(|d| &**d), &cfg.desk, |id| connected.iter().any(|c| c == id))
 }
 
 /// Shared between the main loop, the renderers and the listener threads.
@@ -193,16 +159,6 @@ mod tests {
     }
 
     #[test]
-    fn desk_matches_the_effect_defaults() {
-        let desk = Desk::new(&defs(), &Config::default(), &[]);
-        assert_eq!(desk.bounds, Some(Bounds::DEFAULT));
-        let (cx, cy) = desk.keyboard_center.unwrap();
-        assert!((cx - 8.125).abs() < 1e-4 && (cy - 3.125).abs() < 1e-4);
-        assert_eq!(desk.key_position("Escape", |_| false), Some((0.5, 0.5)));
-        assert_eq!(desk.key_position("No Such Key", |_| true), None);
-    }
-
-    #[test]
     fn press_buffer_keeps_recent_positions_only() {
         let inputs = Inputs::new();
         for i in 0..100 {
@@ -230,7 +186,7 @@ mod tests {
     #[test]
     fn key_events_become_positions_and_ignore_repeats() {
         let inputs = Arc::new(Inputs::new());
-        inputs.set_desk(Desk::new(&defs(), &Config::default(), &[]));
+        inputs.set_desk(desk(&defs(), &Config::default(), &[]));
         let mut cb = key_callback(inputs.clone(), Arc::new(Registry::default()), Instant::now());
         cb(0x11, false, true); // W down
         cb(0x11, false, true); // auto-repeat
@@ -239,7 +195,7 @@ mod tests {
         cb(0x63, false, true); // a code no layout names: ignored
         let p = inputs.presses(KEEP);
         assert_eq!(p.len(), 2);
-        let w = Desk::new(&defs(), &Config::default(), &[]).key_position("W", |_| true).unwrap();
+        let w = desk(&defs(), &Config::default(), &[]).key_position("W", |_| true).unwrap();
         assert!(p.iter().all(|p| (p.x, p.y) == w));
     }
 }

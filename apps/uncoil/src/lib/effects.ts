@@ -50,7 +50,6 @@ export const fromHex = (h: string): Rgb => {
 	const n = parseInt(h.slice(1), 16);
 	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
-export const gelName = (c: Rgb | null) => (c === null ? 'Rainbow' : (GELS.find((g) => g.hex === toHex(c))?.name ?? toHex(c).toUpperCase()));
 
 const RAINBOW = '#ff0000, #ff8a00, #ffe600, #2bd94a, #00b3ff, #3a3aff, #b040ff, #ff0060';
 

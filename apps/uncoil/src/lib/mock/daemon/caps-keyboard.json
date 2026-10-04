@@ -466,5 +466,6 @@
   "kind": "keyboard",
   "name": "Razer BlackWidow V4 Pro 75%",
   "probed": null,
-  "support": "supported"
+  "support": "supported",
+  "unverified": []
 }

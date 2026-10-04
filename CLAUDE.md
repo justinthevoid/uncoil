@@ -40,9 +40,10 @@ cargo build  --release -p uncoild
 
 # GUI: the front end must be built before the uncoil-gui crate compiles
 pnpm --dir apps/uncoil install
-pnpm --dir apps/uncoil check
+pnpm --dir apps/uncoil check            # svelte-check + the TS mirror check against mock/fixtures.json
 pnpm --dir apps/uncoil build
 cargo test -p uncoil-gui                 # mock-vs-real desk check; UNCOIL_UPDATE_MOCK=1 regenerates it
+# mock drift: cargo test -p uncoild gui_mock / -p uncoil-core ts_mirror (UNCOIL_UPDATE_MOCK=1 regenerates)
 pnpm --dir apps/uncoil dev               # UI in a browser on :1420 against the mock (launch config: uncoil-ui)
 ```
 

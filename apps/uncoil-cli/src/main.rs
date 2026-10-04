@@ -37,7 +37,7 @@ usage: uncoil [--json] [--pipe NAME] <command>
                                        back up a layer (default: both) to a TOML file
   keymap import DEVICE FILE [--write]  show what differs from FILE; with --write, apply it
 
-  profile list DEVICE                  onboard profiles
+  profile list DEVICE                  onboard profiles (also: profiles DEVICE)
   dial get DEVICE                      active command-dial mode
   dial set DEVICE MODE --write [--enabled A,B,…]
                                        modes: VOLUME TRACK_SELECTOR OLED_BRIGHTNESS LIGHTNING_BRIGHTNESS
@@ -61,6 +61,9 @@ usage: uncoil [--json] [--pipe NAME] <command>
   check DEVICE                         run the read-only checks now (experimental devices and
                                        features not yet confirmed: their writes wait for these)
 
+--json: print results as JSON; an error then goes to stderr as {\"error\": …, \"code\": …}.
+--profile N: the onboard profile for keymap and dial commands (1-5, default 1).
+--fn is short for --layer fn; --colour works like --color.
 DEVICE: an id, a kind (keyboard, mouse, mat) or part of the name (basilisk).
 KEY: a key name (P, F9, PAGE_UP, \"Page Up\") or #id.
 MAPPING: off | key NAME [+lctrl +lshift …] | button N | razer N | power 0x82 | media B B | profile N
@@ -339,7 +342,13 @@ fn hw_effect(name: &str, o: &Opts) -> Result<HwEffect> {
 fn main() {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     if let Err(e) = run(&argv) {
-        eprintln!("uncoil: {e:#}");
+        // with --json, a script can tell a refused write (`check_failed`, `left_click_guard`, …) from the rest
+        let code = e.downcast_ref::<CodedError>().map(|c| c.code);
+        if argv.iter().any(|a| a == "--json") {
+            eprintln!("{}", serde_json::json!({ "error": format!("{e:#}"), "code": code }));
+        } else {
+            eprintln!("uncoil: {e:#}");
+        }
         std::process::exit(1);
     }
 }

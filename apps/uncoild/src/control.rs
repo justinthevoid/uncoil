@@ -204,7 +204,7 @@ pub fn serve_job(
 ) -> Lighting {
     if Instant::now() > job.deadline {
         let what = match &job.kind {
-            JobKind::Command(c) => c.to_parts().0,
+            JobKind::Command(c) => c.name(),
             JobKind::ProbeLighting => "lighting probe",
         };
         crate::log::line(&format!("{}: dropped a {what} that waited too long to start", def.name));
@@ -223,8 +223,8 @@ pub fn serve_job(
                 (Ok(out.result), out.lighting)
             }
             Err(e) => {
-                if cmd.writes_onboard() && cmd.write_confirmed() {
-                    crate::log::line(&format!("ONBOARD WRITE NOT DONE {} ({}): {e:#}", def.id, cmd.to_parts().0));
+                if cmd.policy(def).needs_write && cmd.write_confirmed() {
+                    crate::log::line(&format!("ONBOARD WRITE NOT DONE {} ({}): {e:#}", def.id, cmd.name()));
                 }
                 (Err(Failure::from(e)), Lighting::Unchanged)
             }
@@ -254,8 +254,8 @@ impl Control {
     fn dispatch(&self, req: &Request) -> Result<Raw, Failure> {
         let cmd = req.command().map_err(|e| e.to_string())?;
         match &cmd {
-            Command::Status => Ok(to(&*self.status.lock().unwrap())),
-            Command::Devices => Ok(to(&self.registry.infos())),
+            Command::Status => Ok(ipc::raw(&*self.status.lock().unwrap())),
+            Command::Devices => Ok(ipc::raw(&self.registry.infos())),
             Command::Capabilities(a) => {
                 let connected: Vec<String> = self.registry.infos().into_iter().map(|d| d.id).collect();
                 let defs: Vec<&Arc<DeviceDef>> = match &req.device {
@@ -277,9 +277,9 @@ impl Control {
                     out.push(capabilities(d, is_connected, probed, checks));
                 }
                 if req.device.is_some() {
-                    Ok(to(&out[0]))
+                    Ok(ipc::raw(&out[0]))
                 } else {
-                    Ok(to(&out))
+                    Ok(ipc::raw(&out))
                 }
             }
             _ => {
@@ -343,10 +343,6 @@ fn capabilities(
         checks,
         unverified: d.unverified.clone(),
     }
-}
-
-fn to<T: serde::Serialize>(t: &T) -> Raw {
-    ipc::raw(t)
 }
 
 /// A device thread without hardware: serves jobs from a fake device until the registry drops it.
@@ -488,16 +484,16 @@ mod tests {
         assert!(e.error.unwrap().contains("unknown command"));
     }
 
-    /// The browser mock (`apps/uncoil/src/lib/mock/daemon/*.json`) is seeded from these fake-daemon answers,
-    /// the same JSON `uncoil --json --pipe \\.\pipe\uncoil-fake …` prints. Regenerate with
-    /// `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoild gui_mock` (also checks every answer succeeds).
+    /// The browser mock (`apps/uncoil/src/lib/mock/daemon/*.json`) is these fake-daemon answers, the same
+    /// JSON `uncoil --json --pipe \\.\pipe\uncoil-fake …` prints, and nothing else: every file in that folder
+    /// must be listed here and match. Regenerate with `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoild gui_mock`.
     #[test]
     fn gui_mock_from_fake_answers() {
         let c = control();
         let kb = "razer-blackwidow-v4-pro-75";
         let mouse = "razer-basilisk-v3-pro";
         let da = crate::fake::DEATHADDER_ID;
-        let files: [(&str, Option<&str>, &str, Value); 17] = [
+        let files: [(&str, Option<&str>, &str, Value); 19] = [
             ("devices", None, "devices", Value::Null),
             ("caps-keyboard", Some(kb), "capabilities", Value::Null),
             ("caps-mouse", Some(mouse), "capabilities", Value::Null),
@@ -507,8 +503,10 @@ mod tests {
             ("keymap-mouse-normal", Some(mouse), "keymap.dump", json!({"layer": "normal"})),
             ("keymap-mouse-hypershift", Some(mouse), "keymap.dump", json!({"layer": "hypershift"})),
             ("keymap-deathadder-normal", Some(da), "keymap.dump", json!({"layer": "normal"})),
+            ("keymap-deathadder-hypershift", Some(da), "keymap.dump", json!({"layer": "hypershift"})),
             ("profiles-keyboard", Some(kb), "profile.list", Value::Null),
             ("profiles-mouse", Some(mouse), "profile.list", Value::Null),
+            ("profiles-deathadder", Some(da), "profile.list", Value::Null),
             ("dial", Some(kb), "dial.get", json!({})),
             ("oled", Some(kb), "oled.get", Value::Null),
             ("performance-mouse", Some(mouse), "performance.get", Value::Null),
@@ -518,13 +516,27 @@ mod tests {
         ];
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../uncoil/src/lib/mock/daemon");
         let write = std::env::var_os("UNCOIL_UPDATE_MOCK").is_some();
-        for (name, device, cmd, args) in files {
-            let v: Value = c.handle(req(cmd, device, args)).into_result().unwrap_or_else(|e| panic!("{name}: {e}"));
+        let mut stale = vec![];
+        for (name, device, cmd, args) in &files {
+            let v: Value =
+                c.handle(req(cmd, *device, args.clone())).into_result().unwrap_or_else(|e| panic!("{name}: {e}"));
+            let path = dir.join(format!("{name}.json"));
+            let real = serde_json::to_string_pretty(&v).unwrap() + "\n";
             if write {
-                std::fs::write(dir.join(format!("{name}.json")), serde_json::to_string_pretty(&v).unwrap() + "\n")
-                    .unwrap();
+                std::fs::write(&path, &real).unwrap();
+            }
+            if std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n") != real {
+                stale.push(path.display().to_string());
             }
         }
+        // nothing hand-written next to them
+        for e in std::fs::read_dir(&dir).unwrap().flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if !files.iter().any(|(f, ..)| format!("{f}.json") == name) {
+                stale.push(format!("{name} (not generated by this test)"));
+            }
+        }
+        assert!(stale.is_empty(), "stale browser mock files; rerun with UNCOIL_UPDATE_MOCK=1:\n{}", stale.join("\n"));
     }
 
     #[test]

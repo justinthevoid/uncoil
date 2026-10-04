@@ -1,8 +1,10 @@
 <script lang="ts">
 	// Shown where a feature needs uncoild's control pipe and it isn't answering (or the device is away).
 	import { loadDevices } from '#lib/daemon.svelte.ts';
+	import { pageSubject, type PageId } from '#lib/pages.ts';
 
-	let { what, unreachable = true }: { what: string; unreachable?: boolean } = $props();
+	let { page, unreachable = true }: { page: PageId; unreachable?: boolean } = $props();
+	const what = $derived(pageSubject(page));
 </script>
 
 <div class="unavail">

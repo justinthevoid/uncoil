@@ -1,7 +1,7 @@
 // Frontend port of uncoil_core::{color::rainbow, effect} (crates/uncoil-core/src/effect.rs). Kept line-for-line
-// with the Rust so the pulse plot and the browser mock draw what the engine sends; the src-tauri tests guard
-// the mock desk. The integer hashes are bit-exact; float maths runs in f64 here (f32 in Rust), so a colour
-// can differ by a step at most.
+// with the Rust so the browser mock draws what the engine sends; scripts/check-mirror.mjs (part of `pnpm check`)
+// compares it with the engine's own colours in mock/fixtures.json. The integer hashes are bit-exact; float maths
+// runs in f64 here (f32 in Rust), so a colour can differ by a step at most.
 import type { DeskDevice, Effect, LayerEffect, Mask, PreviewPress, Rgb } from './types';
 
 const remEuclid = (a: number, b: number) => ((a % b) + b) % b;
@@ -11,7 +11,7 @@ const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x
 const BLACK: Rgb = [0, 0, 0];
 
 /** FastLED's hsv2rgb_rainbow hue map. */
-export function rainbow(h: number, s: number, v: number): Rgb {
+function rainbow(h: number, s: number, v: number): Rgb {
 	const h8 = remEuclid(h, 1) * 256;
 	const section = Math.trunc(h8 / 32) & 7;
 	const off = (h8 % 32) * 8;
@@ -34,7 +34,7 @@ export function rainbow(h: number, s: number, v: number): Rgb {
 	return [ch(r), ch(g), ch(b)];
 }
 
-export const scale = ([r, g, b]: Rgb, v: number): Rgb => {
+const scale = ([r, g, b]: Rgb, v: number): Rgb => {
 	const k = clamp01(v);
 	return [toU8(r * k + 0.5), toU8(g * k + 0.5), toU8(b * k + 0.5)];
 };
@@ -52,9 +52,9 @@ export interface Bounds {
 }
 
 /** `Bounds::DEFAULT`: the default desk (keyboard, mouse, extended mat). */
-export const DEFAULT_BOUNDS: Bounds = { minX: -2, minY: -1.5, maxX: 24.25, maxY: 8.25 };
-export const DEFAULT_WHEEL_CENTER: [number, number] = [8.1, 3.1];
-export const REACTIVE_RADIUS = 0.6;
+const DEFAULT_BOUNDS: Bounds = { minX: -2, minY: -1.5, maxX: 24.25, maxY: 8.25 };
+const DEFAULT_WHEEL_CENTER: [number, number] = [8.1, 3.1];
+const REACTIVE_RADIUS = 0.6;
 
 /** Port of `effect::Inputs`. */
 export interface Inputs {
@@ -66,7 +66,7 @@ export interface Inputs {
 }
 
 /** `layout::desk_bounds`: union of every device body. */
-export function deskBounds(desk: DeskDevice[]): Bounds | null {
+function deskBounds(desk: DeskDevice[]): Bounds | null {
 	if (desk.length === 0) return null;
 	return desk.reduce<Bounds>(
 		(a, d) => ({
@@ -80,7 +80,7 @@ export function deskBounds(desk: DeskDevice[]): Bounds | null {
 }
 
 /** Centre of the first keyboard's body (what a wheel with `center: null` turns around). */
-export function keyboardCenter(desk: DeskDevice[]): [number, number] | null {
+function keyboardCenter(desk: DeskDevice[]): [number, number] | null {
 	const kb = desk.find((d) => d.kind === 'keyboard');
 	return kb ? [kb.x + kb.w / 2, kb.y + kb.h / 2] : null;
 }
@@ -319,50 +319,4 @@ export function frameWith(effect: Effect, t: number, sat: number, val: number, i
 		}
 		return [toU8(r + 0.5), toU8(g + 0.5), toU8(b + 0.5)];
 	};
-}
-
-/** Port of `Effect::at(t, sat, val)` + `Frame::color_at(x, y)`: no inputs, only whole-desk layers apply. */
-export function frame(effect: Effect, t: number, sat: number, val: number, inputs: Inputs = {}): (x: number, y: number) => Rgb {
-	const at = frameWith(effect, t, sat, val, inputs);
-	return (x, y) => at('', '', x, y);
-}
-
-/** Does this effect (or an enabled studio layer) react to key presses? (`Effect::uses_keys`) */
-export function usesKeys(effect: Effect): boolean {
-	const keyed = (e: { kind: string }) => e.kind === 'reactive' || e.kind === 'ripple';
-	return effect.kind === 'studio' ? effect.layers.some((l) => l.enabled && l.opacity > 0 && keyed(l.effect)) : keyed(effect);
-}
-
-/** Does this effect (or an enabled studio layer) follow the audio level? (`Effect::uses_audio`) */
-export function usesAudio(effect: Effect): boolean {
-	const metered = (e: { kind: string }) => e.kind === 'audio_meter';
-	return effect.kind === 'studio' ? effect.layers.some((l) => l.enabled && l.opacity > 0 && metered(l.effect)) : metered(effect);
-}
-
-/**
- * The wave's phase at a desk point, 0..1 (where in its rainbow cycle that point is). This is what the
- * pulse plot draws as ridges: angle, band width and speed are all visible in it.
- */
-export function phaseAt(effect: Effect, t: number): (x: number, y: number) => number {
-	switch (effect.kind) {
-		case 'wave': {
-			const a = (effect.angle_deg * Math.PI) / 180;
-			const ux = Math.cos(a);
-			const uy = Math.sin(a);
-			const invWl = 1 / Math.max(effect.wavelength, 1);
-			const phase = ((effect.reverse ? -1 : 1) * t) / Math.max(effect.period_s, 0.5);
-			return (x, y) => remEuclid((x * ux + y * uy) * invWl - phase, 1);
-		}
-		case 'spectrum': {
-			const p = remEuclid(t / Math.max(effect.period_s, 0.5), 1);
-			return () => p;
-		}
-		case 'wheel': {
-			const [cx, cy] = effect.center ?? DEFAULT_WHEEL_CENTER;
-			const phase = ((effect.reverse ? -1 : 1) * t) / Math.max(effect.period_s, 0.5);
-			return (x, y) => remEuclid(Math.atan2(y - cy, x - cx) / (2 * Math.PI) - phase, 1);
-		}
-		default:
-			return () => 0;
-	}
 }

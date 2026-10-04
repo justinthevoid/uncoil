@@ -236,6 +236,61 @@ impl PlacedDevice {
     }
 }
 
+/// The desk as the daemon renders it and the app previews it: which devices it shows and where
+/// ([`desk_devices`], [`arrange`]), its extent and the keyboard's centre (what the effects need), built
+/// from the config's placements and the connected devices.
+#[derive(Debug, Default)]
+pub struct Desk {
+    /// Every device on the desk, in desk order, with its kind.
+    pub devices: Vec<(Kind, PlacedDevice)>,
+    pub bounds: Option<Bounds>,
+    pub keyboard_center: Option<(f32, f32)>,
+    /// Where each desk device sits (configured, default or auto-placed).
+    placements: HashMap<String, Placement>,
+}
+
+impl Desk {
+    /// Supported devices, devices the config places (`configured`) and the `connected` ones, at their
+    /// configured place or auto-placed next to their kind.
+    pub fn new<'a>(
+        defs: impl IntoIterator<Item = &'a DeviceDef>,
+        configured: &HashMap<String, Placement>,
+        connected: impl Fn(&str) -> bool,
+    ) -> Desk {
+        let shown = desk_devices(defs, configured, connected);
+        let arranged = arrange(&shown, configured);
+        let placements = arranged.iter().map(|(d, at, _)| (d.id.clone(), *at)).collect();
+        let devices: Vec<(Kind, PlacedDevice)> = arranged.into_iter().map(|(d, _, p)| (d.kind, p)).collect();
+        let bounds = desk_bounds(devices.iter().map(|(_, p)| p));
+        let keyboard_center = devices.iter().find(|(k, _)| *k == Kind::Keyboard).map(|(_, p)| p.center());
+        Desk { devices, bounds, keyboard_center, placements }
+    }
+
+    /// Where a device sits on the desk; its kind's default spot when the desk does not show it.
+    pub fn placement(&self, def: &DeviceDef) -> Placement {
+        self.placements.get(&def.id).copied().unwrap_or_else(|| default_placement(def))
+    }
+
+    /// Whether every device sits where it sits on `other`.
+    pub fn same_places(&self, other: &Desk) -> bool {
+        self.placements == other.placements
+    }
+
+    /// Where the key with this shape name sits: on a connected keyboard if one has it, else the first.
+    pub fn key_position(&self, name: &str, connected: impl Fn(&str) -> bool) -> Option<(f32, f32)> {
+        let keyboards = || self.devices.iter().filter(|(k, _)| *k == Kind::Keyboard).map(|(_, p)| p);
+        keyboards()
+            .filter(|kb| connected(&kb.id))
+            .find_map(|kb| kb.shape_position(name))
+            .or_else(|| keyboards().find_map(|kb| kb.shape_position(name)))
+    }
+
+    /// The effect inputs for this desk, with these key presses and audio level.
+    pub fn inputs<'a>(&self, presses: &'a [crate::effect::Press], audio: f32) -> crate::effect::Inputs<'a> {
+        crate::effect::Inputs { presses, audio, bounds: self.bounds, keyboard_center: self.keyboard_center }
+    }
+}
+
 /// The desk's extent: the union of every device body. `None` for an empty desk.
 pub fn desk_bounds<'a>(devices: impl IntoIterator<Item = &'a PlacedDevice>) -> Option<Bounds> {
     devices.into_iter().fold(None, |acc, d| {
@@ -304,6 +359,23 @@ mod tests {
         assert!((cx - 8.125).abs() < 1e-4 && (cy - 3.125).abs() < 1e-4);
         assert_eq!(kb.shape_position("Escape"), Some((0.5, 0.5)));
         assert!(desk_bounds(&[]).is_none());
+    }
+
+    #[test]
+    fn the_default_desk_matches_the_effect_defaults() {
+        let defs = builtin();
+        let desk = Desk::new(&defs, &HashMap::new(), |_| false);
+        assert_eq!(desk.devices.len(), 3);
+        assert_eq!(desk.bounds, Some(Bounds::DEFAULT));
+        let (cx, cy) = desk.keyboard_center.unwrap();
+        assert!((cx - 8.125).abs() < 1e-4 && (cy - 3.125).abs() < 1e-4);
+        assert_eq!(desk.key_position("Escape", |_| false), Some((0.5, 0.5)));
+        assert_eq!(desk.key_position("No Such Key", |_| true), None);
+        let kb = defs.iter().find(|d| d.id == "razer-blackwidow-v4-pro-75").unwrap();
+        assert_eq!(desk.placement(kb), Placement { x: 0.0, y: 0.0 });
+        assert!(desk.same_places(&Desk::new(&defs, &HashMap::new(), |_| false)));
+        let inputs = desk.inputs(&[], 0.5);
+        assert_eq!((inputs.bounds, inputs.keyboard_center, inputs.audio), (desk.bounds, desk.keyboard_center, 0.5));
     }
 
     /// A made-up experimental keyboard or mouse with a one-LED layout.

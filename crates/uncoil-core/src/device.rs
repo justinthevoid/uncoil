@@ -620,13 +620,20 @@ pub fn builtin_errors() -> Vec<String> {
     builtin_parsed().into_iter().filter_map(|r| r.err().map(|e| e.to_string())).collect()
 }
 
-/// Built-ins plus any `*.toml` in `dir` (user definitions override built-ins with the same id; without a
-/// `support` line they are experimental, see [`DeviceDef::from_toml_user`]).
-pub fn load_all(dir: Option<&std::path::Path>) -> Vec<DeviceDef> {
-    load_all_with_errors(dir).0
+/// The user's device folder, `%APPDATA%\uncoil\devices`.
+pub fn user_dir() -> std::path::PathBuf {
+    crate::config::Config::dir().join("devices")
 }
 
-/// [`load_all`], plus why each user file that was left out failed.
+/// What the daemon and the app both load: the built-ins plus the user's device folder ([`user_dir`]), and
+/// why each user file that was left out failed.
+pub fn load_installed() -> (Vec<DeviceDef>, Vec<String>) {
+    load_all_with_errors(Some(&user_dir()))
+}
+
+/// Built-ins plus any `*.toml` in `dir` (user definitions override built-ins with the same id; without a
+/// `support` line they are experimental, see [`DeviceDef::from_toml_user`]), and why each user file that
+/// was left out failed.
 pub fn load_all_with_errors(dir: Option<&std::path::Path>) -> (Vec<DeviceDef>, Vec<String>) {
     let mut defs = builtin();
     let mut errors = vec![];
@@ -693,6 +700,24 @@ mod tests {
         }
         assert!(errors.is_empty(), "device files with problems:\n{}", errors.join("\n"));
         assert!(builtin_errors().is_empty());
+    }
+
+    /// build.rs drops comments and deflates the files; what comes back out must parse to exactly what the
+    /// files on disk parse to.
+    #[test]
+    fn embedded_files_match_the_files_on_disk() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        for ((path, _), embedded) in builtin_files().iter().zip(builtin_parsed()) {
+            let src = std::fs::read_to_string(root.join(path)).unwrap();
+            let disk = DeviceDef::from_toml_named(path, &src).unwrap();
+            assert_eq!(format!("{:?}", embedded.unwrap()), format!("{disk:?}"), "{path}");
+        }
+        let on_disk = ["devices", "devices/experimental"]
+            .iter()
+            .flat_map(|d| std::fs::read_dir(root.join(d)).unwrap().flatten())
+            .filter(|e| e.path().extension().is_some_and(|x| x == "toml"))
+            .count();
+        assert_eq!(builtin_files().len(), on_disk, "every device file is embedded");
     }
 
     #[test]

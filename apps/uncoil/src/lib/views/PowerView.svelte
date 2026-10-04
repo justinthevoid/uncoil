@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import Slider from '#lib/components/Slider.svelte';
 	import WriteButton from '#lib/components/WriteButton.svelte';
 	import CheckNotice from '#lib/components/CheckNotice.svelte';
@@ -100,9 +101,9 @@
 {#if !pipe.loaded}
 	<p class="loading">Connecting to the engine…</p>
 {:else if pipe.unreachable || !device}
-	<PipeUnavailable what="Battery and sleep" unreachable={pipe.unreachable} />
+	<PipeUnavailable page="power" unreachable={pipe.unreachable} />
 {:else}
-	<Workspace title="Battery & sleep" badge={experimentalBadge(deviceId)} subtitle="The sleep timer and low battery warning are saved in the mouse, so they keep working without uncoil.">
+	<Workspace title={pageTitle('power')} badge={experimentalBadge(deviceId)} subtitle="The sleep timer and low battery warning are saved in the mouse, so they keep working without uncoil.">
 		{#if loadError}
 			<p class="outcome bad" role="alert">{loadError}</p>
 		{:else if power}

@@ -4,7 +4,7 @@
 	import Workspace from '#lib/components/Workspace.svelte';
 	import { daemon, openExternal } from '#lib/api.ts';
 	import { app } from '#lib/state.svelte.ts';
-	import { pipe, loadDevices, errorText, experimentalBadge } from '#lib/daemon.svelte.ts';
+	import { pipe, loadDevices, errorText, experimentalBadge, shortName } from '#lib/daemon.svelte.ts';
 	import { EXPERIMENTAL, EXPERIMENTAL_TEXT, FEATURE_NAMES, REPORT_URL, STATE_NAMES, checkReads, productId } from '#lib/checks.ts';
 	import type { Capabilities, DeskDevice, DeviceKind, FeatureCheck, ProfileInfo } from '#lib/types.ts';
 
@@ -58,7 +58,7 @@
 	const pid = $derived(s?.product_id ?? info?.product_id ?? null);
 </script>
 
-<Workspace title={device.name.replace(/^Razer /, '')} subtitle={kind[device.kind]} badge={experimentalBadge(device.id)}>
+<Workspace title={shortName(device.name)} subtitle={kind[device.kind]} badge={experimentalBadge(device.id)}>
 	<div class="grid">
 		<section class="card" aria-labelledby="conn-title">
 			<h2 id="conn-title" class="section-title">Connection</h2>

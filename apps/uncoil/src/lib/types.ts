@@ -87,6 +87,8 @@ export interface Config {
 	display: DisplayPolicy;
 	desk: Record<string, Placement>;
 	openrgb_hardware_rainbow: boolean;
+	/** What the OpenRGB hand-off sets: each device (part of its OpenRGB name) and the hardware mode to use. */
+	openrgb?: { devices: { match: string; mode: string; ram?: boolean }[] };
 }
 
 export interface Shape {
@@ -188,8 +190,18 @@ export interface Capabilities {
 	keymap_layers: Layer[];
 	keys: KeyInfo[];
 	dial_modes: string[];
+	/** With `probe`: the lighting regions and firmware effects the device itself reports. */
+	probed?: LightingProbe | null;
 	support: Support;
 	checks: FeatureCheck[];
+	/** Features of a supported device not yet confirmed on it (their writes wait for a check). */
+	unverified?: Feature[];
+}
+
+/** `capabilities` with `probe`: `0F/80` regions and, per region LED, the firmware effects it lists. */
+export interface LightingProbe {
+	regions: { led: number; rows: number; cols: number }[];
+	effects: [number, string[]][];
 }
 
 export interface KeyMapping {

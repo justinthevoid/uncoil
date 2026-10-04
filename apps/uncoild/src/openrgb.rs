@@ -20,7 +20,6 @@ const OPENRGB: &str = r"C:\Program Files\OpenRGB\OpenRGB.exe";
 const NO_WINDOW: u32 = 0x0800_0000;
 
 fn command(exe: &Path) -> Command {
-    #[allow(unused_mut)]
     let mut c = Command::new(exe);
     #[cfg(windows)]
     std::os::windows::process::CommandExt::creation_flags(&mut c, NO_WINDOW);

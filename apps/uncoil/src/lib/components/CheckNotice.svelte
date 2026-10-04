@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Shown above an editor on an experimental device until the read-only check for its settings passes.
+	// Shown above an editor on an experimental device (or a supported device's unverified feature) until the read-only check for its settings passes.
 	// "Run check" reads a few current values (never writes) and the editor unlocks when they look right.
 	import { fade } from 'svelte/transition';
 	import { ShieldCheck } from '@lucide/svelte';
@@ -26,6 +26,8 @@
 	const word = $derived(kind === 'keyboard' ? 'keyboard' : kind === 'mouse' ? 'mouse' : 'device');
 	const reads = $derived(joinWords([...new Set(pending.map((f) => checkReads(f, kind)))]));
 	const lit = $derived(!!caps?.features.includes('lighting'));
+	/** A supported device whose settings here nobody has confirmed yet (`unverified`), not an experimental one. */
+	const why = $derived(caps?.support === 'experimental' ? `This ${word} is experimental.` : `Nobody has confirmed these settings on this ${word} yet.`);
 
 	let busy = $state(false);
 	let error = $state<string | null>(null);
@@ -55,7 +57,7 @@
 				{/each}
 			{:else}
 				<p class="title">Check before changing settings</p>
-				<p>This {word} is experimental. Before uncoil changes anything stored on it, it reads {reads} to make sure the {word} answers the way it expects. Nothing is written.</p>
+				<p>{why} Before uncoil changes anything stored on it, it reads {reads} to make sure the {word} answers the way it expects. Nothing is written.</p>
 			{/if}
 			{#if error}<p class="outcome bad" role="alert">{error}</p>{/if}
 			<div class="actions">

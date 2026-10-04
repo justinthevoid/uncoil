@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import OptionList from '#lib/components/OptionList.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import WriteButton from '#lib/components/WriteButton.svelte';
@@ -84,9 +85,9 @@
 {#if !pipe.loaded}
 	<p class="loading">Connecting to the engine…</p>
 {:else if pipe.unreachable || !device}
-	<PipeUnavailable what="The dial and screen" unreachable={pipe.unreachable} />
+	<PipeUnavailable page="dial" unreachable={pipe.unreachable} />
 {:else}
-	<Workspace title="Dial & screen" subtitle="Saved in the keyboard, so they work without uncoil.">
+	<Workspace title={pageTitle('dial')} subtitle="Saved in the keyboard, so they work without uncoil.">
 		<div class="grid">
 			{#if hasDial}
 				<section class="card" aria-labelledby="dial-title">

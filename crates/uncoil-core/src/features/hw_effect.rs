@@ -258,18 +258,17 @@ pub fn effect_name(id: u8) -> &'static str {
     }
 }
 
-/// `0F/84 [storage, led]` → `[storage, led, brightness]` (0..255).
-pub fn get_brightness(tid: u8, storage: Storage, led: u8) -> Report {
+/// `0F/84 [storage, led]` → `[storage, led, brightness]` (0..255). Protocol note; uncoil scales colours
+/// itself instead.
+#[cfg(test)]
+fn get_brightness(tid: u8, storage: Storage, led: u8) -> Report {
     Report::new(tid, CLASS, GET_BRIGHTNESS, &[storage as u8, led, 0])
 }
 
-/// `0F/04 [storage, led, brightness]`.
-pub fn set_brightness(tid: u8, storage: Storage, led: u8, brightness: u8) -> Report {
+/// `0F/04 [storage, led, brightness]`. Protocol note, like [`get_brightness`].
+#[cfg(test)]
+fn set_brightness(tid: u8, storage: Storage, led: u8, brightness: u8) -> Report {
     Report::new(tid, CLASS, SET_BRIGHTNESS, &[storage as u8, led, brightness])
-}
-
-pub fn parse_brightness(reply: &Reply) -> Option<u8> {
-    reply.args().get(2).copied()
 }
 
 /// One lighting region as listed by `0F/80`.

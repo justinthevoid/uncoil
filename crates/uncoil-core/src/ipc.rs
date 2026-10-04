@@ -15,11 +15,11 @@
 //! a machine-readable `code` (see [`codes`]).
 
 pub use crate::config::UnknownDevice;
-use crate::device::{Kind, Support};
+use crate::device::{DeviceDef, Kind, Support};
 use crate::features::dial::DialMode;
 use crate::features::hw_effect::{HwEffect, Region, Storage};
 use crate::features::keymap::{Function, Layer};
-use crate::features::performance::{Dpi, DpiStages};
+use crate::features::performance::{Dpi, DpiStages, DpiStorage};
 use crate::features::Feature;
 use anyhow::{anyhow, bail, Result};
 use serde::de::DeserializeOwned;
@@ -81,6 +81,11 @@ pub mod codes {
     pub const LEFT_CLICK_GUARD: &str = "left_click_guard";
     /// The device does not have the feature the command needs.
     pub const NOT_SUPPORTED: &str = "not_supported";
+
+    /// The code as one of the constants above, if it is one.
+    pub fn known(code: &str) -> Option<&'static str> {
+        [CHECK_FAILED, LEFT_CLICK_GUARD, NOT_SUPPORTED].into_iter().find(|c| *c == code)
+    }
 }
 
 /// An error with a [`codes`] code; the daemon puts the code in the response. Build one with
@@ -142,10 +147,14 @@ impl Response {
         s
     }
 
-    /// The typed result, or the daemon's error.
+    /// The typed result, or the daemon's error: a [`CodedError`] when the response carries a known code.
     pub fn into_result<T: DeserializeOwned>(self) -> Result<T> {
         if !self.ok {
-            bail!("{}", self.error.unwrap_or_else(|| "daemon reported an error".into()));
+            let message = self.error.unwrap_or_else(|| "daemon reported an error".into());
+            return Err(match self.code.as_deref().and_then(codes::known) {
+                Some(code) => coded(code, message),
+                None => anyhow!(message),
+            });
         }
         Ok(serde_json::from_str(self.result.as_deref().map_or("null", RawValue::get))?)
     }
@@ -269,30 +278,74 @@ pub struct EffectHwArgs {
     pub write: bool,
 }
 
-/// Every command the daemon understands.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Command {
-    Status,
-    Devices,
-    Capabilities(CapabilitiesArgs),
-    KeymapGet(KeyArgs),
-    KeymapSet(KeySetArgs),
-    KeymapReset(KeyResetArgs),
-    KeymapDump(LayerArgs),
-    ProfileList,
-    DialGet(ProfileArgs),
-    DialSet(DialSetArgs),
-    OledGet,
-    OledSet(OledSetArgs),
-    EffectHw(EffectHwArgs),
+/// Declares [`Command`]: one line per command with its argument struct and wire name, so the variant, the
+/// name and the arguments are written down once. Generates the enum, [`Command::NAMES`],
+/// [`Command::from_parts`], [`Command::name`] and [`Command::to_parts`]. A command without arguments ignores
+/// any `args` it is sent.
+macro_rules! commands {
+    ($( $(#[$doc:meta])* $variant:ident $( ($args:ty) )? = $name:literal, )*) => {
+        /// Every command the daemon understands.
+        #[derive(Debug, Clone, PartialEq)]
+        pub enum Command {
+            $( $(#[$doc])* $variant $( ($args) )?, )*
+        }
+
+        impl Command {
+            pub const NAMES: &'static [&'static str] = &[$($name),*];
+
+            pub fn from_parts(cmd: &str, a: Option<&str>) -> Result<Command> {
+                Ok(match cmd {
+                    $( $name => commands!(@parse $variant, cmd, a $(, $args)?), )*
+                    other => bail!("unknown command `{other}` (known: {})", Command::NAMES.join(", ")),
+                })
+            }
+
+            /// The wire name (`"keymap.set"`).
+            pub fn name(&self) -> &'static str {
+                match self {
+                    $( commands!(@pat $variant $(, $args)?) => $name, )*
+                }
+            }
+
+            pub fn to_parts(&self) -> (&'static str, Option<Raw>) {
+                match self {
+                    $( commands!(@bind $variant, a $(, $args)?) => ($name, commands!(@raw a $(, $args)?)), )*
+                }
+            }
+        }
+    };
+    (@parse $v:ident, $cmd:ident, $a:ident, $t:ty) => { Command::$v(args($cmd, $a)?) };
+    (@parse $v:ident, $cmd:ident, $a:ident) => { Command::$v };
+    (@pat $v:ident, $t:ty) => { Command::$v(_) };
+    (@pat $v:ident) => { Command::$v };
+    (@bind $v:ident, $a:ident, $t:ty) => { Command::$v($a) };
+    (@bind $v:ident, $a:ident) => { Command::$v };
+    (@raw $a:ident, $t:ty) => { Some(raw($a)) };
+    (@raw $a:ident) => { None };
+}
+
+commands! {
+    Status = "status",
+    Devices = "devices",
+    Capabilities(CapabilitiesArgs) = "capabilities",
+    KeymapGet(KeyArgs) = "keymap.get",
+    KeymapSet(KeySetArgs) = "keymap.set",
+    KeymapReset(KeyResetArgs) = "keymap.reset",
+    KeymapDump(LayerArgs) = "keymap.dump",
+    ProfileList = "profile.list",
+    DialGet(ProfileArgs) = "dial.get",
+    DialSet(DialSetArgs) = "dial.set",
+    OledGet = "oled.get",
+    OledSet(OledSetArgs) = "oled.set",
+    EffectHw(EffectHwArgs) = "effect.hw",
     /// Drop a firmware effect and go back to the configured software effect.
-    EffectSoftware,
+    EffectSoftware = "effect.software",
     /// Run every read-only check now; returns `Vec<FeatureCheck>`.
-    CheckRun,
-    PerformanceGet,
-    PerformanceSet(PerformanceSetArgs),
-    PowerGet,
-    PowerSet(PowerSetArgs),
+    CheckRun = "check.run",
+    PerformanceGet = "performance.get",
+    PerformanceSet(PerformanceSetArgs) = "performance.set",
+    PowerGet = "power.get",
+    PowerSet(PowerSetArgs) = "power.set",
 }
 
 fn args<T: DeserializeOwned>(cmd: &str, a: Option<&str>) -> Result<T> {
@@ -303,96 +356,76 @@ fn args<T: DeserializeOwned>(cmd: &str, a: Option<&str>) -> Result<T> {
     serde_json::from_str(a).map_err(|e| anyhow!("{cmd}: bad args: {e}"))
 }
 
-fn to_value<T: Serialize>(t: &T) -> Option<Raw> {
-    Some(raw(t))
+/// What a command needs before it may run on a device, decided in one place ([`Command::policy`]).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Policy {
+    /// The device must declare at least one feature of each group (`&[Dpi, PollRate]`: dpi or poll_rate).
+    pub required_features: Vec<&'static [Feature]>,
+    /// Something the command needs that the device's definition lacks although it declares the features
+    /// (refused as `not_supported` with these words).
+    pub missing: Option<&'static str>,
+    /// Writes the device's onboard memory, so the request must carry `write: true`.
+    pub needs_write: bool,
+    /// Features whose read-only check must pass first (on devices where the feature needs one).
+    pub gated: Vec<Feature>,
+}
+
+impl Policy {
+    /// The words for a `not_supported` refusal (`"dpi or poll_rate"`), if the device cannot run the command.
+    pub fn unsupported(&self, def: &DeviceDef) -> Option<String> {
+        if let Some(group) = self.required_features.iter().find(|g| !g.iter().any(|f| def.has(*f))) {
+            return Some(group.iter().map(|f| f.as_str()).collect::<Vec<_>>().join(" or "));
+        }
+        self.missing.map(String::from)
+    }
 }
 
 impl Command {
-    pub const NAMES: [&'static str; 19] = [
-        "status",
-        "devices",
-        "capabilities",
-        "keymap.get",
-        "keymap.set",
-        "keymap.reset",
-        "keymap.dump",
-        "profile.list",
-        "dial.get",
-        "dial.set",
-        "oled.get",
-        "oled.set",
-        "effect.hw",
-        "effect.software",
-        "check.run",
-        "performance.get",
-        "performance.set",
-        "power.get",
-        "power.set",
-    ];
-
-    pub fn from_parts(cmd: &str, a: Option<&str>) -> Result<Command> {
-        Ok(match cmd {
-            "status" => Command::Status,
-            "devices" => Command::Devices,
-            "capabilities" => Command::Capabilities(args(cmd, a)?),
-            "keymap.get" => Command::KeymapGet(args(cmd, a)?),
-            "keymap.set" => Command::KeymapSet(args(cmd, a)?),
-            "keymap.reset" => Command::KeymapReset(args(cmd, a)?),
-            "keymap.dump" => Command::KeymapDump(args(cmd, a)?),
-            "profile.list" => Command::ProfileList,
-            "dial.get" => Command::DialGet(args(cmd, a)?),
-            "dial.set" => Command::DialSet(args(cmd, a)?),
-            "oled.get" => Command::OledGet,
-            "oled.set" => Command::OledSet(args(cmd, a)?),
-            "effect.hw" => Command::EffectHw(args(cmd, a)?),
-            "effect.software" => Command::EffectSoftware,
-            "check.run" => Command::CheckRun,
-            "performance.get" => Command::PerformanceGet,
-            "performance.set" => Command::PerformanceSet(args(cmd, a)?),
-            "power.get" => Command::PowerGet,
-            "power.set" => Command::PowerSet(args(cmd, a)?),
-            other => bail!("unknown command `{other}` (known: {})", Command::NAMES.join(", ")),
-        })
-    }
-
-    pub fn to_parts(&self) -> (&'static str, Option<Raw>) {
+    /// What this command needs on `def`: features, `write: true`, read-only checks. Device-dependent where
+    /// the device decides (a `varstore` mouse stores its DPI, so even the live DPI change is a write).
+    pub fn policy(&self, def: &DeviceDef) -> Policy {
+        use Feature::*;
+        let p = |required: &'static [Feature], needs_write: bool, gated: &[Feature]| Policy {
+            required_features: if required.is_empty() { vec![] } else { vec![required] },
+            missing: None,
+            needs_write,
+            gated: gated.to_vec(),
+        };
         match self {
-            Command::Status => ("status", None),
-            Command::Devices => ("devices", None),
-            Command::Capabilities(a) => ("capabilities", to_value(a)),
-            Command::KeymapGet(a) => ("keymap.get", to_value(a)),
-            Command::KeymapSet(a) => ("keymap.set", to_value(a)),
-            Command::KeymapReset(a) => ("keymap.reset", to_value(a)),
-            Command::KeymapDump(a) => ("keymap.dump", to_value(a)),
-            Command::ProfileList => ("profile.list", None),
-            Command::DialGet(a) => ("dial.get", to_value(a)),
-            Command::DialSet(a) => ("dial.set", to_value(a)),
-            Command::OledGet => ("oled.get", None),
-            Command::OledSet(a) => ("oled.set", to_value(a)),
-            Command::EffectHw(a) => ("effect.hw", to_value(a)),
-            Command::EffectSoftware => ("effect.software", None),
-            Command::CheckRun => ("check.run", None),
-            Command::PerformanceGet => ("performance.get", None),
-            Command::PerformanceSet(a) => ("performance.set", to_value(a)),
-            Command::PowerGet => ("power.get", None),
-            Command::PowerSet(a) => ("power.set", to_value(a)),
-        }
-    }
-
-    /// Commands answered by the daemon itself rather than a device thread.
-    pub fn is_daemon_level(&self) -> bool {
-        matches!(self, Command::Status | Command::Devices | Command::Capabilities(_))
-    }
-
-    /// Does this command (as given) write the device's onboard memory?
-    pub fn writes_onboard(&self) -> bool {
-        match self {
-            Command::KeymapSet(_) | Command::KeymapReset(_) | Command::DialSet(_) => true,
-            Command::OledSet(a) => a.brightness.is_some(),
-            Command::EffectHw(a) => a.storage == Storage::Onboard,
-            Command::PerformanceSet(a) => a.stages.is_some() || a.poll_hz.is_some(),
-            Command::PowerSet(_) => true,
-            _ => false,
+            Command::Status | Command::Devices | Command::Capabilities(_) | Command::CheckRun => p(&[], false, &[]),
+            Command::KeymapGet(_) | Command::KeymapDump(_) => p(&[Keymap], false, &[]),
+            Command::KeymapSet(_) | Command::KeymapReset(_) => p(&[Keymap], true, &[Keymap]),
+            Command::ProfileList => p(&[Profiles], false, &[]),
+            Command::DialGet(_) => p(&[Dial], false, &[]),
+            Command::DialSet(_) => p(&[Dial], true, &[Dial]),
+            Command::OledGet => p(&[Oled], false, &[]),
+            // without a brightness nothing is written (refused later as "nothing to set")
+            Command::OledSet(a) => p(&[Oled], a.brightness.is_some(), &[Oled]),
+            // a session effect is never refused; saving one to the device is an onboard write like any other
+            Command::EffectHw(a) if a.storage == Storage::Onboard => p(&[HwEffects], true, &[HwEffects]),
+            Command::EffectHw(_) => p(&[HwEffects], false, &[]),
+            Command::EffectSoftware => p(&[Lighting], false, &[]),
+            Command::PerformanceGet => p(&[Dpi, PollRate], false, &[]),
+            Command::PerformanceSet(a) => {
+                let mut policy = Policy::default();
+                if a.dpi.is_some() || a.stages.is_some() {
+                    // the live DPI change also waits for the DPI check, although it is not stored
+                    policy.required_features.push(&[Dpi]);
+                    policy.gated.push(Dpi);
+                }
+                if a.poll_hz.is_some() {
+                    policy.required_features.push(&[PollRate]);
+                    policy.gated.push(PollRate);
+                }
+                if a.stages.is_some() && def.dpi.as_ref().is_some_and(|d| d.stages_max == 0) {
+                    policy.missing = Some("DPI stages");
+                }
+                let stored_dpi = a.dpi.is_some() && def.dpi.as_ref().is_some_and(|d| d.storage == DpiStorage::Varstore);
+                policy.needs_write = a.stages.is_some() || a.poll_hz.is_some() || stored_dpi;
+                policy
+            }
+            Command::PowerGet => p(&[Power], false, &[]),
+            Command::PowerSet(_) => p(&[Power], true, &[Power]),
         }
     }
 
@@ -408,23 +441,6 @@ impl Command {
             Command::PowerSet(a) => a.write,
             _ => false,
         }
-    }
-
-    /// Feature a device must declare for this command. `performance.*` needs `dpi` or `poll_rate`, which
-    /// the daemon checks itself.
-    pub fn feature(&self) -> Option<Feature> {
-        Some(match self {
-            Command::KeymapGet(_) | Command::KeymapSet(_) | Command::KeymapReset(_) | Command::KeymapDump(_) => {
-                Feature::Keymap
-            }
-            Command::ProfileList => Feature::Profiles,
-            Command::DialGet(_) | Command::DialSet(_) => Feature::Dial,
-            Command::OledGet | Command::OledSet(_) => Feature::Oled,
-            Command::EffectHw(_) => Feature::HwEffects,
-            Command::EffectSoftware => Feature::Lighting,
-            Command::PowerGet | Command::PowerSet(_) => Feature::Power,
-            _ => return None,
-        })
     }
 }
 
@@ -806,6 +822,7 @@ mod tests {
         let mut names = std::collections::HashSet::new();
         for c in cmds {
             let req = Request::new(1, None, &c);
+            assert_eq!(req.cmd, c.name());
             names.insert(req.cmd.clone());
             let parsed: Request = serde_json::from_str(req.to_line().trim_end()).unwrap();
             assert_eq!(parsed.command().unwrap(), c, "{}", req.cmd);
@@ -813,26 +830,101 @@ mod tests {
         assert_eq!(names.len(), Command::NAMES.len());
     }
 
+    fn def(id: &str) -> DeviceDef {
+        crate::device::builtin().into_iter().find(|d| d.id == id).unwrap()
+    }
+
     #[test]
     fn write_gating_flags() {
+        let kb = def("razer-blackwidow-v4-pro-75");
+        let mouse = def("razer-basilisk-v3-pro");
         let set = Command::from_parts("oled.set", Some(r#"{"brightness": 50}"#)).unwrap();
-        assert!(set.writes_onboard() && !set.write_confirmed());
+        assert!(set.policy(&kb).needs_write && !set.write_confirmed());
         let hw = Command::from_parts("effect.hw", Some(r#"{"effect": "spectrum"}"#)).unwrap();
-        assert!(!hw.writes_onboard(), "session effects do not touch onboard memory");
+        assert!(!hw.policy(&kb).needs_write, "session effects do not touch onboard memory");
+        assert!(hw.policy(&kb).gated.is_empty(), "showing an effect is never refused");
         let hw = Command::from_parts("effect.hw", Some(r#"{"effect": "spectrum", "storage": "onboard"}"#)).unwrap();
-        assert!(hw.writes_onboard());
-        assert!(!Command::KeymapDump(LayerArgs { layer: Layer::Normal, profile: 1 }).writes_onboard());
+        assert!(hw.policy(&kb).needs_write);
+        assert!(!Command::KeymapDump(LayerArgs { layer: Layer::Normal, profile: 1 }).policy(&kb).needs_write);
         assert!(Command::from_parts("nope", None).is_err());
         assert!(Command::from_parts("keymap.get", None).is_err(), "key is required");
         assert!(Command::from_parts("status", Some("null")).is_ok());
-        // dpi alone is live; stages and poll rate are stored
+        // dpi alone is live (but checked); stages and poll rate are stored
         let dpi = Command::from_parts("performance.set", Some(r#"{"dpi": {"x": 800, "y": 800}}"#)).unwrap();
-        assert!(!dpi.writes_onboard());
+        assert_eq!(
+            dpi.policy(&mouse),
+            Policy {
+                required_features: vec![&[Feature::Dpi]],
+                missing: None,
+                needs_write: false,
+                gated: vec![Feature::Dpi]
+            }
+        );
         let poll = Command::from_parts("performance.set", Some(r#"{"poll_hz": 500}"#)).unwrap();
-        assert!(poll.writes_onboard() && !poll.write_confirmed());
+        assert!(poll.policy(&mouse).needs_write && !poll.write_confirmed());
         let power = Command::from_parts("power.set", Some(r#"{"idle_s": 300, "write": true}"#)).unwrap();
-        assert!(power.writes_onboard() && power.write_confirmed());
-        assert_eq!(power.feature(), Some(Feature::Power));
+        assert!(power.policy(&mouse).needs_write && power.write_confirmed());
+        assert_eq!(power.policy(&mouse).required_features, vec![&[Feature::Power][..]]);
+        // what is missing, in the words of the refusal
+        assert_eq!(Command::PerformanceGet.policy(&kb).unsupported(&kb).as_deref(), Some("dpi or poll_rate"));
+        assert_eq!(Command::PerformanceGet.policy(&mouse).unsupported(&mouse), None);
+        assert_eq!(set.policy(&mouse).unsupported(&mouse).as_deref(), Some("oled"));
+    }
+
+    #[test]
+    fn a_varstore_mouse_stores_even_the_live_dpi() {
+        let mut m = def("razer-basilisk-v3-pro");
+        let dpi = Command::from_parts("performance.set", Some(r#"{"dpi": {"x": 800, "y": 800}}"#)).unwrap();
+        assert!(!dpi.policy(&m).needs_write);
+        m.dpi.as_mut().unwrap().storage = DpiStorage::Varstore;
+        assert!(dpi.policy(&m).needs_write);
+        let stages = Command::from_parts("performance.set", Some(r#"{"stages": {"active": 1, "list": []}}"#)).unwrap();
+        assert_eq!(stages.policy(&m).missing, None);
+        m.dpi.as_mut().unwrap().stages_max = 0;
+        assert_eq!(stages.policy(&m).unsupported(&m).as_deref(), Some("DPI stages"));
+    }
+
+    /// One example of every command, with `write: true` and every optional setting given, so each one's
+    /// most demanding policy shows.
+    fn every_command() -> Vec<Command> {
+        let all = r##"{"key": "#1", "function": "button 1", "mode": "ZOOM", "brightness": 50,
+            "effect": "spectrum", "storage": "onboard", "dpi": {"x": 800, "y": 800},
+            "stages": {"active": 1, "list": [{"x": 800, "y": 800}]}, "poll_hz": 1000, "idle_s": 300,
+            "low_battery_pct": 15, "write": true}"##;
+        let mut v: Vec<Command> = Command::NAMES.iter().map(|n| Command::from_parts(n, Some(all)).unwrap()).collect();
+        // and the session effect / live DPI variants
+        v.push(Command::from_parts("effect.hw", Some(r#"{"effect": "spectrum"}"#)).unwrap());
+        v.push(Command::from_parts("performance.set", Some(r#"{"dpi": {"x": 800, "y": 800}}"#)).unwrap());
+        v
+    }
+
+    /// Commands that write onboard memory without a read-only check in front. None today; a command added
+    /// here needs a reason next to it (for example: the device has no getter, so there is nothing to check).
+    const WRITES_WITHOUT_A_CHECK: &[&str] = &[];
+
+    /// The invariant behind "experimental devices are checked before anything is stored": every command
+    /// that needs `write`, on every known device, is gated by the read-only check of a feature it requires
+    /// (one that has a real check: lighting is never refused), unless it is listed as exempt above.
+    #[test]
+    fn every_write_is_gated_by_a_check() {
+        for d in crate::device::builtin() {
+            for c in every_command() {
+                let p = c.policy(&d);
+                if !p.needs_write || WRITES_WITHOUT_A_CHECK.contains(&c.name()) {
+                    continue;
+                }
+                assert!(!p.gated.is_empty(), "{} on {} writes without a check", c.name(), d.id);
+                for f in &p.gated {
+                    assert_ne!(*f, Feature::Lighting, "{}: the lighting check never refuses", c.name());
+                    assert!(
+                        p.required_features.iter().any(|g| g.contains(f)),
+                        "{} on {}: gated by {f:?}, which it does not require",
+                        c.name(),
+                        d.id
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -858,6 +950,13 @@ mod tests {
         assert_eq!(p.max, 5);
         let e = Response::err(Some(raw(&4)), "boom");
         assert_eq!(e.into_result::<u8>().unwrap_err().to_string(), "boom");
+        // the code survives the trip back
+        let line = Response::err_code(Some(raw(&5)), Some(codes::CHECK_FAILED), "nope").to_line();
+        let e = serde_json::from_str::<Response>(line.trim_end()).unwrap().into_result::<u8>().unwrap_err();
+        assert_eq!(e.to_string(), "nope");
+        assert_eq!(e.downcast_ref::<CodedError>().map(|c| c.code), Some(codes::CHECK_FAILED));
+        let odd: Response = serde_json::from_str(r#"{"ok":false,"error":"x","code":"from_the_future"}"#).unwrap();
+        assert!(odd.into_result::<u8>().unwrap_err().downcast_ref::<CodedError>().is_none());
     }
 
     #[test]

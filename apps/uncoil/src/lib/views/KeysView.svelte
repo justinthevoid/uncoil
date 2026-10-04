@@ -3,6 +3,7 @@
 	import { fade } from 'svelte/transition';
 	import { Search } from '@lucide/svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import WriteButton from '#lib/components/WriteButton.svelte';
 	import PipeUnavailable from '#lib/components/PipeUnavailable.svelte';
@@ -191,9 +192,9 @@
 {#if !pipe.loaded}
 	<p class="loading">Connecting to the engine…</p>
 {:else if pipe.unreachable || !device}
-	<PipeUnavailable what={isMouse ? 'Button remapping' : 'Key remapping'} unreachable={pipe.unreachable} />
+	<PipeUnavailable page={isMouse ? 'buttons' : 'keys'} unreachable={pipe.unreachable} />
 {:else}
-	<Workspace title={isMouse ? 'Buttons' : 'Keys'} badge={experimentalBadge(deviceId)} subtitle="Changes are saved in the {word} itself, so they keep working without uncoil." panelLabel={isMouse ? 'Selected button' : 'Selected key'}>
+	<Workspace title={pageTitle(isMouse ? 'buttons' : 'keys')} badge={experimentalBadge(deviceId)} subtitle="Changes are saved in the {word} itself, so they keep working without uncoil." panelLabel={isMouse ? 'Selected button' : 'Selected key'}>
 		{#snippet tools()}
 			{#if layers.length > 1}
 				<div class="layer"><Segmented label="Layer" options={layerOptions} value={layer} onchange={(v) => (layer = v)} /></div>

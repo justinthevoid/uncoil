@@ -32,22 +32,35 @@ export async function openExternal(url: string) {
 	} else window.open(url, '_blank', 'noopener');
 }
 
-/** A failed control-pipe call. `unreachable` means uncoild (0.2+, with the control pipe) isn't answering. */
+/** Codes the engine puts on some errors (`ipc::codes`). */
+export type ErrorCode = 'check_failed' | 'left_click_guard' | 'not_supported';
+
+/** What the `daemon` command rejects with (src-tauri's `DaemonFailure`; the mock throws the same). */
+export interface DaemonFailure {
+	message: string;
+	code: ErrorCode | null;
+	unreachable: boolean;
+}
+
+/** A failed control-pipe call. `unreachable` means uncoild isn't answering on the pipe at all. */
 export class DaemonError extends Error {
 	constructor(
 		message: string,
-		readonly unreachable: boolean
+		readonly code: ErrorCode | null = null,
+		readonly unreachable = false
 	) {
 		super(message);
 	}
 }
+
+const isFailure = (e: unknown): e is DaemonFailure => typeof e === 'object' && e !== null && typeof (e as DaemonFailure).message === 'string';
 
 /** One command on uncoild's control pipe; the same commands as the `uncoil` CLI. */
 export async function daemon<T>(cmd: string, device?: string | null, args?: Record<string, unknown>): Promise<T> {
 	try {
 		return await invoke<T>('daemon', { device: device ?? null, cmd, args: args ?? null });
 	} catch (e) {
-		const msg = String(e);
-		throw new DaemonError(msg.replace(/^unreachable:\s*/, ''), msg.startsWith('unreachable:'));
+		if (isFailure(e)) throw new DaemonError(e.message, e.code ?? null, e.unreachable === true);
+		throw new DaemonError(String(e));
 	}
 }

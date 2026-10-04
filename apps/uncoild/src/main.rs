@@ -33,7 +33,6 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use uncoil_core::config::{Config, DeviceStatus, Status, UnknownDevice};
 use uncoil_core::device::{self, DeviceDef};
-use uncoil_core::effect::Inputs;
 use uncoil_core::features::hw_effect::{HwEffect, Storage};
 use uncoil_core::ipc;
 use uncoil_core::layout;
@@ -83,7 +82,7 @@ impl Shared {
 
     /// Rebuild the desk from the config and the connected devices. Returns whether any device moved.
     fn rearrange(&self, defs: &[Arc<DeviceDef>]) -> bool {
-        let desk = inputs::Desk::new(defs, &self.config(), &self.registry.connected_ids());
+        let desk = inputs::desk(defs, &self.config(), &self.registry.connected_ids());
         let moved = !desk.same_places(&self.inputs.desk());
         self.inputs.set_desk(desk);
         moved
@@ -115,8 +114,8 @@ fn main() -> Result<()> {
     let elevated = winsec::init();
     let hardened = if elevated { Some(winsec::enforce_redirection_trust()) } else { None };
 
-    let config = Config::load();
-    let (defs, user_errors) = device::load_all_with_errors(Some(&Config::dir().join("devices")));
+    let (config, config_problem) = Config::load_reporting();
+    let (defs, user_errors) = device::load_installed();
     let defs: Vec<Arc<DeviceDef>> = defs.into_iter().map(Arc::new).collect();
     let registry = Arc::new(control::Registry::default());
     let status = Arc::new(Mutex::new(Status::default()));
@@ -154,6 +153,9 @@ fn main() -> Result<()> {
         }
     }
     display::spawn_watcher();
+    if let Some(p) = config_problem {
+        log::line(&p);
+    }
 
     for e in device::builtin_errors() {
         log::line(&format!("built-in device file left out: {e}"));
@@ -187,7 +189,8 @@ fn main() -> Result<()> {
 
     let mut api = HidApi::new()?;
     let mut cfg_mtime = mtime(&Config::path());
-    let mut last_scan = Instant::now() - RESCAN;
+    // None: scan right away
+    let mut last_scan: Option<Instant> = None;
     let mut last_status = Instant::now();
     let mut last_display = DisplayState::On;
     let started = unix_now();
@@ -203,7 +206,11 @@ fn main() -> Result<()> {
         let m = mtime(&Config::path());
         if m != cfg_mtime {
             cfg_mtime = m;
-            let cfg = Arc::new(Config::load());
+            let (cfg, problem) = Config::load_reporting();
+            if let Some(p) = problem {
+                log::line(&p);
+            }
+            let cfg = Arc::new(cfg);
             *shared.config.write().unwrap() = cfg.clone();
             shared.rearrange(&defs);
             listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
@@ -231,8 +238,8 @@ fn main() -> Result<()> {
         shared.set_level(if lvl < target { (lvl + step).min(target) } else { (lvl - step).max(target) });
 
         // pick up new / replugged devices
-        if now.duration_since(last_scan) >= RESCAN {
-            last_scan = now;
+        if last_scan.is_none_or(|t| now.duration_since(t) >= RESCAN) {
+            last_scan = Some(now);
             let skip = shared.open_paths.lock().unwrap().clone();
             for cand in transport::discover(&mut api, &defs, &skip) {
                 let name = cand.def.name.clone();
@@ -367,13 +374,7 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                     // once faded out, send a few black frames and then idle (the device holds the frame)
                     let t = shared.t0.elapsed().as_secs_f32();
                     let presses = if cfg.effect.uses_keys() { shared.inputs.presses(t) } else { Vec::new() };
-                    let desk = shared.inputs.desk();
-                    let inputs = Inputs {
-                        presses: &presses,
-                        audio: shared.inputs.audio(),
-                        bounds: desk.bounds,
-                        keyboard_center: desk.keyboard_center,
-                    };
+                    let inputs = shared.inputs.desk().inputs(&presses, shared.inputs.audio());
                     let frame = cfg.effect.at_with(t, cfg.saturation, cfg.brightness * level, &inputs);
                     let res =
                         dev.send_frame(|r, c| match positions.get(r).and_then(|row| row.get(c)).copied().flatten() {

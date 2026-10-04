@@ -4,6 +4,7 @@
 	import { Layers, Pause, Play } from '@lucide/svelte';
 	import { ms } from '#lib/motion.ts';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import DeskPreview from '#lib/components/DeskPreview.svelte';
 	import EffectSettings from '#lib/components/EffectSettings.svelte';
 	import Slider from '#lib/components/Slider.svelte';
@@ -33,7 +34,7 @@
 	const pct = (v: number) => `${Math.round(v)}%`;
 </script>
 
-<Workspace title="Lighting" subtitle="One effect across your whole desk. Changes apply as you make them." panelLabel="Effect settings">
+<Workspace title={pageTitle('lighting')} subtitle="One effect across your whole desk. Changes apply as you make them." panelLabel="Effect settings">
 	{#snippet tools()}
 		{#if needsKeys}
 			<span class="hint">Click the desk to press a key</span>

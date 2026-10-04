@@ -4,6 +4,8 @@
 	import { ArrowDown, ArrowUp, Eye, EyeOff, Pause, Play, Plus, Trash2, Paintbrush } from '@lucide/svelte';
 	import { ms } from '#lib/motion.ts';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
+	import { shortName } from '#lib/daemon.svelte.ts';
 	import DeskPreview, { type Hit } from '#lib/components/DeskPreview.svelte';
 	import EffectSettings from '#lib/components/EffectSettings.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
@@ -57,7 +59,7 @@
 	}
 
 	// ---- masks -------------------------------------------------------------------------------------
-	const deviceName = (id: string) => preview.state.desk.find((d) => d.id === id)?.name.replace(/^Razer /, '') ?? id;
+	const deviceName = (id: string) => { const n = preview.state.desk.find((d) => d.id === id)?.name; return n ? shortName(n) : id; };
 	function coverage(m: Mask): string {
 		if (m.kind === 'all') return 'Whole desk';
 		if (m.kind === 'devices') return m.ids.length ? m.ids.map(deviceName).join(', ') : 'No devices yet';
@@ -101,7 +103,7 @@
 	const displayOrder = $derived(studio ? studio.layers.map((l, i) => ({ l, i })).reverse() : []);
 </script>
 
-<Workspace title="Studio" subtitle="Stack effects in layers. Each layer can cover the whole desk, some devices, or lights you pick." panelLabel="Layer settings">
+<Workspace title={pageTitle('studio')} subtitle="Stack effects in layers. Each layer can cover the whole desk, some devices, or lights you pick." panelLabel="Layer settings">
 	{#snippet tools()}
 		{#if layer?.mask.kind === 'keys'}<span class="hint">Click or drag on the desk to pick lights</span>{/if}
 		<button class="btn-quiet" type="button" aria-pressed={preview.state.paused} onclick={() => (preview.state.paused = !preview.state.paused)}>

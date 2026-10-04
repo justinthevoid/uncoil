@@ -2,9 +2,10 @@
 	import { onMount } from 'svelte';
 	import { ChevronRight, ExternalLink } from '@lucide/svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import { getDesk, openExternal } from '#lib/api.ts';
 	import { app } from '#lib/state.svelte.ts';
-	import { pipe, loadDevices } from '#lib/daemon.svelte.ts';
+	import { pipe, loadDevices, shortName } from '#lib/daemon.svelte.ts';
 	import { EXPERIMENTAL, EXPERIMENTAL_TEXT, SUPPORT_URL, productId } from '#lib/checks.ts';
 	import type { Config, DeskDevice, DeviceKind } from '#lib/types.ts';
 
@@ -27,7 +28,7 @@
 			const s = app.status?.devices.find((x) => x.id === d.id);
 			return {
 				id: d.id,
-				name: d.name.replace(/^Razer /, ''),
+				name: shortName(d.name),
 				kind: kind[d.kind] ?? 'Device',
 				experimental: pipe.devices.find((p) => p.id === d.id)?.support === 'experimental',
 				live: !!s,
@@ -42,7 +43,7 @@
 </script>
 
 <Workspace
-	title="Devices"
+	title={pageTitle('devices')}
 	subtitle={app.status ? `${connected} of ${rows.length} connected. Unplugged devices are picked up again within a few seconds.` : 'The engine isn’t running, so connection status is unknown.'}
 >
 	<div class="table" role="table" aria-label="Devices">

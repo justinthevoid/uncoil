@@ -105,9 +105,31 @@ impl Config {
         Self::dir().join("config.json")
     }
 
-    /// Load, falling back to defaults on missing/invalid file.
+    /// Load, falling back to defaults when there is no file. A file that cannot be read or parsed also falls
+    /// back to defaults, and the second value says why (the daemon logs it).
+    pub fn load_reporting() -> (Config, Option<String>) {
+        Self::load_from(&Self::path())
+    }
+
+    /// [`Config::load_reporting`], with any problem printed to stderr.
     pub fn load() -> Config {
-        std::fs::read_to_string(Self::path()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+        let (config, problem) = Self::load_reporting();
+        if let Some(p) = problem {
+            eprintln!("uncoil: {p}");
+        }
+        config
+    }
+
+    fn load_from(path: &std::path::Path) -> (Config, Option<String>) {
+        let text = match std::fs::read_to_string(path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (Config::default(), None),
+            Err(e) => return (Config::default(), Some(format!("{} not read ({e}); using defaults", path.display()))),
+        };
+        match serde_json::from_str(&text) {
+            Ok(c) => (c, None),
+            Err(e) => (Config::default(), Some(format!("{} is not valid ({e}); using defaults", path.display()))),
+        }
     }
 
     pub fn save(&self) -> std::io::Result<()> {
@@ -169,6 +191,23 @@ impl Status {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_broken_config_falls_back_to_defaults_and_says_why() {
+        let dir = std::env::temp_dir().join(format!("uncoil-test-config-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(Config::load_from(&path), (Config::default(), None), "no file: defaults, nothing to say");
+        std::fs::write(&path, r#"{"fps": 45}"#).unwrap();
+        assert_eq!(Config::load_from(&path), (Config { fps: 45, ..Config::default() }, None));
+        std::fs::write(&path, r#"{"fps": "fast"}"#).unwrap();
+        let (c, problem) = Config::load_from(&path);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(c, Config::default());
+        let p = problem.unwrap();
+        assert!(p.contains("config.json is not valid") && p.ends_with("using defaults"), "{p}");
+    }
 
     #[test]
     fn openrgb_is_off_with_no_built_in_devices() {

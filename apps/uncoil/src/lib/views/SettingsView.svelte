@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Workspace from '#lib/components/Workspace.svelte';
+	import { pageTitle } from '#lib/pages.ts';
 	import Slider from '#lib/components/Slider.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
 	import { app } from '#lib/state.svelte.ts';
@@ -10,7 +11,7 @@
 	const now = $derived(app.status?.display ?? null);
 </script>
 
-<Workspace title="Display & RGB" subtitle={now ? `Your display is ${now}; lighting is at ${Math.round((app.status?.level ?? 1) * 100)}%.` : 'How lighting follows your monitor, and other RGB on your PC.'}>
+<Workspace title={pageTitle('settings')} subtitle={now ? `Your display is ${now}; lighting is at ${Math.round((app.status?.level ?? 1) * 100)}%.` : 'How lighting follows your monitor, and other RGB on your PC.'}>
 	<section class="card" aria-labelledby="display-title">
 		<h2 id="display-title" class="section-title">When the display sleeps or dims</h2>
 		<Toggle label="Turn lighting off when the display sleeps" bind:checked={d.off_when_display_off} hint="Fades the desk out when Windows turns the display off, and back when it wakes, like Synapse does." />
@@ -19,7 +20,11 @@
 	</section>
 	<section class="card" aria-labelledby="rgb-title">
 		<h2 id="rgb-title" class="section-title">Other RGB on this PC</h2>
-		<Toggle label="Put motherboard, GPU and RAM on their built-in rainbow" bind:checked={config.openrgb_hardware_rainbow} hint="When the engine starts it runs OpenRGB once to set non-Razer RGB to its own rainbow, then OpenRGB exits. Needs OpenRGB installed." />
+		<Toggle
+			label="Set motherboard, GPU and RAM lighting with OpenRGB"
+			bind:checked={config.openrgb_hardware_rainbow}
+			hint="When the engine starts it runs OpenRGB once to put each device listed under openrgb.devices in config.json on its own built-in mode, then OpenRGB exits. Nothing happens until you list a device there. Needs OpenRGB installed and the engine installed with -OpenRgb (scripts\install-task.ps1 -OpenRgb)."
+		/>
 	</section>
 </Workspace>
 

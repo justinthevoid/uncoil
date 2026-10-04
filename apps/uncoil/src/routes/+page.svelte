@@ -4,7 +4,8 @@
 	import { BatteryMedium, CircleDot, Gauge, Info, Layers, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
 	import { app, connectedIds, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
 	import { daemon, getDesk } from '#lib/api.ts';
-	import { pipe, loadDevices } from '#lib/daemon.svelte.ts';
+	import { pipe, loadDevices, shortName } from '#lib/daemon.svelte.ts';
+	import { PAGES, type PageId } from '#lib/pages.ts';
 	import { ms } from '#lib/motion.ts';
 	import LightingView from '#lib/views/LightingView.svelte';
 	import StudioView from '#lib/views/StudioView.svelte';
@@ -18,33 +19,26 @@
 	import { EXPERIMENTAL, EXPERIMENTAL_TEXT } from '#lib/checks.ts';
 	import SettingsView from '#lib/views/SettingsView.svelte';
 	import AboutView from '#lib/views/AboutView.svelte';
-	import type { Config, DeskDevice, DeviceInfo, DeviceKind, Feature as DeviceFeature, ProfileInfo } from '#lib/types.ts';
+	import type { Config, DeskDevice, DeviceInfo, DeviceKind, Feature, ProfileInfo } from '#lib/types.ts';
 
 	type Icon = Component<{ size?: number; strokeWidth?: number }>;
-	type Feature = 'lighting' | 'studio' | 'devices' | 'keys' | 'performance' | 'power' | 'dial' | 'effects' | 'info' | 'settings' | 'about';
-	type Entry = { id: Feature; label: string; icon: Icon };
+	/** A page the rail can open (Keys and Buttons are one page, named for the device). */
+	type RailPage = Exclude<PageId, 'buttons'>;
+	type Entry = { id: RailPage; label: string; icon: Icon };
 	/** A device tab: on the desk (has a layout), or only known from the engine (no lighting, e.g. most mice without RGB). */
 	type Tab = { id: string; name: string; kind: DeviceKind; desk: DeskDevice | null; info: DeviceInfo | null };
 
-	const shortName = (n: string) => n.replace(/^Razer /, '').replace(/ Chroma Extended$/, ' Chroma');
-
 	let desk = $state<DeskDevice[]>([]);
 	let tab = $state<string>('desk');
-	let feature = $state<Feature>('lighting');
-	const remembered = new Map<string, Feature>();
+	let feature = $state<RailPage>('lighting');
+	const remembered = new Map<string, RailPage>();
 
 	const kindIcon: Record<DeviceKind, Icon> = { keyboard: KeyboardIcon, mouse: Mouse, mousemat: RectangleHorizontal, headset: Info, other: Info };
-	const DESK: Entry[] = [
-		{ id: 'lighting', label: 'Lighting', icon: Lightbulb },
-		{ id: 'studio', label: 'Studio', icon: Layers },
-		{ id: 'devices', label: 'Devices', icon: LayoutGrid }
-	];
-	const SETTINGS: Entry[] = [
-		{ id: 'settings', label: 'Display & RGB', icon: Monitor },
-		{ id: 'about', label: 'About', icon: Info }
-	];
+	const entry = (id: RailPage, icon: Icon, name: PageId = id): Entry => ({ id, label: PAGES[name].label, icon });
+	const DESK: Entry[] = [entry('lighting', Lightbulb), entry('studio', Layers), entry('devices', LayoutGrid)];
+	const SETTINGS: Entry[] = [entry('settings', Monitor), entry('about', Info)];
 	/** What a device can do before the engine has said (or while it's unplugged): today's defaults per kind. */
-	const DEFAULT_FEATURES: Record<DeviceKind, DeviceFeature[]> = {
+	const DEFAULT_FEATURES: Record<DeviceKind, Feature[]> = {
 		keyboard: ['keymap', 'dial', 'hw_effects'],
 		mouse: ['keymap', 'hw_effects'],
 		mousemat: ['hw_effects'],
@@ -55,14 +49,14 @@
 	/** The rail for a device, from what it supports. */
 	function deviceEntries(t: Tab): Entry[] {
 		const f = t.info?.features ?? DEFAULT_FEATURES[t.kind];
-		const has = (x: DeviceFeature) => f.includes(x);
+		const has = (x: Feature) => f.includes(x);
 		const list: Entry[] = [];
-		if (has('keymap')) list.push(t.kind === 'mouse' ? { id: 'keys', label: 'Buttons', icon: Mouse } : { id: 'keys', label: 'Keys', icon: KeyboardIcon });
-		if (has('dpi') || has('poll_rate')) list.push({ id: 'performance', label: 'Performance', icon: Gauge });
-		if (has('power')) list.push({ id: 'power', label: 'Battery & sleep', icon: BatteryMedium });
-		if (has('dial') || has('oled')) list.push({ id: 'dial', label: 'Dial & screen', icon: CircleDot });
-		if (has('hw_effects')) list.push({ id: 'effects', label: 'Onboard effects', icon: Palette });
-		list.push({ id: 'info', label: 'Device info', icon: Info });
+		if (has('keymap')) list.push(t.kind === 'mouse' ? entry('keys', Mouse, 'buttons') : entry('keys', KeyboardIcon));
+		if (has('dpi') || has('poll_rate')) list.push(entry('performance', Gauge));
+		if (has('power')) list.push(entry('power', BatteryMedium));
+		if (has('dial') || has('oled')) list.push(entry('dial', CircleDot));
+		if (has('hw_effects')) list.push(entry('effects', Palette));
+		list.push(entry('info', Info));
 		return list;
 	}
 
@@ -76,7 +70,7 @@
 		if (id === 'desk') return DESK;
 		if (id === 'settings') return SETTINGS;
 		const t = tabs.find((x) => x.id === id);
-		return t ? deviceEntries(t) : [{ id: 'info' as const, label: 'Device info', icon: Info }];
+		return t ? deviceEntries(t) : [entry('info', Info)];
 	};
 
 	const device = $derived(tabs.find((d) => d.id === tab) ?? null);

@@ -166,11 +166,6 @@ mod tests {
         let mut seven = DialMode::DEFAULT_ENABLED.to_vec();
         seven.push(DialMode::ScrollVertical);
         assert_eq!(set_active_mode(0x1F, 1, DialMode::OledBrightness, &seven).unwrap().args, vec![1, 2, 3, 7]);
-        // and the older proto helper agrees
-        assert_eq!(
-            crate::proto::set_command_dial_mode(6, 1, 0, 1, 6),
-            set_active_mode(6, 1, DialMode::Volume, &DialMode::DEFAULT_ENABLED).unwrap()
-        );
     }
 
     #[test]

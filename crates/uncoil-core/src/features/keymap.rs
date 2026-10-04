@@ -156,36 +156,6 @@ impl Function {
         }
     }
 
-    pub fn function_id(&self) -> u8 {
-        self.encode().0
-    }
-
-    /// Synapse's name for the function id (`fnIdEnum`).
-    pub fn function_name(id: u8) -> &'static str {
-        match id {
-            0 => "Off",
-            1 => "ButtonCode",
-            2 => "KeyCode",
-            3 => "MacroTypeI",
-            4 => "MacroTypeII",
-            5 => "MacroTypeIII",
-            6 => "DPI",
-            7 => "Profile",
-            8 => "Lighting",
-            9 => "PowerKeys",
-            10 => "MediaKeys",
-            11 => "DoubleClick",
-            12 => "ModeButtonKey",
-            13 => "TurboModeKey",
-            14 => "TurboModeButton",
-            15 => "MacroTypeIV",
-            16 => "Controller",
-            17 => "RazerKey",
-            18 => "WindowsShortcutsKey",
-            _ => "Unknown",
-        }
-    }
-
     /// Parse a spec string such as `key PRINT_SCREEN`, `key A +lctrl`, `razer 4`, `off`.
     pub fn parse_spec(spec: &str) -> Result<Function> {
         let t: Vec<&str> = spec.split_whitespace().collect();
@@ -625,18 +595,6 @@ pub fn parse_reply(reply: &Reply, profile: u8, key: u8) -> Result<Function> {
     let data = &a[5..5 + MAX_DATA];
     let used = data.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1).max(len);
     Ok(Function::decode(a[3], &data[..used]))
-}
-
-/// `02/84`: list of button ids (mice).
-pub fn get_button_ids(tid: u8) -> Report {
-    Report::sized(tid, REQUEST_SIZE, CLASS, MOUSE_BUTTON_IDS, &[])
-}
-
-/// `[count, ids…]`
-pub fn parse_id_list(reply: &Reply) -> Vec<u8> {
-    let a = reply.args();
-    let n = a.first().copied().unwrap_or(0) as usize;
-    a.iter().skip(1).take(n).copied().collect()
 }
 
 /// A key map backup file (`uncoil keymap export`): one spec string per key name and layer.

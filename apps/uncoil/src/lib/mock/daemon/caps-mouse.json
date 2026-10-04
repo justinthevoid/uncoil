@@ -23,17 +23,17 @@
     {
       "detail": null,
       "feature": "dpi",
-      "state": "not_needed"
+      "state": "untested"
     },
     {
       "detail": null,
       "feature": "poll_rate",
-      "state": "not_needed"
+      "state": "untested"
     },
     {
       "detail": null,
       "feature": "power",
-      "state": "not_needed"
+      "state": "untested"
     }
   ],
   "connected": true,
@@ -130,5 +130,10 @@
   "kind": "mouse",
   "name": "Razer Basilisk V3 Pro",
   "probed": null,
-  "support": "supported"
+  "support": "supported",
+  "unverified": [
+    "dpi",
+    "poll_rate",
+    "power"
+  ]
 }
