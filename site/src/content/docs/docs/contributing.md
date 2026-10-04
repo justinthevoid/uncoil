@@ -32,8 +32,8 @@ This page is the short version.
 ## Building
 
 ```powershell
-cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli   # core, transport, daemon, CLI
-cargo build --release -p uncoild -p uncoil-cli                      # target\release\uncoild.exe, uncoil.exe
+cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openrgb   # core, transport, daemon, CLI, OpenRGB client
+cargo build --release -p uncoild -p uncoil-cli                                         # target\release\uncoild.exe, uncoil.exe
 ```
 
 The desktop app lives in `apps/uncoil` (Tauri + SvelteKit, pnpm). This website and these docs live in `site/`

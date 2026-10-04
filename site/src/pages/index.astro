@@ -15,7 +15,7 @@ const ledger = [
 	{ k: 'Processes', uncoil: '1', unit: '', synapse: '17' },
 	{ k: 'Memory', uncoil: '~3', unit: 'MB', synapse: '~1.4 GB at start, leaking' },
 	{ k: 'CPU while animating', uncoil: '<1%', unit: 'of one core', synapse: '~7% of one core' },
-	{ k: 'Install size', uncoil: '1.3', unit: 'MB', synapse: '~500 MB' },
+	{ k: 'Install size', uncoil: '1.4', unit: 'MB', synapse: '~500 MB' },
 ];
 
 const features = [
@@ -52,7 +52,7 @@ const faq = [
 	},
 	{
 		q: 'What still needs Synapse?',
-		a: 'Anything uncoil does not do yet: macros, what each command-dial mode does, custom images on the BlackWidow’s dial screen, switching onboard profiles, firmware updates, and devices that are not on the list. Key and button remapping works from the app and the command line, though only one remap (Fn+P to Print Screen) has been checked on a real keyboard so far. DPI, polling rate and the sleep timer are there too, but not yet confirmed on real hardware, so uncoil reads each value before it changes anything. Settings already stored in a device’s own memory stay there after Synapse is gone.',
+		a: 'Anything uncoil does not do yet: macros, what each command-dial mode does, custom images on the BlackWidow’s dial screen, switching onboard profiles, firmware updates, and devices that are not on the list. Key and button remapping works from the app and the command line, though only one remap (Fn+P to Print Screen) has been checked on a real keyboard so far. DPI, polling rate, the sleep timer and the scroll wheel are there too, but not yet confirmed on real hardware, so uncoil reads each value before it changes anything. Settings already stored in a device’s own memory stay there after Synapse is gone.',
 	},
 	{
 		q: 'Can Synapse stay installed?',
@@ -60,15 +60,15 @@ const faq = [
 	},
 	{
 		q: 'Does it work alongside OpenRGB, SignalRGB or iCUE?',
-		a: `Leave the Razer devices to uncoil; any other app driving them will fight it for the LEDs. For the rest of the PC, uncoil can run OpenRGB once at logon (off by default; you list the devices in the config and install with <code>-OpenRgb</code>) to put the motherboard, GPU and RAM on their own hardware modes, and skips the RAM while iCUE is running because they share the SMBus. See <a href="${url('docs/configuration/#openrgb_hardware_rainbow')}">configuration</a>.`,
+		a: `Leave the Razer devices to uncoil; any other app driving them will fight it for the LEDs, and uncoil shows a notice when it sees Synapse, OpenRGB or SignalRGB running. For the rest of the PC, uncoil can use OpenRGB (off by default; install with <code>-OpenRgb</code>): either once at sign-in, to put the motherboard, GPU and RAM on their own hardware modes, or live, so they follow the desk effect. It skips the RAM while iCUE is running because they share the SMBus. See <a href="${url('docs/configuration/#openrgb')}">configuration</a>.`,
 	},
 	{
 		q: 'Does it need administrator rights?',
-		a: 'Once, to copy the executable into Program Files. The daemon runs as you, unelevated, and talks to Razer devices as plain user-mode HID. Only the optional OpenRGB hand-off runs elevated, from its own one-shot logon task, because RAM lighting sits on the SMBus. There is no service and no kernel driver.',
+		a: 'Once, to copy the executable into Program Files. The daemon runs as you, unelevated, and talks to Razer devices as plain user-mode HID. Only the optional OpenRGB part runs elevated, from its own logon task, because RAM lighting sits on the SMBus. There is no service and no kernel driver.',
 	},
 	{
 		q: 'Does it phone home?',
-		a: 'No. There is no account, no telemetry and no updater. uncoild reads one config file, writes a status file, a small log and a record of writes to device memory, all under your user profile, and answers the app and the command line over a local pipe only your account can open.',
+		a: 'No. There is no account, no telemetry and no updater. uncoild reads one config file, writes a status file, a small log and a record of writes to device memory, all under your user profile, and answers the app and the command line over a local pipe only your account can open. Its one network connection is in the optional live OpenRGB mode, to OpenRGB on 127.0.0.1, on this PC.',
 	},
 	{
 		q: 'Mac or Linux?',
@@ -82,12 +82,12 @@ const shotAlt =
 ---
 
 <Base
-	title="uncoil: a 1.3 MB replacement for Razer Synapse"
+	title="uncoil: a 1.4 MB replacement for Razer Synapse"
 	description="uncoil runs the lighting on Razer keyboards, mice and mats from one small background process on Windows. Open source, GPL-3.0. Measured on one PC: ~3 MB RAM, under 1% of one core."
 >
 	<section id="top" class="hero wrap" aria-labelledby="hero-title">
 		<div class="hero-top">
-			<h1 id="hero-title">A 1.3&nbsp;MB replacement for Razer Synapse.</h1>
+			<h1 id="hero-title">A 1.4&nbsp;MB replacement for Razer Synapse.</h1>
 			<div class="hero-side">
 				<p class="lede">
 					uncoil runs the lighting on your Razer keyboard, mouse and mat from one small background process on Windows.
@@ -136,7 +136,7 @@ const shotAlt =
 			</dl>
 			<p class="fine">
 				A Ryzen desktop with a BlackWidow V4 Pro 75%, Basilisk V3 Pro and Goliathus Chroma Extended, where Synapse’s
-				memory grew to several GB over a few days. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-03 (1,257,472 bytes). One machine; yours will differ.
+				memory grew to several GB over a few days. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-04 (1,379,328 bytes). One machine; yours will differ.
 			</p>
 		</div>
 	</section>
@@ -175,9 +175,9 @@ const shotAlt =
 				</div>
 			</div>
 			<p class="prose-ink also">
-				Also: a command line, <code>uncoil</code>, for everything the app does with devices; and an optional one-shot
-				hand-off (off by default) of motherboard, GPU and RAM lighting to their own hardware modes via OpenRGB, so the
-				rest of the case matches without anything else running.
+				Also: a command line, <code>uncoil</code>, for everything the app does with devices; and, off by default,
+				motherboard, GPU and RAM lighting through OpenRGB: handed to their own hardware modes once at sign-in, or live,
+				so the rest of the case follows the desk effect.
 			</p>
 		</div>
 	</section>
@@ -188,8 +188,8 @@ const shotAlt =
 				<SectionHead id="app-title" title="The app" />
 				<div class="prose-ink">
 					<p>
-						A small desktop app sets the effect, layers effects and painted keys in Studio, remaps keys and buttons, sets the dial, the screen, DPI, polling rate and sleep timer, and shows whether each device is live. You open it, change something,
-						close it. The daemon does not need it running. The app shows the daemon’s own memory and CPU in its top bar,
+						A small desktop app sets the effect, layers effects and painted keys in Studio, remaps keys and buttons, sets the dial, the screen, DPI, polling rate, sleep timer and scroll wheel, and shows whether each device is live. You open it, change something,
+						close it, or keep it in the tray for its effect menu and battery notifications. The daemon does not need it running. The app shows the daemon’s own memory and CPU in its top bar,
 						so the numbers above stay checkable.
 					</p>
 					<p>

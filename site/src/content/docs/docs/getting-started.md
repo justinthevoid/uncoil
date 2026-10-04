@@ -52,6 +52,12 @@ Synapse and uncoil write to the same LEDs. With both running, the lighting flick
 and the keyboard may be put back into driver mode. Pick one.
 :::
 
+uncoil notices when Synapse, Razer's Chroma SDK services, OpenRGB or SignalRGB is running (by process name,
+every 5 seconds), notes it once in its log and shows a notice in the app and in `uncoil status`. It also takes
+the same device lock as OpenRGB and, apparently, Razer's software, so their reports never get mixed up with
+uncoil's on one device; when another program holds it, uncoil skips a frame, or a command fails with "another
+program is talking to … right now" and can simply be tried again.
+
 ## 3. Run it at logon
 
 From the source checkout, after building:
@@ -77,11 +83,15 @@ What it did is written to `%ProgramFiles%\uncoil\install.log` and shown at the e
 uncoild talks to Razer devices as ordinary user-mode HID and needs no administrator rights. Two options
 change that:
 
-- **`-OpenRgb`** also registers **uncoil-openrgb**, an elevated task that runs `uncoild --openrgb-once`
-  once at logon (after 10 seconds) for the [OpenRGB hand-off](/docs/configuration/#openrgb_hardware_rainbow),
-  which needs administrator rights to reach RAM lighting over SMBus. It also creates
-  `%ProgramData%\uncoil\openrgb`, an administrators-only folder for OpenRGB's settings. The task does nothing
-  until the hand-off is turned on in the config. Running the script again without `-OpenRgb` removes it.
+- **`-OpenRgb`** also registers **uncoil-openrgb**, an elevated task that runs `uncoild --openrgb-once` at
+  logon (after 10 seconds) for [motherboard, GPU and RAM lighting through OpenRGB](/docs/configuration/#openrgb),
+  which needs administrator rights to reach RAM lighting over SMBus. In `hardware` mode it hands the devices
+  over once and exits; in `live` mode it keeps OpenRGB running as a local server (Task Scheduler shows it
+  **Running**) and the daemon sends it the desk effect. It also creates `%ProgramData%\uncoil\openrgb`, an
+  administrators-only folder for OpenRGB's settings. The task does nothing until `openrgb.mode` is set in the
+  config (the app's Settings page does that), and it first runs at your next sign-in. OpenRGB itself must be
+  installed in `C:\Program Files\OpenRGB`, with PawnIO if OpenRGB needs it for your RAM or motherboard.
+  Running the script again without `-OpenRgb` removes the task.
 - **`-Elevated`** runs the daemon itself elevated, as installs before this option did. It is a fallback for
   a PC where uncoild cannot open its devices unelevated; none has been seen so far.
 
@@ -120,6 +130,17 @@ Either open the desktop app, or edit `%APPDATA%\uncoil\config.json` in any text 
 file changing and applies it within a frame or two; there is nothing to restart. Without a config file it
 runs the defaults. Every key is listed under [Configuration](/docs/configuration/).
 
+The app doesn't need to stay open. If you'd like it to, its **Tray & notifications** page can keep it in the
+tray when the window closes (the tray icon switches the effect and opens the window), and start it in the
+tray with Windows: that adds a per-user startup entry (the `Run` key under your account) launching
+`uncoil-app.exe --tray`, and turning it off removes the entry. While the app runs, it checks wireless
+devices' batteries every 10 minutes and notifies you once at the level you pick (20 % by default), once more
+at 10 %, and once when charging reaches 100 %. Only one copy of the app runs; starting it again brings up
+the open window. These preferences live in `%APPDATA%\uncoil\app.json`, apart from the engine's config.
+
+Developers: notifications from a dev build (`pnpm tauri dev`) show under PowerShell's name and icon, because
+the app isn't installed.
+
 ## Update
 
 Run the install script again with the new `uncoild.exe`. It stops the running copy before replacing it. Pass
@@ -132,11 +153,12 @@ From the source checkout (or the folder with a release's `uninstall-task.ps1`, o
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # tasks and executable (asks for elevation)
 Remove-Item -Recurse "$env:LOCALAPPDATA\uncoil"   # status file, log and the onboard-write journal
-Remove-Item -Recurse "$env:APPDATA\uncoil"        # your settings and any extra device files
+Remove-Item -Recurse "$env:APPDATA\uncoil"        # your settings, the app's settings and any extra device files
 ```
 
-The uninstall script removes both tasks (**uncoil** and **uncoil-openrgb**), `%ProgramFiles%\uncoil` and
-OpenRGB's settings folder `%ProgramData%\uncoil`. It deletes nothing in your user profile: the two
+The uninstall script removes both tasks (**uncoil** and **uncoil-openrgb**; stopping the latter also ends
+an OpenRGB server it started in live mode), `%ProgramFiles%\uncoil` and OpenRGB's settings folder
+`%ProgramData%\uncoil`. It deletes nothing in your user profile: the two
 `Remove-Item` lines are for a clean slate, and you run them yourself.
 
 uncoil leaves devices in normal mode, so the keys, dial and media controls keep working afterwards. Anything

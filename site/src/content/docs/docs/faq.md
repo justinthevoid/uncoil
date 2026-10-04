@@ -25,11 +25,11 @@ Chroma Extended):
 | Processes | 17 | 1 |
 | Memory | ~1.4 GB at start, leaking to several GB over days | ~3 MB |
 | CPU, idle animation | ~7% of one core | under 1% of one core |
-| On disk | ~500 MB | 1.3 MB, one executable |
+| On disk | ~500 MB | 1.4 MB, one executable |
 | Kernel drivers | yes | none |
 
-That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-03
-(1,257,472 bytes).
+That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-04
+(1,379,328 bytes).
 uncoild measures itself and writes the numbers to `%LOCALAPPDATA%\uncoil\status.json` (`uncoil status` prints
 them), so you can check yours.
 
@@ -47,8 +47,9 @@ What uncoil doesn't do yet:
 Key and button remapping (normal and Fn layers) works from the app and the CLI. Only one remap, Fn+P to Print
 Screen, has been checked on a real keyboard so far; see the
 [protocol](/docs/protocol/#onboard-key-mappings-the-fn-layer-lives-in-the-keyboard). DPI, DPI stages, poll
-rate, battery and the sleep timer are there too, from OpenRazer's documented commands, but not yet confirmed on
-real hardware: uncoil reads each one first and won't change it unless the read makes sense.
+rate, battery, the sleep timer and the scroll wheel (tactile or free spin, acceleration, Smart Reel) are there
+too, from OpenRazer's documented commands, but not yet confirmed on real hardware: uncoil reads each one first
+and won't change it unless the read makes sense.
 
 Anything already stored in a device's own memory stays there after Synapse is uninstalled. If you need one of
 the above occasionally, you can install Synapse, make the change, quit it properly, and uninstall it again.
@@ -58,20 +59,25 @@ the above occasionally, you can install Synapse, make the change, quit it proper
 If it is a Razer device that OpenRGB or OpenRazer already knows, probably, and adding it is mostly a
 [data file](/docs/devices/#adding-a-device). 29 such devices already have an
 [experimental](/docs/devices/#experimental) file waiting for someone with the hardware to confirm it. Anything else is out of scope: uncoil drives Razer devices, and
-can hand the rest of the PC to OpenRGB once at logon if you set that up.
+can leave the rest of the PC to [OpenRGB](/docs/configuration/#openrgb) if you set that up: a hand-off to the
+devices' own effects at sign-in, or live, where the motherboard, RAM and GPU follow the desk effect.
 
 ## Does it collect anything?
 
-No. There is no account, no telemetry, no network access and no updater. It reads its config and device files,
+No. There is no account, no telemetry, no connection off this PC and no updater. It reads its config and device files,
 writes a status file, a small log and a record of writes to device memory under your profile, talks to USB
-devices, and answers the app and the CLI over a local named pipe that only your user account can open.
+devices, and answers the app and the CLI over a local named pipe that only your user account can open. The
+one network connection it makes is in live OpenRGB mode, to OpenRGB on `127.0.0.1`. To spot programs that
+would fight it over the devices, it compares the names of running programs against a short list (Synapse,
+Razer Chroma, OpenRGB, SignalRGB) and keeps only the names that match.
 
 ## Does it need administrator rights?
 
 Once, to install: the executable goes to `%ProgramFiles%\uncoil`, where only administrators can write. The
 daemon itself runs as you, unelevated; its device access is plain user-mode HID. Only the optional OpenRGB
-hand-off runs elevated, from its own one-shot task (`install-task.ps1 -OpenRgb`), because RAM lighting sits on
-the SMBus, which needs administrator rights. `-Elevated` runs the whole daemon elevated, as a fallback for a
+part runs elevated, from its own task (`install-task.ps1 -OpenRgb`: a one-shot hand-off, or in live mode
+OpenRGB's server for as long as it runs), because RAM lighting sits on the SMBus, which needs administrator
+rights. `-Elevated` runs the whole daemon elevated, as a fallback for a
 PC where it cannot open its devices otherwise.
 
 ## Windows only?

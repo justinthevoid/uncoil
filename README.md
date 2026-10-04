@@ -1,7 +1,7 @@
 # uncoil
 
 **A small, open-source lighting daemon for Razer peripherals on Windows. It does the part of Synapse you
-actually use, in one 1.3 MB process.**
+actually use, in one 1.4 MB process.**
 
 [![CI](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml/badge.svg)](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-f2f2f2?style=flat-square&labelColor=0b0b0b)](LICENSE)
@@ -17,17 +17,19 @@ actually use, in one 1.3 MB process.**
 | Processes | 17 | **1** |
 | Memory | ~1.4 GB at start, leaking to multiple GB over days | **~3 MB** private |
 | CPU, idle after startup | ~7% of a core | **<1%** of one core |
-| Install size | ~500 MB | **1.3 MB**, single executable |
+| Install size | ~500 MB | **1.4 MB**, single executable |
 | Kernel drivers | yes | **none**, plain user-mode HID |
 
 <sub>Measured on the maintainer's PC (Windows 11, BlackWidow V4 Pro 75%, Basilisk V3 Pro, Goliathus Chroma
-Extended, rainbow wave running); memory and CPU on an earlier build, size on the build of 2026-10-03
-(1,257,472 bytes). One machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
+Extended, rainbow wave running); memory and CPU on an earlier build, size on the build of 2026-10-04
+(1,379,328 bytes). One machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
 and size in `status.json`, so you can check yours.</sub>
 
-No services, no account, no telemetry; the daemon makes no network connections. The optional desktop app
-and the `uncoil` command line talk to it over a local named pipe that only your user account can open. The
-app is opened when you want to change something and closed again. The daemon does the work.
+No services, no account, no telemetry; the daemon makes no network connections. The one exception is the
+optional live OpenRGB mode, where it talks to OpenRGB on `127.0.0.1`, on this PC only. The optional desktop
+app and the `uncoil` command line talk to the daemon over a local named pipe that only your user account can
+open. The app is opened when you want to change something and closed again (or kept in the tray, if you
+like). The daemon does the work.
 
 ## What it does
 
@@ -44,6 +46,9 @@ app is opened when you want to change something and closed again. The daemon doe
 - **Mouse settings:** DPI, DPI stages, polling rate, battery level, sleep timer and low-battery warning on
   mice whose device file lists them, using OpenRazer's shared mouse commands. These are not yet confirmed on
   the Basilisk V3 Pro, so uncoil reads each value first and only changes it if the read makes sense.
+- **Scroll wheel settings:** tactile or free spin, scroll acceleration and Smart Reel, stored in the mouse.
+  Unconfirmed on the Basilisk V3 Pro (read first, like the mouse settings above) and experimental on the
+  Basilisk V3 and V3 35K. Each device's firmware version, and a keyboard's layout and colour, can be read too.
 - **Colour tuned for LEDs.** Uses FastLED's rainbow hue map, so no colour band looks wider or brighter than
   the rest.
 - **Behaves like Synapse where it matters.** Lighting fades out when Windows turns the display off, dims with
@@ -51,12 +56,23 @@ app is opened when you want to change something and closed again. The daemon doe
 - **Leaves the firmware in charge.** Devices are kept in normal mode, so Fn keys, media keys and the volume
   dial work even when uncoil isn't running.
 - **A command line,** `uncoil`, for status, devices, key maps (with TOML backups), the dial, the screen,
-  firmware effects, DPI, polling rate and power. Run `uncoil help` for the full list.
-- **Optional, off by default:** a one-shot hand-off of motherboard, GPU and RAM RGB to their own hardware
-  modes via [OpenRGB](https://openrgb.org), if it is installed at `C:\Program Files\OpenRGB`. You list the
-  devices and modes in the config (`openrgb.devices`; there are no built-in names) and install with
-  `-OpenRgb`, which adds a small elevated task that runs it once at logon. It closes a running OpenRGB in
-  your session first. See [configuration](site/src/content/docs/docs/configuration.md#openrgb_hardware_rainbow).
+  firmware effects, DPI, polling rate, power, the scroll wheel (`uncoil scroll`) and device info
+  (`uncoil info`: firmware, layout, colour). Run `uncoil help` for the full list.
+- **Optional, off by default: the rest of the PC through [OpenRGB](https://openrgb.org)** (motherboard, GPU,
+  RAM), if it is installed at `C:\Program Files\OpenRGB`, with `openrgb.mode`:
+  - `hardware` hands the devices you list in `openrgb.devices` (there are no built-in names) to their own
+    hardware modes once at sign-in, and OpenRGB exits.
+  - `live` keeps OpenRGB running as a local SDK server, and the daemon sends it the desk effect, so the
+    motherboard, RAM and GPU follow the keyboard. They join the desk as a "PC" column left of the keyboard,
+    which you can move in the config. Razer devices are always left to uncoil.
+
+  Both need the `-OpenRgb` install (a small elevated task; RAM sits on the SMBus, which needs administrator
+  rights) and close a running OpenRGB in your session first. While the live server runs, any program on
+  this PC can change that lighting too (OpenRGB's SDK has no authentication). See
+  [configuration](site/src/content/docs/docs/configuration.md#openrgb) and [SECURITY.md](SECURITY.md).
+- **A tray icon** while the desktop app runs: switch the effect from it and, if you choose, keep the app there
+  when its window closes or start it there with Windows. The app also notifies you when a wireless device's
+  battery runs low or finishes charging.
 
 ## Screenshots
 
@@ -76,7 +92,8 @@ this capture).</sub>
 ### Experimental
 
 These are set up from OpenRazer and OpenRGB data, and nobody has confirmed them on real hardware yet. Before
-uncoil changes anything stored on one of them (key and button mappings, DPI stages, polling rate, sleep timer),
+uncoil changes anything stored on one of them (key and button mappings, DPI stages, polling rate, sleep timer,
+scroll wheel settings),
 it reads a few settings first to make sure the device answers the way it expects; nothing is written until that
 check passes. If you own one,
 [tell us whether it works](https://github.com/justinthevoid/uncoil/issues/new?template=device_report.yml).
@@ -104,6 +121,14 @@ if you can help test.
 disable its startup entry (or uninstall it). If Synapse left a device in driver mode, uncoil puts it back
 in normal mode when it connects, so the dial and media keys come back.
 
+**Running alongside other programs.** uncoil takes the same device lock as OpenRGB (and, apparently, Razer's
+own software) around every request it sends a Razer device, so two programs never mix their reports on one
+device. It waits at most 25 ms for it: a lighting frame is skipped, and a command is tried once more and then
+fails with "another program is talking to … right now". The lighting still fights: two programs sending
+colours to one device make it flicker between them. So uncoil also looks for Razer Synapse, Razer's Chroma SDK
+services, OpenRGB and SignalRGB by process name every 5 seconds, logs each once and shows a notice in the app
+(and in `uncoil status`). OpenRGB started by uncoil's own live mode doesn't count.
+
 ```powershell
 # from a clone, after building (see below)
 powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
@@ -113,16 +138,24 @@ The daemon runs as you, **unelevated**. The script asks for one UAC prompt only 
 `%ProgramFiles%\uncoil`, where only administrators can write (so no program running as you can swap it); it
 checks the copy's SHA-256, registers a logon task named `uncoil` and starts it. Two options:
 
-- `-OpenRgb` also registers `uncoil-openrgb`, an elevated task that runs once at logon to hand motherboard,
-  GPU and RAM lighting to OpenRGB (RAM sits on the SMBus, which needs administrator rights), and creates the
-  admin-only folder `%ProgramData%\uncoil\openrgb` for OpenRGB's settings. It does nothing until you turn
-  the hand-off on in the config.
+- `-OpenRgb` also registers `uncoil-openrgb`, an elevated task that runs at logon for motherboard, GPU and
+  RAM lighting through OpenRGB (RAM sits on the SMBus, which needs administrator rights): in `hardware` mode
+  it hands the devices over once and exits; in `live` mode it keeps OpenRGB running as uncoil's SDK server
+  on `127.0.0.1`. It also creates the admin-only folder `%ProgramData%\uncoil\openrgb` for OpenRGB's
+  settings. It does nothing until you set `openrgb.mode` in the config.
 - `-Elevated` runs the daemon itself elevated, as older installs did. It is a fallback for a PC where the
   daemon cannot open its devices unelevated (none seen so far).
 
 See [SECURITY.md](SECURITY.md) for what runs elevated and why. The script installs only the daemon: the
 `uncoil` CLI (`target\release\uncoil.exe`) runs from wherever you put it, and the desktop app has its own
 installer.
+
+The app's **Tray & notifications** page has its own options: keep it in the tray when the window closes, and
+start it in the tray with Windows. The second adds a per-user startup entry (the `Run` key under your
+account) that launches `uncoil-app.exe --tray`; turning it off removes the entry. Battery notifications are
+on by default: once when a wireless device reaches the level you choose (20 % unless you change it), once more
+at 10 %, and once when charging reaches 100 %, checked every 10 minutes while the app is open or in the
+tray. Only one copy of the app runs; starting it again shows the open window.
 
 To remove it:
 
@@ -142,11 +175,12 @@ Anything uncoil wrote into a device's own memory (key maps, a saved firmware eff
 |---|---|
 | `%APPDATA%\uncoil\config.json` | settings; edited by the app, hot-reloaded by the daemon |
 | `%APPDATA%\uncoil\devices\*.toml` | extra or overriding device definitions, read at start |
+| `%APPDATA%\uncoil\app.json` | the desktop app's own preferences (tray, start with Windows, battery notifications); the daemon never reads it |
 | `%LOCALAPPDATA%\uncoil\status.json` | live device and engine status, read by the app |
 | `%LOCALAPPDATA%\uncoil\uncoild.log` | daemon log, trimmed at 256 KB |
 | `%LOCALAPPDATA%\uncoil\onboard-writes.jsonl` | one line per write to a device's memory; `keymap reset` restores from it |
 | `%ProgramFiles%\uncoil\uncoild.exe` | the installed daemon (and `install.log`, what the last install did) |
-| `%ProgramData%\uncoil\openrgb` | OpenRGB's settings for the hand-off, administrators only (`-OpenRgb` or `-Elevated` installs) |
+| `%ProgramData%\uncoil\openrgb` | OpenRGB's settings (`OpenRGB.json`) for the hand-off or the live server, administrators only (`-OpenRgb` or `-Elevated` installs) |
 
 ## Build from source
 
@@ -159,7 +193,7 @@ git clone https://github.com/justinthevoid/uncoil
 cd uncoil
 
 # daemon and CLI
-cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli
+cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openrgb
 cargo build --release -p uncoild -p uncoil-cli      # target\release\uncoild.exe, target\release\uncoil.exe
 
 # desktop app (optional)
@@ -170,13 +204,16 @@ pnpm tauri build                                    # release build + NSIS insta
 ```
 
 `pnpm dev` alone serves the app UI in a browser against a mock with the real desk geometry, which is handy
-for design work without hardware.
+for design work without hardware. Notifications from a dev build (`pnpm tauri dev`) show under PowerShell's
+name and icon, because the app isn't installed; an installed build shows its own.
 
 ### Layout
 
 ```
 crates/uncoil-core    protocol, colour, effects, device definitions, desk layout, pipe types (pure, unit-tested)
-crates/uncoil-hid     USB HID transport with per-device quirks; display-power watcher; key and audio listeners
+crates/uncoil-hid     USB HID transport with per-device quirks and the shared Razer device lock; display-power
+                      watcher; key and audio listeners
+crates/uncoil-openrgb a small OpenRGB SDK client for live mode (std only, 127.0.0.1 only)
 apps/uncoild          background daemon (no window); serves the control pipe \\.\pipe\uncoil
 apps/uncoil-cli       the `uncoil` command line, a client of that pipe
 apps/uncoil           desktop app: Tauri 2 + SvelteKit + Tailwind; its preview runs the real effect code

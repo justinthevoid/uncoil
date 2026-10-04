@@ -39,8 +39,8 @@ This is what uncoil runs when there is no config file at all:
 | `fps` | integer | `30` | Frames per second sent to each device, clamped to 5–60. |
 | `display` | object | see below | How lighting follows the display. See [Display](#display). |
 | `desk` | object | `{}` | Where each device sits on the desk. See [Desk](#desk). |
-| `openrgb_hardware_rainbow` | boolean | `false` | Hand the devices in `openrgb` to OpenRGB once at logon. See [below](#openrgb_hardware_rainbow). |
-| `openrgb` | object | `{ "devices": [] }` | Which devices the OpenRGB hand-off sets, and to what. See [below](#openrgb_hardware_rainbow). |
+| `openrgb_hardware_rainbow` | boolean | `false` | Older switch for the OpenRGB hand-off; `true` means `openrgb.mode` `"hardware"` when that isn't set. See [below](#openrgb). |
+| `openrgb` | object | `{ "devices": [] }` | What uncoil does with OpenRGB for the motherboard, GPU and RAM: off, a hand-off at sign-in, or live. See [below](#openrgb). |
 
 ## Effects
 
@@ -217,24 +217,56 @@ To move the mouse a little further right:
 Device ids are the `id` in each [device file](/docs/devices/). Because the wave is computed from these
 positions, a correct desk layout is what makes the bands line up from one device to the next.
 
-## `openrgb_hardware_rainbow`
+In [live OpenRGB mode](#live) the PC's OpenRGB devices join the desk too, with ids `openrgb:<name>` (the
+device's name in lower case, other characters as `-`, for example `openrgb:asus-rog-strix-b550-f-gaming-wi-fi`;
+a second device with the same name gets `-2`). Unplaced, they stack in a column left of the keyboard. To
+move one, give its centre like any other device:
 
-Off by default. uncoil does not drive non-Razer hardware itself, but it can ask OpenRGB, once at logon, to put
-the motherboard, GPU and RAM on their own built-in (hardware) effects; OpenRGB then exits. This needs three
-things:
+```json
+"desk": { "openrgb:corsair-vengeance-pro-rgb": { "x": -6, "y": 2 } }
+```
 
-1. OpenRGB installed at `C:\Program Files\OpenRGB\OpenRGB.exe`.
+The app's Devices page lists them by name under "Through OpenRGB"; `uncoil --json status` gives their ids
+under `openrgb.devices`.
+
+## `openrgb`
+
+Off by default. uncoil drives Razer devices itself; for the rest of the PC (motherboard, GPU, RAM) it can use
+[OpenRGB](https://openrgb.org). `openrgb.mode` says how:
+
+| `mode` | What happens |
+|---|---|
+| `"off"` | Nothing. The default. |
+| `"hardware"` | At sign-in, OpenRGB runs once to put each device in `openrgb.devices` on its own built-in (hardware) effect, then exits. uncoil doesn't drive those devices. |
+| `"live"` | OpenRGB keeps running in the background as a local SDK server, and uncoil sends it the desk effect, so the motherboard, RAM and GPU follow your Razer devices. |
+
+Without `mode`, the older `"openrgb_hardware_rainbow": true` means `"hardware"`; when both are there, `mode`
+wins. The app's Settings page sets `mode` for you.
+
+Both modes need:
+
+1. OpenRGB installed at `C:\Program Files\OpenRGB\OpenRGB.exe`. For RAM and many motherboards OpenRGB also
+   needs PawnIO, its SMBus driver on Windows; see OpenRGB's own instructions.
 2. The `-OpenRgb` install (`scripts\install-task.ps1 -OpenRgb`), which registers the elevated
    **uncoil-openrgb** task and the administrators-only folder OpenRGB keeps its settings in
    (`%ProgramData%\uncoil\openrgb`). RAM lighting sits on the SMBus, which needs administrator rights, so the
-   unelevated daemon can't do this itself. (A daemon installed with `-Elevated` does the hand-off itself at
-   start.)
-3. `"openrgb_hardware_rainbow": true` and at least one entry in `openrgb.devices`. There is no built-in
-   device list.
+   unelevated daemon can't do this itself. (A daemon installed with `-Elevated` runs the hand-off or the
+   server itself at start.)
+
+Either way, if OpenRGB is already running in your session, it is closed first, and RAM is left alone while
+Corsair iCUE runs, because both would write the same bus.
+
+The task runs at sign-in, so turning a mode on, or switching between `hardware` and `live`, takes effect at
+your next sign-in (with `-Elevated`, when the daemon restarts). It writes no log; its result is the task's
+**Last Run Result** in Task Scheduler: `0` ran and exited cleanly, `1` turned off or nothing configured, `2`
+failed (see [Troubleshooting](/docs/troubleshooting/#icue-openrgb-and-signalrgb)). In live mode the task
+stays **Running** for as long as OpenRGB does.
+
+### Hardware
 
 ```json
-"openrgb_hardware_rainbow": true,
 "openrgb": {
+  "mode": "hardware",
   "devices": [
     { "match": "ASUS", "mode": "rainbow" },
     { "match": "Vengeance", "mode": "rainbow wave", "ram": true }
@@ -242,28 +274,75 @@ things:
 }
 ```
 
+`openrgb.devices` lists what to hand off; there is no built-in device list, so nothing happens until you add
+an entry.
+
 | Key | Meaning |
 |---|---|
 | `match` | Part of the device name as OpenRGB lists it (passed to `OpenRGB.exe -d`). |
 | `mode` | The OpenRGB mode to put it in (passed to `-m`). |
-| `ram` | `true` for RAM on the SMBus: skipped while Corsair iCUE runs, because both would write the same bus. Default `false`. |
+| `ram` | `true` for RAM on the SMBus: skipped while Corsair iCUE runs. Default `false`. |
 
 `match` and `mode` must be plain names: 1 to 64 letters, digits, spaces and `-_.()+#&:/`, not starting with
 `-` or a space and not ending with a space. Anything else is skipped, so a config entry can never become an
-OpenRGB option. If OpenRGB is already running in your session, it is closed first.
+OpenRGB option.
 
-The task runs at logon, so a change takes effect at your next logon (with `-Elevated`, when the daemon
-restarts). The task writes no log; its result is the task's **Last Run Result** in Task Scheduler: `0` done,
-`1` turned off or nothing configured, `2` failed (see [Troubleshooting](/docs/troubleshooting/#icue-openrgb-and-signalrgb)).
+### Live
+
+```json
+"openrgb": {
+  "mode": "live",
+  "live": { "port": 6742, "exclude": ["Vengeance"] }
+}
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `live.port` | `6742` | The SDK server's port on `127.0.0.1`, 1024–65535. The task starts OpenRGB on it and the daemon connects to it. |
+| `live.exclude` | `[]` | OpenRGB devices to leave alone: any whose name contains one of these, ignoring case. |
+
+uncoil drives every device OpenRGB finds except Razer devices (anything with "Razer" in its name or vendor,
+so also products like the Lian Li O11 Dynamic Razer Edition case), hidden ones, ones with no LEDs, the ones
+`exclude` matches, and RAM while iCUE runs. The OpenRGB it starts has every Razer detector turned off.
+
+The devices appear on the [desk](#desk) as a "PC" column left of the keyboard, in the order motherboards,
+RAM, GPUs, the rest, so the effect reaches them the way it reaches a mouse or a mat. Move them with `desk` if
+your case sits elsewhere. Brightness, saturation, the frame rate (at most 30 for OpenRGB devices) and the
+display fade apply to them too.
+
+Things to know:
+
+- **The SDK server has no password.** While it runs, any program on this PC can change the motherboard, RAM
+  and GPU lighting through it; that is how OpenRGB's SDK works. uncoil starts it listening on `127.0.0.1`
+  only, so other machines can't reach it. See
+  [SECURITY.md](https://github.com/justinthevoid/uncoil/blob/main/SECURITY.md).
+- **Turning live off** stops uncoil sending frames straight away; the PC's lights stay as they were last set,
+  and the OpenRGB server keeps running until you sign out or end the **uncoil-openrgb** task in Task
+  Scheduler.
+- The app's Settings page shows the connection: connected with the number of devices, waiting for the
+  server, or the error.
+
+## The app's own settings
+
+The desktop app keeps its preferences in a separate file, `%APPDATA%\uncoil\app.json`, which the engine
+ignores. The app's **Tray & notifications** page edits it:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `close_to_tray` | `false` | Closing the window hides it in the tray instead of quitting. |
+| `start_in_tray` | `false` | Start hidden in the tray when you sign in: a per-user startup entry (the `Run` key under your account) launches `uncoil-app.exe --tray`. Also keeps the app in the tray when the window closes. |
+| `battery_notifications` | `true` | Notify when a wireless device's battery is low, and when charging reaches 100 %. Checked every 10 minutes while the app is open or in the tray. |
+| `battery_threshold` | `20` | Percent for the first low-battery notification, 15–50; a second one comes at 10 %. |
 
 ## Other files
 
 | Path | Written by | Contents |
 |---|---|---|
 | `%APPDATA%\uncoil\config.json` | you, the app | Settings (this page). |
+| `%APPDATA%\uncoil\app.json` | the app | The app's own preferences ([above](#the-apps-own-settings)); the engine never reads it. |
 | `%APPDATA%\uncoil\devices\*.toml` | you | Extra or overriding [device definitions](/docs/devices/#adding-a-device), read at start. Experimental unless the file sets `support`; files over 1 MB are skipped. |
 | `%LOCALAPPDATA%\uncoil\status.json` | uncoild, every 2 s | Running devices, fps, retries, errors, and the daemon's own memory, CPU and size. |
 | `%LOCALAPPDATA%\uncoil\uncoild.log` | uncoild | Device opens and losses, display changes, reloads, writes to device memory. Trimmed past 256 KB. |
 | `%LOCALAPPDATA%\uncoil\onboard-writes.jsonl` | uncoild | One line per write to a device's own memory. `keymap reset` uses it to restore a key's value from before uncoil first wrote it. |
 | `%ProgramFiles%\uncoil\uncoild.exe` | install script | The installed daemon (`install.log` next to it says what the last install did). |
-| `%ProgramData%\uncoil\openrgb` | OpenRGB | OpenRGB's settings for the hand-off; administrators only. Created by `-OpenRgb` or `-Elevated` installs. |
+| `%ProgramData%\uncoil\openrgb` | OpenRGB, the uncoil-openrgb task | OpenRGB's settings for the hand-off or the live server; administrators only. In live mode the task writes `OpenRGB.json` there (Razer detectors off, server on `127.0.0.1`). Created by `-OpenRgb` or `-Elevated` installs. |

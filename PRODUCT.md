@@ -23,7 +23,7 @@ uncoil replaces the parts of Razer Synapse people actually use with a tiny backg
 
 ## Positioning
 
-**Lightness leads.** Measured on the maintainer's PC: Synapse 4 ran 17 processes at ~1.4 GB RAM at start and leaked to multiple GB over days; uncoil's daemon is one 1.3 MB executable using ~3 MB RAM and under 1% of one core (memory and CPU measured on an earlier build). It runs as the user, unelevated. No services, no account, no telemetry, no kernel drivers.
+**Lightness leads.** Measured on the maintainer's PC: Synapse 4 ran 17 processes at ~1.4 GB RAM at start and leaked to multiple GB over days; uncoil's daemon is one 1.4 MB executable using ~3 MB RAM and under 1% of one core (memory and CPU measured on an earlier build). It runs as the user, unelevated. No services, no account, no telemetry, no kernel drivers.
 
 Supporting points (secondary, in this order):
 1. One effect across the whole desk, using each LED's real physical position (keyboard keys and underglow, mouse, mat).
@@ -31,7 +31,7 @@ Supporting points (secondary, in this order):
 
 ## Operating Context
 
-- Windows 10/11 desktop. The daemon starts at logon via a scheduled task and runs headless; the app is opened occasionally to change effects or check device status, then closed.
+- Windows 10/11 desktop. The daemon starts at logon via a scheduled task and runs headless; the app is opened occasionally to change effects or check device status, then closed (or, if the user chooses, kept in the tray for its effect menu and battery notifications).
 - Config at `%APPDATA%\uncoil\config.json` (hot-reloaded); status at `%LOCALAPPDATA%\uncoil\status.json`.
 - Lighting fades when Windows turns the display off, dims with it, and returns on wake.
 - Contributors work from `devices/*.toml`, `docs/PROTOCOL.md`, and the Python tools in `tools/reference`.
@@ -41,7 +41,7 @@ Supporting points (secondary, in this order):
 - Supported devices today: Razer BlackWidow V4 Pro 75% (wired), Basilisk V3 Pro (wired/HyperSpeed), Goliathus Chroma Extended. More via data files.
 - Effects: angled rainbow wave, spectrum, static, off; brightness, saturation, speed, band width, angle.
 - Device firmware stays in normal mode so Fn/media/dial keep working even if uncoil isn't running.
-- Optional one-shot OpenRGB hand-off for non-Razer RGB (motherboard, GPU, RAM): off by default, runs from its own elevated logon task only if installed with `-OpenRgb`.
+- Optional OpenRGB for non-Razer RGB (motherboard, GPU, RAM), off by default, from its own elevated logon task only if installed with `-OpenRgb`: either a one-shot hand-off to the devices' hardware modes, or live, where OpenRGB runs as a local server and those devices follow the desk effect.
 - Undecided: Fn-layer editor UI, dial/OLED control, per-app profiles, installer format, distribution channel.
 - License GPL-3.0-or-later. Not affiliated with Razer; must not use Razer/Synapse/Chroma marks in the product name or logo.
 

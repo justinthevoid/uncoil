@@ -69,6 +69,7 @@ Synapse's logs contain a second, older command table for the same keyboard (`rzD
 |---|---|---|---|
 | `00/04` | Set Device Mode | `[mode, 0]` — `0x00` normal (firmware runs Fn, media keys, dial, DPI buttons), `0x03` driver | verified, logged |
 | `00/84` | Get Device Mode | → `[mode, 0]` (`[0, 0]` on all three devices) | read |
+| `00/81` `00/86` | Firmware version, keyboard layout and colour | see [Device info](#device-info) | prior art |
 | `0F/02` | Set effect (extended matrix) | see [Firmware effects](#firmware-effects) | verified (custom frame, wave) |
 | `0F/03` | Custom frame row | `[0, 0, row, start_col, stop_col, r,g,b, …]` | verified |
 | `0F/80` | Lighting regions | → 5-byte records `[led, 25, 3, rows, cols]` | read |
@@ -81,8 +82,9 @@ Synapse's logs contain a second, older command table for the same keyboard (`rzD
 | `17/03` | Set OLED brightness | `[percent]` | logged |
 | `17/82`–`17/96` | OLED getters | see [OLED](#oled-display) | logged, read |
 
-See the catalog for firmware, macro storage etc., and [Shared mouse commands](#shared-mouse-commands) for
-DPI, poll rate and power.
+See the catalog for macro storage etc., and [Shared mouse commands](#shared-mouse-commands) for DPI, poll
+rate, power and the scroll wheel. Every request and its reply run under a lock other programs share; see
+[The shared device lock](#the-shared-device-lock).
 
 ## Shared mouse commands
 
@@ -106,6 +108,70 @@ reads each value back (read-only check) before changing it.
 
 uncoil clamps DPI to the device file's `[dpi]` range, the sleep timer to 60–900 s and the threshold to
 `0x0C`–`0x3F` before sending.
+
+### Scroll wheel
+
+Also from OpenRazer (`razerchromacommon.c` and `razermouse_driver.c` at a84cd0ae; meanings from its
+`mouse_scroll_wheel.py`), listed there for the Basilisk V3 family. **Not yet read on uncoil's devices:** the
+Basilisk V3 Pro lists `scroll` as `unverified`, and the Basilisk V3 and V3 35K files are experimental, so
+every write waits for the `scroll` read-only check.
+
+| class/id | name | args → reply | notes |
+|---|---|---|---|
+| `02/14` / `02/94` | scroll mode | `[1, 0 tactile / 1 free spin]`; the get sends `[1]` | |
+| `02/16` / `02/96` | scroll acceleration | `[1, 0 off / 1 on]` | |
+| `02/17` / `02/97` | Smart Reel | `[1, 0 off / 1 on]` | switches to free spin when the wheel is flicked fast |
+
+Every command has size 2 and the reply carries the value in argument 1. Argument 0 is `1` (VARSTORE): the
+value is stored in the mouse, so every set is an onboard write. OpenRazer sends them with the endpoint's
+default transaction id (`0x1F` on the Basilisk V3 Pro); device files can move them with the `scroll` group.
+Related, from Synapse's logs: the Basilisk's scroll-mode button (`02/84` id 106), function 18
+`ScrollWheelMode` and input event `57` (notch / free spin) in [Input reports](#input-reports-keyboard-vendor-collection).
+
+## Device info
+
+Read-only, on any device; uncoil reads them once per connection and never asks for the serial number
+(`00/82`).
+
+| class/id | name | args → reply | source |
+|---|---|---|---|
+| `00/81` | firmware version | size 2 → `[major, minor]` | OpenRazer `razerchromacommon.c` (`get_firmware_version`), OpenRGB `RazerController.cpp` |
+| `00/86` | keyboard info | size 2 → `[layout, variant]` | OpenRazer `razerkbd_driver.c` (`kbd_layout`), OpenRGB `RazerController.cpp` (`razer_get_keyboard_info`) |
+
+uncoil shows the firmware as major, then the minor with two digits: `[1, 4]` is `1.04`, the way Razer writes
+its versions. OpenRazer and OpenRGB print the same bytes as `v1.4`. An all-zero reply means no version.
+
+Layout codes are OpenRGB's table (`RazerController.h`, where most are marked "unconfirmed") plus OpenRazer's
+`0x81`; the physical shape is OpenRGB's mapping:
+
+| code | layout | code | layout |
+|---:|---|---:|---|
+| 1 | US (ANSI) | 12 | Japanese (JIS) |
+| 2 | Greek (ISO) | 13 | Portuguese, Brazil (ISO) |
+| 3 | German (ISO) | 14 | Spanish, Latin America (ISO) |
+| 4 | French (ISO) | 15 | Swiss (ISO) |
+| 5 | Russian (ANSI) | 16 | Spanish, Spain (ISO) |
+| 6 | UK (ISO) | 17 | Italian (ISO) |
+| 7 | Nordic (ISO) | 18 | Portuguese, Portugal (ISO) |
+| 8 | Traditional Chinese (ANSI) | 19 | Hebrew (ISO) |
+| 9 | Korean (ISO) | 20 | Arabic (ANSI) |
+| 10 | Turkish (ANSI) | `0x81` | US, Mac (ANSI) |
+| 11 | Thai (ANSI) | | |
+
+`0` means no layout; other codes are shown as the raw number. The variant byte is the colour: `0x00` Black,
+`0x80` Quartz (pink), `0x82` Mercury (white). Synapse's logs have a "Get Edition Information" getter at id
+`0x86` whose reply `[1, 0, 0]` it decodes as `keyboardLayout` 1 (`PC_English_United_States`) and edition 0,
+which fits (inferred to be the same command).
+
+## The shared device lock
+
+OpenRGB takes a named Windows mutex, `Global\RazerLinkReadWriteGuardMutex`, around every report it sends to
+or reads from a Razer device (`RazerDeviceGuard.cpp`), and Razer's own software appears to share it (not confirmed).
+Since 2026-10-04 uncoil takes it around each request and its reply,
+so a request from one program can never be answered with another program's reply. uncoil waits at most
+25 ms: a frame is skipped, a command is tried once more and then fails with "another program is talking to
+… right now". The lock is never held across frames. How uncoil uses it:
+[`ARCHITECTURE.md`](ARCHITECTURE.md#sharing-devices-with-other-programs).
 
 ## Firmware effects
 
@@ -305,8 +371,10 @@ command, image format and chunking never appear in the logs.
 
 - Hardware verification of firmware effects (`0F/02`) on all three devices, and of `dial set` / `oled set`.
 - Profile switching and confirmation of `05/84`.
-- The shared mouse commands (DPI, stages, poll rate, battery, sleep timer, low-battery threshold) on the
-  Basilisk V3 Pro: `uncoil check mouse` reads them all without writing anything.
+- The shared mouse commands (DPI, stages, poll rate, battery, sleep timer, low-battery threshold, scroll
+  wheel) on the Basilisk V3 Pro: `uncoil check mouse` reads them all without writing anything.
+- `00/81` and `00/86` on uncoil's own devices (`uncoil info`), and the layout codes OpenRGB marks
+  unconfirmed.
 - Every file in `devices/experimental/` (built from OpenRazer / OpenRGB data).
 - Media-key (`fn` 10), macro, lighting and Windows-shortcut data layouts on the keyboard.
 - The `02/8F` bulk-read paging, and the factory Hypershift defaults for keys Synapse never wrote.

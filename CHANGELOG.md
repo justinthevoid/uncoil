@@ -12,7 +12,8 @@ Everything so far. Nothing has been released yet.
 ### Added
 
 - **`uncoild`, the daemon.** One headless process that drives Razer lighting directly over user-mode HID:
-  no services, no kernel drivers, no network. Installed as a per-user, unelevated logon task by
+  no services, no kernel drivers, no network (live OpenRGB mode talks to OpenRGB on 127.0.0.1 only).
+  Installed as a per-user, unelevated logon task by
   `scripts/install-task.ps1` into `%ProgramFiles%\uncoil`; removed by `scripts/uninstall-task.ps1`.
 - **Desk-wide effects:** wave (angle, speed, band width, direction), spectrum, breathing, static, starlight,
   fire (flames rising from the front of the desk), wheel, reactive (keys light when pressed), ripple (rings
@@ -56,9 +57,29 @@ Everything so far. Nothing has been released yet.
   second keyboard below the first, another mouse to the right); the default desk is unchanged.
 - **Hot-reloaded config** at `%APPDATA%\uncoil\config.json`; live status at
   `%LOCALAPPDATA%\uncoil\status.json`; a small self-trimming log at `%LOCALAPPDATA%\uncoil\uncoild.log`.
-- **Optional OpenRGB hand-off** (off by default): one OpenRGB CLI run at logon puts the motherboard, GPU and
-  RAM devices listed in `openrgb.devices` on their own hardware modes, from the elevated one-shot task
-  `uncoil-openrgb` (`install-task.ps1 -OpenRgb`).
+- **Optional OpenRGB hand-off** (off by default, `openrgb.mode = "hardware"`): one OpenRGB CLI run at logon
+  puts the motherboard, GPU and RAM devices listed in `openrgb.devices` on their own hardware modes, from the
+  elevated task `uncoil-openrgb` (`install-task.ps1 -OpenRgb`).
+- **Live OpenRGB** (off by default, `openrgb.mode = "live"`): the motherboard, RAM and GPU follow the desk
+  effect. The `uncoil-openrgb` task runs OpenRGB as an SDK server on 127.0.0.1 with every Razer detector off,
+  and the daemon streams frames to it from its own thread through a new std-only client,
+  `crates/uncoil-openrgb` (protocol version 5 at most; the server is treated as untrusted input). OpenRGB's
+  devices join the desk as a "PC" column left of the keyboard (`openrgb:<name>` ids, placeable in
+  `config.desk`, usable in Studio masks); `openrgb.live.port` and `openrgb.live.exclude` adjust it. Razer
+  devices, and RAM while iCUE runs, are left out. `status.openrgb` reports the connection and the devices.
+- **Razer device lock.** Every request to a Razer device runs under `Global\RazerLinkReadWriteGuardMutex`,
+  the lock OpenRGB (and apparently Razer's software) takes, waiting at most 25 ms: a busy lock skips a frame,
+  or retries a command once and then fails with plain words. A check that can't get the lock stays untested
+  rather than failing.
+- **Scroll wheel settings** (`scroll.get`, `scroll.set`, `uncoil scroll`): tactile or free spin, scroll
+  acceleration and Smart Reel (`02/14`, `02/16`, `02/17`, from OpenRazer), stored in the mouse and gated by a
+  read-only check. Unconfirmed on the Basilisk V3 Pro (`unverified`), experimental on the Basilisk V3 and V3
+  35K. Device files gain `[scroll]` and a `scroll` transaction-id group.
+- **Device info** (`info.get`, `uncoil info`): firmware version on every device, and a keyboard's layout and
+  colour (`00/81`, `00/86`), read once per connection; never the serial number.
+- **Conflict notice.** The daemon looks for Razer Synapse, the Razer Chroma SDK services, OpenRGB and
+  SignalRGB by process image name at every rescan, logs each once and lists them in `status.conflicts`; the
+  app and `uncoil status` show them. uncoil's own live OpenRGB server doesn't count.
 - **Desktop app** (Tauri 2, SvelteKit, Tailwind; design in `DESIGN.md`): your desk drawn to scale and lit
   with the live effect from the engine's real effect code, effect and display settings, device status, and
   a browser mock for UI work without hardware.
@@ -70,8 +91,18 @@ Everything so far. Nothing has been released yet.
   - **Onboard effects, Performance** (DPI, stages, poll rate) and **Battery & sleep** per device, shown when
     the device file lists the feature; experimental devices say what the read-only check found.
   - Every onboard write takes a second, explicit confirmation and reports the read-back.
+  - **Tray icon** with an effect menu, Open and Quit. Optional: keep the app in the tray when its window
+    closes, and start it in the tray with Windows (a per-user startup entry, `uncoil-app.exe --tray`). Only
+    one copy runs; starting it again shows the window. These preferences live in `%APPDATA%\uncoil\app.json`.
+  - **Battery notifications** for devices with the power feature: once at the chosen level (20 % by default,
+    15–50 %), once more at 10 %, and once when charging reaches 100 %; checked every 10 minutes while the app
+    runs.
+  - A notice when Synapse, Razer Chroma, OpenRGB or SignalRGB is running.
+  - A **Scroll wheel** section on Performance; firmware, layout and colour on Device info.
+  - **OpenRGB** modes (off, hand off once at sign-in, live) with the live connection's status in Settings,
+    "Through OpenRGB" on Devices, and the desk preview draws the OpenRGB devices.
 - **Feature modules** in `uncoil-core` (`features::{hw_effect, keymap, profile, dial, oled, performance,
-  power}`) and the shared `ipc` types for the app; device files declare `features` and the matching sections
+  power, scroll, info}`) and the shared `ipc` types for the app; device files declare `features` and the matching sections
   (79 keys of the BlackWidow V4 Pro 75%, 13 Basilisk V3 Pro buttons).
 - **Protocol documentation:** `docs/PROTOCOL.md`, a 30-command catalog mined from Synapse's own logs, the
   BlackWidow key-id table, the onboard key-map commands (verified by mapping Fn+P to Print Screen in the
@@ -98,14 +129,16 @@ For anyone running an earlier build from source:
 - The browser mock now matches the real daemon's check states, and tests keep it and the TypeScript
   effect code in step with the engine.
 - **The daemon runs unelevated by default.** `scripts/install-task.ps1` registers the `uncoil` task with run
-  level Limited. `-OpenRgb` adds the elevated one-shot task `uncoil-openrgb` (`uncoild --openrgb-once`) for
-  the OpenRGB hand-off; `-Elevated` is the fallback that runs the daemon itself elevated. The binary goes to
+  level Limited. `-OpenRgb` adds the elevated task `uncoil-openrgb` (`uncoild --openrgb-once`) for the
+  OpenRGB hand-off or live server; `-Elevated` is the fallback that runs the daemon itself elevated. The binary goes to
   `%ProgramFiles%\uncoil` instead of `%LOCALAPPDATA%\uncoil\bin` and its hash is checked after copying; the
   installer no longer deletes the old copy, it prints a note. `uninstall-task.ps1` removes both tasks and
   `%ProgramData%\uncoil` and leaves your profile alone.
 - **OpenRGB hand-off** is off by default and configured by `openrgb.devices` in `config.json` (plain names
   only); there are no built-in device names. OpenRGB gets an admin-only settings folder
   (`%ProgramData%\uncoil\openrgb`), and only an OpenRGB in your session is closed first.
+- **`openrgb.mode`** (`off`, `hardware`, `live`) chooses what uncoil does with OpenRGB. The older
+  `openrgb_hardware_rainbow` is still read: `true` means `hardware` when `openrgb.mode` is not set.
 - **Stricter device file validation** (Razer vendor id only, known key map commands and transaction ids,
   size limits, plain ids and names). Files in `%APPDATA%\uncoil\devices` are experimental unless they set
   `support`; files over 1 MB are skipped.
@@ -123,8 +156,9 @@ For anyone running an earlier build from source:
 - **Pipe:** failed requests may carry a `code` (`check_failed`, `left_click_guard`, `not_supported`);
   `devices` and `capabilities` report `support`, `capabilities` also `checks` and `unverified`. A device
   query by kind (`keyboard`, `mouse`) now prefers connected devices; with two mice connected, name one.
-- The release daemon is 1,257,472 bytes (about 1.3 MB, 2026-10-03; 1,208,320 before the hardening above), up
-  from 0.66 MB before the control pipe;
+- The release daemon is 1,379,328 bytes (about 1.4 MB, 2026-10-04; 1,260,544 before live OpenRGB, the device
+  lock, the scroll wheel, device info and conflict detection, 1,208,320 before the hardening above), up from
+  0.66 MB before the control pipe;
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#footprint) has the breakdown.
 
 [Unreleased]: https://github.com/justinthevoid/uncoil/commits/main

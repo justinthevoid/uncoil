@@ -36,8 +36,9 @@ interesting bugs live.
 
 - **What runs elevated.** `scripts/install-task.ps1` registers the daemon as a logon task with run level
   Limited: `uncoild` runs as you, unelevated. Only two optional things run elevated:
-  - the `uncoil-openrgb` task (`install-task.ps1 -OpenRgb`), a one-shot that runs `uncoild --openrgb-once`
-    at logon and exits (see External processes below);
+  - the `uncoil-openrgb` task (`install-task.ps1 -OpenRgb`), which runs `uncoild --openrgb-once` at logon:
+    in `hardware` mode it runs OpenRGB once and exits; in `live` mode it keeps OpenRGB running as an SDK
+    server for as long as OpenRGB runs (see External processes below);
   - the daemon itself, if it was installed with `-Elevated` (the fallback for PCs where it cannot open its
     devices unelevated; none seen yet).
 
@@ -51,8 +52,11 @@ interesting bugs live.
   redirection-trust mitigation (`ProcessRedirectionTrustPolicy`: junctions made by non-administrators are not
   followed) and refuses to write its log, status or journal into a folder that is a reparse point, through a
   link, or into a file with other hard links; the refusal is reported once on stderr and the write is
-  skipped. The `--openrgb-once` task writes no files. Redirection attacks (junctions, symlinks, hard links)
-  that still turn an elevated write into a write elsewhere are in scope.
+  skipped. The `--openrgb-once` task writes only `%ProgramData%\uncoil\openrgb\OpenRGB.json` (live mode),
+  inside the admin-only folder: it merges every Razer detector off and the server's host and port into
+  whatever settings are there, writes a temporary file opened without following links and refused if it has
+  other hard links, then renames it into place. Redirection attacks (junctions, symlinks, hard links) that
+  still turn an elevated write into a write elsewhere are in scope.
 - **The control pipe.** The desktop app and the `uncoil` CLI talk to the daemon over `\\.\pipe\uncoil`
   (newline-delimited JSON). Its security descriptor is `D:P(A;;GA;;;<user SID>)S:(ML;;NWNR;;;ME)`: full
   access for the user the daemon runs as and nobody else, with a medium integrity label (no write up, no
@@ -75,17 +79,40 @@ interesting bugs live.
   be a "get" command. Anything that lets an untrusted party choose the device, the command or its arguments
   (for example a crafted device file aimed at another vendor's hardware, or a pipe request that writes
   onboard memory without `"write": true`) is in scope.
-- **External processes.** The OpenRGB hand-off is off by default (`openrgb_hardware_rainbow`) and has no
-  built-in device names: it does nothing until `openrgb.devices` in `config.json` lists some. It runs from
-  the elevated `uncoil-openrgb` task (or, in `-Elevated` mode, from the daemon). Each `match` and `mode`
+- **External processes.** OpenRGB is off by default (`openrgb.mode`, or the older
+  `openrgb_hardware_rainbow`). Both modes run from the elevated `uncoil-openrgb` task (or, in `-Elevated`
+  mode, from the daemon). The hardware hand-off has no built-in device names: it does nothing until
+  `openrgb.devices` in `config.json` lists some. Each `match` and `mode`
   must be a plain name: 1 to 64 letters, digits, spaces and `-_.()+#&:/`, not starting with `-` or a space
   and not ending with a space; other entries are skipped. It runs
   `C:\Program Files\OpenRGB\OpenRGB.exe --noautoconnect --config %ProgramData%\uncoil\openrgb -d … -m …`,
   and only if that folder is owned by Administrators or SYSTEM, is not a reparse point and cannot be changed
   by non-administrators (the installer creates it that way). `tasklist` and `taskkill` are started by full
   path from the Windows system folder, and `taskkill` only closes an OpenRGB in the current session. The
-  one-shot reports through its exit code (Task Scheduler's last result: 0 done, 1 turned off or nothing
-  configured, 2 failed). Search-path or argument injection issues there are in scope.
+  task reports through its exit code (Task Scheduler's last result: 0 ran and exited cleanly, 1 turned off
+  or nothing configured, 2 failed). Search-path or argument injection issues there are in scope.
+
+  **Live mode: the OpenRGB SDK server has no authentication. While it runs, any program on this PC can
+  change the motherboard, RAM and GPU lighting through it (that is OpenRGB's design, not something uncoil
+  can add).** uncoil starts it bound to 127.0.0.1 only, both on the command line
+  (`--server --server-host 127.0.0.1 --server-port N`, N from `openrgb.live.port`, 1024–65535) and as
+  `Server.default_host` in its settings; an OpenRGB too old to know `--server-host` rejects the whole command
+  line rather than listening anywhere else. Every Razer detector is turned off, so that OpenRGB never touches
+  the Razer devices. A job object ends OpenRGB when the task stops or exits. The daemon (unelevated) connects
+  to that port as a client and treats the server as untrusted input, because while OpenRGB is not running any
+  local program could listen there: packets are capped at 8 MiB, at most 64 controllers are taken and one
+  with more than 4096 LEDs is refused, names lose control characters, and serial numbers are skipped without being stored. The task
+  marks its server as uncoil's with a named object, `Global\uncoil-openrgb-server`; a program running as you
+  could fake that name, and the worst it does is hide the "OpenRGB is running" notice. Ways to make the
+  server listen beyond 127.0.0.1, or to turn what a fake server sends into more than wrong colours, are in
+  scope.
+- **Other programs on the same devices.** Around every request to a Razer device the daemon takes the named
+  mutex `Global\RazerLinkReadWriteGuardMutex` (OpenRGB's `RazerDeviceGuard.cpp` uses the same one). uncoil
+  creates it with default security, or opens one another program created, or runs without it. Any program
+  running as you can hold it, which makes uncoil skip frames and fail commands with "another program is
+  talking to … right now"; that is a nuisance, not an escalation. To spot conflicting programs, the daemon
+  takes a process snapshot at every rescan and compares only the image names against a short list (Synapse,
+  the Chroma SDK services, OpenRGB, SignalRGB); only the matching program's name is kept, shown or logged.
 
 ### Key presses and audio level (reactive and audio effects)
 
@@ -112,9 +139,10 @@ listener running when no effect needs it is a security bug.
 
 The daemon's logon task runs unelevated (run level Limited). Two install options add elevation:
 
-- `-OpenRgb` registers `uncoil-openrgb`, an elevated one-shot logon task for the OpenRGB hand-off (RAM
-  lighting sits on the SMBus, which needs administrator rights), and creates the admin-only
-  `%ProgramData%\uncoil\openrgb` folder it requires.
+- `-OpenRgb` registers `uncoil-openrgb`, an elevated logon task for OpenRGB (RAM lighting sits on the
+  SMBus, which needs administrator rights), and creates the admin-only `%ProgramData%\uncoil\openrgb` folder
+  it requires. In `hardware` mode it is a one-shot; in `live` mode it keeps running, with no time limit, as
+  long as OpenRGB's server does, and stopping the task ends that OpenRGB.
 - `-Elevated` runs the daemon itself elevated, as installs did before; only for PCs where it cannot open its
   devices unelevated.
 

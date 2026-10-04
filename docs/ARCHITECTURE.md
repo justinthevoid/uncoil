@@ -13,29 +13,34 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
    pipe acceptor ─▶ client thread ─▶ Control::dispatch
                                        ├─ status / devices / capabilities: answered directly
                                        └─ device command ─▶ job queue of that device
-   main loop: config reload, display fade, hot-plug        │
+   main loop: config reload, display fade, hot-plug,       │
+              conflict scan                                │
    one renderer thread per device ◀────────────────────────┘
      loop { send frame; wait for next frame ← jobs run here, between frames (exec::run) }
-                         │
+                         │   each request under Global\RazerLinkReadWriteGuardMutex
                      HID feature reports (uncoil-hid::LiveDevice)
-
- uncoild --openrgb-once (optional "uncoil-openrgb" task, elevated, runs once at logon and exits)
-   reads config.json ─▶ OpenRGB.exe -d … -m …   (motherboard, GPU, RAM; nothing over the pipe)
+   openrgb thread (live mode only) ── TCP 127.0.0.1, OpenRGB SDK ───────┐
+                                                                        │
+ uncoild --openrgb-once (optional "uncoil-openrgb" task, elevated, at logon)
+   hardware: reads config.json ─▶ OpenRGB.exe -d … -m …, then exits     │
+   live:     writes OpenRGB.json ─▶ OpenRGB.exe --server --server-host 127.0.0.1 ◀┘
+             and waits while it runs (motherboard, GPU, RAM; nothing over the pipe)
 ```
 
-The daemon runs as the logged-in user, unelevated. The OpenRGB hand-off needs administrator rights (RAM
-lighting sits on the SMBus), so it runs from its own elevated one-shot task, registered by
-`install-task.ps1 -OpenRgb`. `install-task.ps1 -Elevated` is the fallback that runs the daemon itself
-elevated; that daemon then does the hand-off itself.
+The daemon runs as the logged-in user, unelevated. OpenRGB needs administrator rights (RAM lighting sits on
+the SMBus), so it runs from its own elevated task, registered by `install-task.ps1 -OpenRgb`: in `hardware`
+mode a one-shot hand-off, in `live` mode an SDK server the daemon connects to as a client.
+`install-task.ps1 -Elevated` is the fallback that runs the daemon itself elevated; that daemon then runs the
+hand-off or the server itself.
 
 ## Crates and modules
 
 | where | what | I/O |
 |---|---|---|
 | `crates/uncoil-core/src/proto.rs` | 90-byte report builder, `Reply` parser, the `Transport` trait | none |
-| `crates/uncoil-core/src/features/` | one module per feature: `hw_effect`, `keymap`, `profile`, `dial`, `oled`, `performance` (DPI, stages, poll rate), `power` — report builders and reply parsers, each unit-tested against Synapse-logged, hardware-read or OpenRazer-documented bytes | none |
+| `crates/uncoil-core/src/features/` | one module per feature: `hw_effect`, `keymap`, `profile`, `dial`, `oled`, `performance` (DPI, stages, poll rate), `power`, `scroll` (scroll wheel), `info` (firmware, keyboard layout and colour) — report builders and reply parsers, each unit-tested against Synapse-logged, hardware-read or OpenRazer-documented bytes | none |
 | `crates/uncoil-core/src/device.rs` | device definitions from `devices/*.toml` and `devices/experimental/*.toml` (all embedded by `build.rs`), with `support`, `features`, per-group transaction ids and the feature sections | reads TOML |
-| `crates/uncoil-core/src/layout.rs` | LED positions on the desk; which devices the desk shows and where unplaced ones go (`desk_devices`, `arrange`) | none |
+| `crates/uncoil-core/src/layout.rs` | LED positions on the desk; which devices the desk shows and where unplaced ones go (`desk_devices`, `arrange`); desk devices for OpenRGB devices built from their zones (`external_def`) | none |
 | `crates/uncoil-core/src/ipc.rs` | the pipe protocol: `Request`, `Response`, `Command` and its argument structs, result types, device-name resolution, a blocking `Client` | client only |
 | `crates/uncoil-core/src/effect.rs` | effects, studio layers and masks, `Frame` | none |
 | `crates/uncoil-core/src/color.rs` | `Rgb`, the FastLED rainbow hue map | none |
@@ -45,9 +50,13 @@ elevated; that daemon then does the hand-off itself.
 | `crates/uncoil-hid/src/keys.rs`, `audio.rs` | key press listener (Raw Input), audio peak meter (WASAPI) | Windows input / audio |
 | `apps/uncoild/src/inputs.rs` | press buffer (positions only), listener start/stop (desk geometry: `uncoil_core::layout::Desk`) | via `uncoil-hid` |
 | `crates/uncoil-hid/src/transport.rs` | `LiveDevice`: frames, quirks, and `query()` (send + matching reply, busy/new retry) implementing `Transport` | HID |
-| `apps/uncoild/src/main.rs` | main loop (config reload, display fade, rescan, status), one renderer thread per device; the control pipe doubles as the single-instance lock; `--fake`, `--openrgb-once` | everything above |
+| `crates/uncoil-hid/src/guard.rs` | the Razer device lock other programs share (`Global\RazerLinkReadWriteGuardMutex`), taken around every request and reply; see [Sharing devices](#sharing-devices-with-other-programs) | Windows mutex |
+| `crates/uncoil-openrgb` | a small OpenRGB SDK client: std only, blocking TCP, connects to `127.0.0.1` only; see [Live OpenRGB](#live-openrgb) | TCP (localhost) |
+| `apps/uncoild/src/main.rs` | main loop (config reload, display fade, rescan, conflict scan, status), one renderer thread per device; the control pipe doubles as the single-instance lock; `--fake`, `--openrgb-once` | everything above |
 | `apps/uncoild/src/log.rs`, `selfstat.rs` | the log (trimmed past 256 KB), the daemon's own memory / CPU / size | files |
-| `apps/uncoild/src/openrgb.rs` | the OpenRGB hand-off: targets from `openrgb.devices` in the config (plain names only), `taskkill` scoped to the current session, OpenRGB given the admin-only `--config` folder `%ProgramData%\uncoil\openrgb` | process launch |
+| `apps/uncoild/src/openrgb.rs` | the OpenRGB task's side: the hardware hand-off (targets from `openrgb.devices`, plain names only) or the live SDK server (`OpenRGB.json` merged and written, OpenRGB started on 127.0.0.1 in a kill-on-close job); `taskkill` scoped to the current session; OpenRGB given the admin-only `--config` folder `%ProgramData%\uncoil\openrgb` | process launch, one settings file |
+| `apps/uncoild/src/openrgb_live.rs` | the daemon's live OpenRGB client thread: which OpenRGB devices to drive, their desk devices, a frame per tick, `status.openrgb` | via `uncoil-openrgb` |
+| `apps/uncoild/src/conflicts.rs` | other programs driving the same devices, by process image name (`status.conflicts`) | Toolhelp process snapshot |
 | `apps/uncoild/src/winsec.rs` | is the process elevated; redirection-safe writes to the daemon's own files under `%LOCALAPPDATA%\uncoil` when elevated; the admin-only folder check; system folder and session id | Windows security APIs |
 | `apps/uncoild/src/pipe.rs` | named-pipe server; closes connections idle for 5 minutes | pipe |
 | `apps/uncoild/src/control.rs` | request router, device registry, job queues | channels |
@@ -55,7 +64,7 @@ elevated; that daemon then does the hand-off itself.
 | `apps/uncoild/src/checks.rs` | read-only checks per feature, cached per connection; gate writes on experimental devices | via `Transport` |
 | `apps/uncoild/src/fake.rs` | a fake keyboard, mouse and experimental DeathAdder V3 Pro that answer like real ones (tests, `--fake`) | none |
 | `apps/uncoil-cli` | the `uncoil` binary | pipe |
-| `apps/uncoil/src-tauri` | the desktop app's shell (`uncoil-gui`): config read/write, `preview_frame` with the real engine, a `daemon` bridge to the pipe; loads the same device files as the daemon (`device::load_installed`: built-ins plus `%APPDATA%\uncoil\devices`) | config, status, pipe |
+| `apps/uncoil/src-tauri` | the desktop app's shell (`uncoil-gui`): config read/write, `get_desk` / `preview_frame` with the real engine (an optional `external` argument, `status.openrgb.devices`, adds the OpenRGB devices), a `daemon` bridge to the pipe; loads the same device files as the daemon (`device::load_installed`: built-ins plus `%APPDATA%\uncoil\devices`); `tray.rs` (tray icon and effect menu), `battery.rs` (battery notifications), `settings.rs` (the app's own `%APPDATA%\uncoil\app.json`, which the daemon never reads) | config, status, pipe, app.json |
 
 Adding a feature is: a module in `features/` (pure, tested), one line in the `commands!` table in `ipc.rs`
 (variant, wire name, args) plus an arm in `Command::policy` (which features it needs, whether it writes
@@ -86,8 +95,9 @@ draw the key map on the same layout as the lighting. `default` is the factory no
 `keymap.reset`).
 
 More sections, each required by its feature: `[dpi]` (`min`, `max`, `storage`, `stages_max`), `[poll_rate]`
-(`kind` = `classic` or `hyperpolling`, `rates`, `set_twice`) and `[power]` (`battery`, `idle`,
-`low_battery`). `matrix` and `layout` are needed only with `lighting` or `hw_effects`; a device without them
+(`kind` = `classic` or `hyperpolling`, `rates`, `set_twice`), `[power]` (`battery`, `idle`,
+`low_battery`) and `[scroll]` (`mode`, `acceleration`, `smart_reel`, at least one `true`; feature
+`scroll`). `matrix` and `layout` are needed only with `lighting` or `hw_effects`; a device without them
 (a mouse with no RGB) is opened for commands only, never gets a frame and never appears on the desk.
 Unknown keys anywhere in a device file are errors, and every error names the file and the field
 (`devices/experimental/x.toml: [dpi]: min 200 must be above 0 and below max 100`).
@@ -124,7 +134,7 @@ experimental unless they set `support`).
 `support = "supported"` (the default) means confirmed on real hardware; `support = "experimental"` means the
 file was built from OpenRazer / OpenRGB data and nobody has confirmed it yet (those files live in
 `devices/experimental/`). A supported device can also list features nobody has confirmed on it yet:
-`unverified = ["dpi", "poll_rate", "power"]` on the Basilisk V3 Pro.
+`unverified = ["dpi", "poll_rate", "power", "scroll"]` on the Basilisk V3 Pro.
 
 Before uncoil changes anything stored in an experimental device (or an unverified feature), it runs that
 feature's **read-only check**: it reads the current value with the matching "get" command and checks the
@@ -139,6 +149,7 @@ until the device disconnects:
 | dpi | `04/85` (and `04/86` when the mouse has stages) | DPI and every stage inside `[dpi]` min..max |
 | poll_rate | `00/85` or `00/C0` | a rate listed in `[poll_rate]` |
 | power | `07/80` + `07/84`, `07/83`, `07/81` (the enabled parts) | well-formed, idle 60–900 s, threshold `0x0C`–`0x3F` |
+| scroll | `02/94`, `02/96`, `02/97` (the enabled settings) | each reads 0 or 1 |
 | dial / oled | `17/80` / `17/83` | a known mode / a percentage |
 | lighting / hw_effects | `0F/80` regions | regions add up to the file's matrix; blocks only saving a firmware effect to the device (`storage: onboard`), never showing one or streaming lighting |
 
@@ -147,6 +158,10 @@ A failed or not-yet-run check makes that feature's writes fail with code `check_
 settings (…)"); reads still work. Supported devices report `not_needed`. The live DPI change also waits for
 the DPI check, although it is not stored. `capabilities` carries `support`, `checks` (one per declared
 feature) and `unverified`; `devices` carries `support`.
+
+A check whose read gave up waiting for the [Razer device lock](#sharing-devices-with-other-programs) (another
+program held it) is not a verdict on the device: it stays `untested`, the write fails with the lock's plain
+message rather than `check_failed`, and the next write runs the check again.
 
 **Left-click guard.** On every mouse, `keymap.set` / `keymap.reset` refuse a normal-layer change that would
 leave no button producing left click (code `left_click_guard`: "This would leave no button that
@@ -169,7 +184,8 @@ puts the right id on every report, whatever id the report was built with.
 | `poll` | `00/05`, `00/85`, `00/40`, `00/C0` |
 | `power` | `07/80`, `07/84`, `07/03`, `07/83` |
 | `low_battery` | `07/01`, `07/81` (falls back to `power`) |
-| `device` | `00/04`, `00/84`, `00/81`, `00/82` |
+| `scroll` | `02/14`, `02/94`, `02/16`, `02/96`, `02/17`, `02/97` |
+| `device` | `00/04`, `00/84`, `00/81`, `00/82`, `00/86` |
 
 `reply_wait_us` sets the pause before reading a reply (wireless receivers); `alt_usages` lists more
 (usage page, usage) pairs accepted on the same interface. When several collections of one interface match,
@@ -218,6 +234,16 @@ gets the typed values for free. Spec strings instead of tagged JSON objects, and
 | `performance.set` | `dpi` (`{x, y}`), `stages` (`{active, list}`), `poll_hz`, `write` | `dpi` alone: the new state; else before / after | `stages`, `poll_hz` (and `dpi` on `varstore` mice) |
 | `power.get` | | `{battery_pct, charging, idle_s, idle_range, low_battery_pct, low_battery_range}` | |
 | `power.set` | `idle_s`, `low_battery_pct`, `write` | before / after | **yes** |
+| `scroll.get` | | `{mode, acceleration, smart_reel}` (`mode`: `tactile` / `free_spin`; `null` where the device lacks the setting or didn't answer) | |
+| `scroll.set` | `mode`, `acceleration`, `smart_reel`, `write` | before / after; only what differs is sent | **yes** |
+| `info.get` | | `{firmware, layout, layout_code, variant}`; firmware on every device, layout and colour variant on keyboards | |
+
+`status` also carries `conflicts` (`[{app, detail}]`, see [Sharing devices](#sharing-devices-with-other-programs))
+and `openrgb` (`{state, detail, devices, ours}`, see [Live OpenRGB](#live-openrgb)).
+
+`info.get` works on any device, supported or experimental, and is never gated by a check: it sends only
+`00/81` and, on keyboards, `00/86`, never `00/82` (the serial number). It is read once per connection and
+kept until the device disconnects (a device that didn't answer is asked again next time).
 
 `profile` is 1 to 5 (onboard profiles are numbered from 1; Razer devices keep at most 5); anything else is
 refused before a report is sent.
@@ -268,6 +294,42 @@ Firmware effects replace streamed frames: after `effect.hw` the renderer stops s
 the effect after the PC wakes, turns it off while the display is off, and checks every 2 s that the device
 is still there. Any config change (or `effect.software`) brings back the software effect.
 
+## Sharing devices with other programs
+
+**The device lock.** OpenRGB takes a named mutex, `Global\RazerLinkReadWriteGuardMutex`, around every report
+it sends to or reads from a Razer device (`RazerDeviceGuard.cpp`), and Razer's own software appears to share
+it. uncoil takes the same lock (`uncoil_hid::guard`) around each request and its reply, so two programs
+never interleave reports on one device. It waits at most 25 ms and never holds the lock across frames:
+
+- a frame whose lock is busy is skipped (the next one comes a frame later);
+- a command (`ask`, `query`) tries twice and then fails with plain words: "another program is talking to
+  Razer Basilisk V3 Pro right now (Razer's software and OpenRGB use the same device lock); try again in a
+  moment". A renderer's "still there?" ping that fails this way does not count as the device going away, and
+  a read-only check that fails this way stays untested;
+- putting a device back in normal mode on shutdown is sent even if the lock stays busy.
+
+The daemon creates the mutex with default security, or opens the one another program created when it can't
+create it, or, failing both, logs `Razer device lock unavailable (…); running without it` and carries on.
+Windows mutexes belong to the thread that took them and can be taken again by that thread, so nested calls on
+one device thread are fine, and the device threads of one uncoild take turns.
+
+**Conflict detection.** The lock keeps reports apart, but two programs sending colours to one device still
+make it flicker between them, and key map or DPI writes can land on top of each other. At every rescan
+(every 5 s) the main loop takes a Toolhelp process snapshot and compares only the image names against a
+fixed table; nothing else about other processes is read, and only the matching program's name is kept:
+
+| program | image names |
+|---|---|
+| Razer Synapse | `RazerAppEngine.exe` (Synapse 4), `Razer Synapse 3.exe`, `Razer Synapse Service.exe`, `Razer Synapse Service Process.exe`, `RazerCentralService.exe` |
+| Razer Chroma | `RzSDKService.exe`, `RzSDKServer.exe`, `RzChromaStreamServer.exe` |
+| OpenRGB | `OpenRGB.exe`, except when it is uncoil's own live server (`status.openrgb.ours`) |
+| SignalRGB | `SignalRgb.exe` |
+
+Each program found becomes one entry in `status.conflicts` (`{app, detail}`, `detail` a plain sentence on
+what to do), logged once when it appears (`Razer Synapse is running and may fight uncoil over the devices`)
+and again only after it went away and came back. The app shows them as a notice; `uncoil status` prints
+them.
+
 ## Writes are explicit, read back and logged
 
 Every command that writes onboard memory is refused unless the request says `"write": true` (CLI:
@@ -308,6 +370,47 @@ In the daemon (`apps/uncoild/src/inputs.rs`), the main loop starts and stops two
   (`uncoil-hid::audio`, three COM calls through hand-written vtables rather than the `windows` crate). No
   samples are captured.
 
+## Live OpenRGB
+
+With `openrgb.mode = "live"`, the PC's other lighting (motherboard, RAM, GPU) follows the desk effect. The
+elevated `uncoil-openrgb` task (`openrgb.rs`) writes OpenRGB's settings (every Razer detector off, the server
+on `127.0.0.1` at `openrgb.live.port`, 6742 by default) and starts OpenRGB as an SDK server bound to
+`127.0.0.1`, in a job that ends it when the task ends. The daemon connects to it as a client.
+
+**The client** (`crates/uncoil-openrgb`) is written from the protocol facts in OpenRGB's `OpenRGBSDK.md` and
+`NetworkProtocol.h`, std only. It asks for protocol version 5 at most (version 6 adds acknowledgements and
+unique controller ids, which a lighting client doesn't need) and uses the packets
+`REQUEST_PROTOCOL_VERSION` (40), `SET_CLIENT_NAME` (50), `REQUEST_CONTROLLER_COUNT` (0),
+`REQUEST_CONTROLLER_DATA` (1), `SET_CUSTOM_MODE` (1100), `UPDATE_LEDS` (1050) and the server's
+`DEVICE_LIST_UPDATED` (100). It only ever connects to `127.0.0.1` (the API takes a port, never a host) and
+treats the server as untrusted input: packets up to 8 MiB, at most 64 controllers, at most 4096 LEDs per
+controller, control characters stripped from names, serials and other unneeded fields skipped unread.
+
+**The thread** (`openrgb_live.rs`) is its own, so a slow or stuck OpenRGB only ever delays OpenRGB's frames,
+never the Razer devices'. It idles (one config look a second) unless live mode is on. Connected, it puts
+each driven device in its per-LED mode and sends a frame per tick, at the configured `fps` but at most 30:
+each frame is computed when it is sent, a device's frame is skipped when it hasn't changed (and resent once a
+second anyway, in case the device was reset), and writes time out after 1 s. A failed connection or write is
+retried with a growing pause, 1 s doubling to 10 s; `DEVICE_LIST_UPDATED` makes it list the devices again.
+When the display fade reaches zero it sends three dark frames and then idles, like the renderers. Turning
+live mode off drops the connection and sends nothing more, so the PC's lights stay as last set.
+
+It drives every OpenRGB device except Razer ones (name or vendor containing "Razer", which also covers
+products such as the Lian Li O11 Dynamic Razer Edition case; uncoil's server has those detectors off
+anyway), hidden ones, ones without LEDs, names matched by
+`openrgb.live.exclude` (part of the name, any case), and RAM while Corsair iCUE runs (both would write the
+SMBus).
+
+**On the desk** each driven device becomes a desk device with id `openrgb:<slug of its name>` (`-2`, `-3`
+for duplicates) and kind `other`, built from its OpenRGB zones (`layout::external_def`): zones sit side by
+side, a single-LED zone as a point, a linear zone as a vertical strip, a matrix zone as its grid, the LED area
+at most 3 key units tall. LED names come from the zone names ("Aura Mainboard 1", "Logo"). Unplaced, they
+stack top to bottom in a "PC" column (motherboards, then RAM, GPUs and the rest) whose right edge is one gap
+(1u) left of the keyboard, top-aligned with it, 0.5u apart; a position in `config.desk` (the device's centre)
+wins. `status.openrgb` carries `state` (`off`, `waiting`, `connected`, `error`), a plain `detail`, `ours`
+(the running OpenRGB is uncoil's own server) and `devices` (`[{id, name, leds, zones}]`); the app passes those
+devices to `get_desk` / `preview_frame` as `external`, so its preview builds the same desk.
+
 ## Testing without hardware
 
 - `uncoil-core`: every report builder is asserted against bytes from Synapse's logs, OpenRazer's captures
@@ -318,10 +421,14 @@ In the daemon (`apps/uncoild/src/inputs.rs`), the main loop starts and stops two
 - `cargo build -p uncoild --features fake` then `uncoild --fake` serves fake devices on
   `\\.\pipe\uncoil-fake` (or `UNCOIL_PIPE`), so the CLI and GUI can be exercised with no device and next
   to a running daemon: `uncoil --pipe \\.\pipe\uncoil-fake devices`. It serves the keyboard, the Basilisk
-  (with made-up DPI 1600, stages 400/800/1600/3200/6400, 1000 Hz, battery 78 %, sleep 300 s, warning 15 %)
-  and the experimental DeathAdder V3 Pro from its device file (checks start untested; `check.run` passes
-  them), and reports one unknown Razer device, product ID 0x0FFE.
-- The browser mock's daemon answers (`apps/uncoil/src/lib/mock/daemon/*.json`) are the fake's answers.
+  (with made-up DPI 1600, stages 400/800/1600/3200/6400, 1000 Hz, battery 78 %, sleep 300 s, warning 15 %;
+  scroll wheel tactile, acceleration on, Smart Reel off) and the experimental DeathAdder V3 Pro from its
+  device file (checks start untested; `check.run` passes them). Made-up device info: firmware 1.03 on the
+  keyboard, 1.04 on the Basilisk, 1.02 on the DeathAdder; the keyboard reads US (ANSI), Black. It reports one
+  unknown Razer device, product ID 0x0FFE, and Razer Synapse running as a conflict, so the app's notice can
+  be tried.
+- The browser mock's daemon answers (`apps/uncoil/src/lib/mock/daemon/*.json`, including `scroll-mouse.json`
+  and `info-keyboard.json`, `info-mouse.json`, `info-deathadder.json`) are the fake's answers.
   `cargo test -p uncoild gui_mock` fails when they drift (or when the folder holds a file it doesn't
   generate); `UNCOIL_UPDATE_MOCK=1` rewrites them.
 - The TypeScript mirrors (`effect.ts`, `effects.ts`, `keys.ts` and the mock's default config) are checked
@@ -342,4 +449,7 @@ Deflating the device files into one blob (inflated once, on first use) brought i
 Running unelevated and treating device files and the pipe as untrusted (validation, the pipe idle timeout
 and server check, `winsec.rs`, the config-driven OpenRGB hand-off) took it to 1,257,472 bytes (about
 1.3 MB, measured 2026-10-03). The command-policy and write-helper refactor left it at 1,260,544 bytes
-(measured 2026-10-04).
+(measured 2026-10-04). Live OpenRGB, the device lock, the scroll wheel, device info and conflict detection
+took it to 1,379,328 bytes (about 1.4 MB, +116 KB, measured 2026-10-04): about 62 KB is the live OpenRGB
+client, including the `OpenRGB.json` merge, and about 46 KB the scroll wheel, device info, the lock and the
+conflict check.

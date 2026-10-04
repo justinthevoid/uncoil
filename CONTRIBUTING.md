@@ -35,11 +35,12 @@ The full Tauri list is at <https://v2.tauri.app/start/prerequisites/>.
 ### Workspace layout
 
 ```
-Cargo.toml                 workspace: uncoil-core, uncoil-hid, uncoild, uncoil-cli, uncoil-gui
+Cargo.toml                 workspace: uncoil-core, uncoil-hid, uncoil-openrgb, uncoild, uncoil-cli, uncoil-gui
 crates/uncoil-core         protocol, colour, effects, device definitions, desk layout, feature commands,
                            pipe types. Pure; no I/O to devices.
-crates/uncoil-hid          HID transport (hidapi), per-device quirks, display-power watcher, key and audio
-                           listeners for the reactive and audio effects
+crates/uncoil-hid          HID transport (hidapi), per-device quirks, the shared Razer device lock,
+                           display-power watcher, key and audio listeners for the reactive and audio effects
+crates/uncoil-openrgb      a small OpenRGB SDK client for live mode (std only, 127.0.0.1 only)
 apps/uncoild               the daemon: no window, started at logon by scripts/install-task.ps1; serves the
                            control pipe (see docs/ARCHITECTURE.md)
 apps/uncoil-cli            the `uncoil` command line, a client of the daemon's pipe
@@ -52,8 +53,8 @@ docs/ARCHITECTURE.md       how the daemon, the pipe and its clients are put toge
 site/                      the website and docs (Astro + Starlight); see site/README.md
 tools/devices/             generator and validator for devices/experimental/
 tools/reference/           Python probes and log miners used for reverse engineering
-scripts/install-task.ps1   installs the daemon as an unelevated logon task (-OpenRgb: elevated OpenRGB one-shot
-                           task; -Elevated: fallback); uninstall-task.ps1 removes both tasks
+scripts/install-task.ps1   installs the daemon as an unelevated logon task (-OpenRgb: elevated OpenRGB task,
+                           hand-off or live server; -Elevated: fallback); uninstall-task.ps1 removes both tasks
 ```
 
 ### Everyday commands
@@ -62,8 +63,8 @@ From the repository root:
 
 ```powershell
 cargo fmt --all                                             # format (CI runs --check)
-cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli --all-targets -- -D warnings
-cargo test   -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli
+cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openrgb --all-targets -- -D warnings
+cargo test   -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openrgb
 cargo build  --release -p uncoild -p uncoil-cli            # target\release\uncoild.exe, uncoil.exe
 ```
 
@@ -89,6 +90,10 @@ $env:UNCOIL_UPDATE_MOCK=1; cargo test -p uncoil-gui         # regenerate the moc
 
 `pnpm dev` on its own serves the UI in a browser at <http://localhost:1420> against a mock in
 `src/lib/mock/`, which is the fastest loop for UI work and needs no hardware.
+
+Notifications (battery) from `pnpm tauri dev` show under PowerShell's name and icon, because a dev build
+isn't installed; an installed build shows its own. Only one copy of the app runs at a time, so close an
+installed copy (including the one in the tray) before `pnpm tauri dev`.
 
 To run your build of the daemon instead of the installed one, stop the task first
 (`Stop-ScheduledTask uncoil; Stop-Process -Name uncoild`) and then run `target\release\uncoild.exe`. It
