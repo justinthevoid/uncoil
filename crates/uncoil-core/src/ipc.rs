@@ -29,6 +29,9 @@ use serde_json::value::RawValue;
 pub const PIPE_NAME: &str = r"\\.\pipe\uncoil";
 /// Longest request line the daemon accepts.
 pub const MAX_LINE: usize = 64 * 1024;
+/// Longest response line a client accepts (the largest real answer, every known device's capabilities, is
+/// a few hundred KB).
+pub const MAX_RESPONSE: usize = 1024 * 1024;
 
 /// A JSON value kept as text. The daemon never builds `serde_json::Value` trees: arguments are parsed
 /// straight into the typed structs below and results are serialised straight to text (smaller binary).
@@ -592,11 +595,25 @@ impl Client {
         Client::connect_to(PIPE_NAME)
     }
 
+    /// Connect to the pipe at `path`. The connection only lets the server identify the caller (it cannot
+    /// act as the caller), and it is refused unless the process serving the pipe runs as the same user.
     pub fn connect_to(path: &str) -> Result<Client> {
         let mut last = None;
         for _ in 0..50 {
-            match std::fs::OpenOptions::new().read(true).write(true).open(path) {
+            let mut open = std::fs::OpenOptions::new();
+            open.read(true).write(true);
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::OpenOptionsExt;
+                // also sets SECURITY_SQOS_PRESENT
+                open.security_qos_flags(windows_sys::Win32::Storage::FileSystem::SECURITY_IDENTIFICATION);
+            }
+            match open.open(path) {
                 Ok(pipe) => {
+                    #[cfg(windows)]
+                    server_check::same_user(&pipe).map_err(|e| {
+                        anyhow!("something else is serving the uncoil pipe ({path}), not your uncoild: {e:#}")
+                    })?;
                     let reader = std::io::BufReader::new(pipe.try_clone()?);
                     return Ok(Client { pipe, reader, next_id: 1 });
                 }
@@ -617,20 +634,108 @@ impl Client {
 
     /// Send one command and wait for its response.
     pub fn call(&mut self, device: Option<&str>, command: &Command) -> Result<Response> {
-        use std::io::{BufRead, Write};
+        use std::io::Write;
         let id = self.next_id;
         self.next_id += 1;
-        self.pipe.write_all(Request::new(id, device, command).to_line().as_bytes())?;
-        self.pipe.flush()?;
+        let sent = self.pipe.write_all(Request::new(id, device, command).to_line().as_bytes());
+        if let Err(e) = sent.and_then(|_| self.pipe.flush()) {
+            // a full daemon answers the connection and closes it before reading anything: show its answer
+            return match self.read_response(id) {
+                Ok(r) if !r.ok => Ok(r),
+                _ => Err(e.into()),
+            };
+        }
+        self.read_response(id)
+    }
+
+    fn read_response(&mut self, id: u64) -> Result<Response> {
+        use std::io::BufRead;
         loop {
+            use std::io::Read;
             let mut line = String::new();
-            if self.reader.read_line(&mut line)? == 0 {
+            let n = (&mut self.reader).take(MAX_RESPONSE as u64 + 1).read_line(&mut line)?;
+            if n == 0 {
                 bail!("uncoild closed the connection");
             }
+            if n > MAX_RESPONSE {
+                bail!("uncoild sent a response longer than {} KB", MAX_RESPONSE / 1024);
+            }
             let r: Response = serde_json::from_str(line.trim_end())?;
-            if r.id_text() == Some(id.to_string().as_str()) {
+            // an error without an id answers the connection, not a request ("too many clients", "request
+            // too long"), so it is this call's answer too
+            if r.id_text() == Some(id.to_string().as_str()) || (r.id.is_none() && !r.ok) {
                 return Ok(r);
             }
+        }
+    }
+}
+
+/// Who serves the pipe: the client refuses a server process that does not run as the calling user (for
+/// example a program that took the pipe name before uncoild started).
+#[cfg(windows)]
+mod server_check {
+    use anyhow::{bail, Result};
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, HANDLE};
+    use windows_sys::Win32::Security::{GetLengthSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
+    use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
+    use windows_sys::Win32::System::Threading::{
+        GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    /// The token user SID of `process`, as bytes.
+    fn user_sid(process: HANDLE) -> Result<Vec<u8>> {
+        unsafe {
+            let mut token: HANDLE = std::ptr::null_mut();
+            if OpenProcessToken(process, TOKEN_QUERY, &mut token) == 0 {
+                bail!("cannot read the process's token ({})", GetLastError());
+            }
+            let mut len = 0u32;
+            GetTokenInformation(token, TokenUser, std::ptr::null_mut(), 0, &mut len);
+            let mut buf = vec![0u64; (len as usize).div_ceil(8).max(1)];
+            let ok = GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len);
+            CloseHandle(token);
+            if ok == 0 {
+                bail!("cannot read the token's user ({})", GetLastError());
+            }
+            let sid = (*(buf.as_ptr() as *const TOKEN_USER)).User.Sid;
+            Ok(std::slice::from_raw_parts(sid as *const u8, GetLengthSid(sid) as usize).to_vec())
+        }
+    }
+
+    /// `Ok` when process `pid` runs as the same user as this process.
+    pub fn pid_is_same_user(pid: u32) -> Result<()> {
+        let mine = user_sid(unsafe { GetCurrentProcess() })?;
+        let theirs = unsafe {
+            let p = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if p.is_null() {
+                bail!("cannot open the serving process {pid} ({})", GetLastError());
+            }
+            let sid = user_sid(p);
+            CloseHandle(p);
+            sid?
+        };
+        if theirs != mine {
+            bail!("the serving process {pid} runs as another user");
+        }
+        Ok(())
+    }
+
+    pub fn same_user(pipe: &std::fs::File) -> Result<()> {
+        let mut pid = 0u32;
+        if unsafe { GetNamedPipeServerProcessId(pipe.as_raw_handle() as HANDLE, &mut pid) } == 0 {
+            bail!("cannot tell which process serves it ({})", unsafe { GetLastError() });
+        }
+        pid_is_same_user(pid)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        #[test]
+        fn only_a_server_running_as_you_passes() {
+            super::pid_is_same_user(std::process::id()).unwrap();
+            // the System process (pid 4) is not you
+            assert!(super::pid_is_same_user(4).is_err());
         }
     }
 }
@@ -753,6 +858,13 @@ mod tests {
         assert_eq!(p.max, 5);
         let e = Response::err(Some(raw(&4)), "boom");
         assert_eq!(e.into_result::<u8>().unwrap_err().to_string(), "boom");
+    }
+
+    #[test]
+    fn connection_errors_without_an_id_answer_any_call() {
+        let busy: Response = serde_json::from_str(r#"{"ok":false,"error":"too many clients"}"#).unwrap();
+        assert!(busy.id.is_none() && !busy.ok);
+        assert_eq!(busy.into_result::<u8>().unwrap_err().to_string(), "too many clients");
     }
 
     #[test]

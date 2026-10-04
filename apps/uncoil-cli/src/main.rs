@@ -5,7 +5,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use uncoil_core::config::Status;
-use uncoil_core::device::Support;
+use uncoil_core::device::{Kind, Support};
 use uncoil_core::features::dial::{DialMode, DialState};
 use uncoil_core::features::hw_effect::{parse_color, Direction, HwEffect, Storage, DEFAULT_WAVE_SPEED};
 use uncoil_core::features::keymap::{Function, KeymapFile, Layer};
@@ -385,22 +385,55 @@ fn run(argv: &[String]) -> Result<()> {
 }
 
 fn resolve_id(c: &mut Client, query: &str) -> Option<String> {
+    resolve(c, query).map(|(id, _)| id)
+}
+
+/// The device's id and kind, from `capabilities`.
+fn resolve(c: &mut Client, query: &str) -> Option<(String, Kind)> {
     let caps: Capabilities =
         c.call(Some(query), &Command::Capabilities(CapabilitiesArgs::default())).ok()?.into_result().ok()?;
-    Some(caps.id)
+    Some((caps.id, caps.kind))
+}
+
+/// One change an import makes: layer, key name, new mapping, current mapping.
+type Change = (Layer, String, Function, KeyMapping);
+
+/// Check and order an import's writes. On a mouse the normal layer must still have a left click once every
+/// change is applied (else nothing is written), and the key that gains left click is written before the one
+/// that loses it, so the daemon's left-click guard never stops the import half-way.
+fn plan_import(kind: Option<Kind>, normal: &[KeyMapping], mut changes: Vec<Change>) -> Result<Vec<Change>> {
+    if kind != Some(Kind::Mouse) || !changes.iter().any(|c| c.0 == Layer::Normal) {
+        return Ok(changes);
+    }
+    let left = Function::MouseButton { button: 1 };
+    let final_of = |row: &KeyMapping| {
+        changes.iter().find(|c| c.0 == Layer::Normal && c.1 == row.name).map_or(&row.function, |c| &c.2).clone()
+    };
+    if !normal.iter().any(|r| final_of(r) == left) {
+        bail!("this backup would leave no button that left-clicks, so nothing was written");
+    }
+    let rank = |c: &Change| match c.0 {
+        Layer::Normal if c.2 == left && c.3.function != left => 0, // gains left click: first
+        Layer::Normal if c.3.function == left && c.2 != left => 2, // loses it: last
+        _ => 1,
+    };
+    changes.sort_by_key(rank);
+    Ok(changes)
 }
 
 fn import(o: &Opts, device: &str, file: &str, write: bool) -> Result<()> {
     let src = std::fs::read_to_string(file).with_context(|| format!("read {file}"))?;
     let f = KeymapFile::from_toml(&src)?;
     let mut c = connect(o)?;
-    if let Some(id) = resolve_id(&mut c, device) {
-        if id != f.device {
+    let resolved = resolve(&mut c, device);
+    if let Some((id, _)) = &resolved {
+        if id != &f.device {
             bail!("{file} is a backup of {}, not {id}", f.device);
         }
     }
     // what changes
-    let mut changes: Vec<(Layer, String, Function, KeyMapping)> = vec![];
+    let mut changes: Vec<Change> = vec![];
+    let mut normal: Vec<KeyMapping> = vec![];
     for layer in [Layer::Normal, Layer::Hypershift] {
         let wanted: &BTreeMap<String, String> = f.layer(layer);
         if wanted.is_empty() {
@@ -408,6 +441,9 @@ fn import(o: &Opts, device: &str, file: &str, write: bool) -> Result<()> {
         }
         let rows: Vec<KeyMapping> =
             c.call(Some(device), &Command::KeymapDump(LayerArgs { layer, profile: f.profile }))?.into_result()?;
+        if layer == Layer::Normal {
+            normal = rows.clone();
+        }
         for (key, spec) in wanted {
             let target = Function::parse_spec(spec).with_context(|| format!("{file}: {key} = \"{spec}\""))?;
             let cur = rows.iter().find(|r| &r.name == key).ok_or_else(|| anyhow!("{file}: unknown key {key}"))?;
@@ -420,6 +456,7 @@ fn import(o: &Opts, device: &str, file: &str, write: bool) -> Result<()> {
         println!("{device} already matches {file}");
         return Ok(());
     }
+    let changes = plan_import(resolved.map(|(_, k)| k), &normal, changes)?;
     for (layer, key, target, cur) in &changes {
         println!("  {:<10} {:<14} {:<28} -> {target}", layer.as_str(), key, cur.function.to_string());
     }
@@ -745,6 +782,36 @@ mod tests {
             )
         ));
         assert!(matches!(p("check deathadder").unwrap().1, Action::Call(Some(_), Command::CheckRun)));
+    }
+
+    fn row(name: &str, f: &str) -> KeyMapping {
+        KeyMapping::new(1, 0, name.into(), Layer::Normal, Function::parse_spec(f).unwrap())
+    }
+
+    fn change(name: &str, from: &str, to: &str) -> Change {
+        (Layer::Normal, name.into(), Function::parse_spec(to).unwrap(), row(name, from))
+    }
+
+    #[test]
+    fn import_moves_left_click_in_a_safe_order() {
+        let normal = [row("LEFT_CLICK", "button 1"), row("RIGHT_CLICK", "button 2"), row("BACK", "button 4")];
+        // swap left and back: the back button gains left click first, then the main button loses it
+        let plan = plan_import(
+            Some(Kind::Mouse),
+            &normal,
+            vec![change("LEFT_CLICK", "button 1", "button 4"), change("BACK", "button 4", "button 1")],
+        )
+        .unwrap();
+        let order: Vec<&str> = plan.iter().map(|c| c.1.as_str()).collect();
+        assert_eq!(order, ["BACK", "LEFT_CLICK"]);
+        // a backup that takes left click away entirely is refused before anything is written
+        let e = plan_import(Some(Kind::Mouse), &normal, vec![change("LEFT_CLICK", "button 1", "button 3")]);
+        assert!(e.unwrap_err().to_string().contains("no button that left-clicks"));
+        // keyboards and the Hypershift layer are not guarded
+        assert!(plan_import(Some(Kind::Keyboard), &normal, vec![change("LEFT_CLICK", "button 1", "button 3")]).is_ok());
+        let mut fn_layer = change("LEFT_CLICK", "button 1", "button 3");
+        fn_layer.0 = Layer::Hypershift;
+        assert!(plan_import(Some(Kind::Mouse), &normal, vec![fn_layer]).is_ok());
     }
 
     #[test]

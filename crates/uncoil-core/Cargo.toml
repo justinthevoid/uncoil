@@ -12,5 +12,15 @@ toml.workspace = true
 anyhow.workspace = true
 miniz_oxide.workspace = true
 
+# The pipe client checks who serves the pipe (same user as the caller) before talking to it.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+] }
+
 [build-dependencies]
 miniz_oxide.workspace = true

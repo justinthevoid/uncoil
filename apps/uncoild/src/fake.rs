@@ -117,6 +117,8 @@ pub struct FakeDevice {
     endpoint: UsbEndpoint,
     /// (class, id, args, transaction id as the real transport would send it)
     sent: Vec<(u8, u8, Vec<u8>, u8)>,
+    /// A command that answers `fail` (tests of writes that stop part-way).
+    fail: Option<(u8, u8)>,
 }
 
 fn stages(list: &[u16], active: u8) -> DpiStages {
@@ -192,6 +194,7 @@ impl FakeDevice {
             perf,
             endpoint: def.usb[0].clone(),
             sent: vec![],
+            fail: None,
         };
         if keyboard {
             // Fn layer as the real keyboard reported it (Fn+P before uncoil wrote it: an empty key code)
@@ -226,6 +229,12 @@ impl FakeDevice {
     /// Make the DPI reply read `x`×`y` (e.g. 0×0 to fail the DPI check).
     pub fn set_dpi(&mut self, x: u16, y: u16) {
         self.perf.dpi = Dpi { x, y };
+    }
+
+    #[cfg(test)]
+    /// Make `class`/`id` answer `fail` from now on.
+    pub fn fail_on(&mut self, class: u8, id: u8) {
+        self.fail = Some((class, id));
     }
 
     #[cfg(test)]
@@ -389,7 +398,7 @@ impl Transport for FakeDevice {
     fn query(&mut self, r: &Report) -> anyhow::Result<Reply> {
         let tid = self.endpoint.tid_for(r);
         self.sent.push((r.class, r.id, r.args.clone(), tid));
-        let (status, args) = self.answer(r);
+        let (status, args) = if self.fail == Some((r.class, r.id)) { (Status::Fail, vec![]) } else { self.answer(r) };
         let mut raw = [0u8; MAX_ARGS];
         raw[..args.len()].copy_from_slice(&args);
         Ok(Reply { status, transaction_id: tid, size: args.len() as u8, class: r.class, id: r.id, raw })

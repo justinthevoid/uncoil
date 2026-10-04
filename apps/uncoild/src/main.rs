@@ -20,6 +20,7 @@ mod log;
 mod openrgb;
 mod pipe;
 mod selfstat;
+mod winsec;
 
 use anyhow::Result;
 use hidapi::HidApi;
@@ -89,9 +90,14 @@ impl Shared {
     }
 }
 
-/// Control pipe name; `UNCOIL_PIPE` overrides it (tests, `--fake`).
+/// Control pipe name. Builds with the `fake` feature let `UNCOIL_PIPE` override it (`--fake`, development);
+/// release builds always use the default, so nothing in the environment can move the daemon's pipe.
 fn pipe_name(default: &str) -> String {
-    std::env::var("UNCOIL_PIPE").ok().filter(|s| s.starts_with(r"\\.\pipe\")).unwrap_or_else(|| default.into())
+    #[cfg(feature = "fake")]
+    if let Some(name) = std::env::var("UNCOIL_PIPE").ok().filter(|s| s.starts_with(r"\\.\pipe\")) {
+        return name;
+    }
+    default.into()
 }
 
 fn main() -> Result<()> {
@@ -102,23 +108,59 @@ fn main() -> Result<()> {
     if std::env::args().any(|a| a == "--fake") {
         return fake_mode();
     }
-    if !single_instance() {
-        log::line("another uncoild is already running; exiting");
-        return Ok(());
+    if std::env::args().any(|a| a == "--openrgb-once") {
+        std::process::exit(openrgb::once());
     }
-    log::line(&format!("start uncoild {}", env!("CARGO_PKG_VERSION")));
+    // Normally unelevated; the `-Elevated` install is the fallback for PCs where HID needs it.
+    let elevated = winsec::init();
+    let hardened = if elevated { Some(winsec::enforce_redirection_trust()) } else { None };
 
     let config = Config::load();
+    let (defs, user_errors) = device::load_all_with_errors(Some(&Config::dir().join("devices")));
+    let defs: Vec<Arc<DeviceDef>> = defs.into_iter().map(Arc::new).collect();
+    let registry = Arc::new(control::Registry::default());
+    let status = Arc::new(Mutex::new(Status::default()));
+
+    // The control pipe is also the single-instance lock: it is created with FILE_FLAG_FIRST_PIPE_INSTANCE,
+    // so a second uncoild (or anything else that took the name first) cannot create it, and this process
+    // exits before it opens a single device.
+    let ctl = Arc::new(control::Control { registry: registry.clone(), defs: defs.clone(), status: status.clone() });
+    let name = pipe_name(ipc::PIPE_NAME);
+    if let Err(e) = pipe::serve(&name, Arc::new(move |r| ctl.handle(r))) {
+        log::line(&format!(
+            "control pipe {name} unavailable ({e:#}): another uncoild, or another program, holds it; exiting"
+        ));
+        return Ok(());
+    }
+    log::line(&format!(
+        "start uncoild {} ({}), control pipe {name}",
+        env!("CARGO_PKG_VERSION"),
+        if elevated { "elevated" } else { "not elevated" }
+    ));
+    match hardened {
+        Some(Err(e)) => log::line(&format!("redirection-trust mitigation unavailable: {e}")),
+        Some(Ok(())) => log::line("elevated: junctions made by non-administrators are not followed"),
+        None => {}
+    }
     if config.openrgb_hardware_rainbow {
-        thread::spawn(openrgb::hardware_rainbow);
+        if elevated {
+            let cfg = config.clone();
+            thread::spawn(move || match openrgb::hand_off(&cfg) {
+                Ok(s) => log::line(&s),
+                Err(e) => log::line(&format!("OpenRGB hand-off: {e}")),
+            });
+        } else {
+            log::line("OpenRGB hand-off is left to the elevated uncoil-openrgb task (install-task.ps1 -OpenRgb)");
+        }
     }
     display::spawn_watcher();
 
     for e in device::builtin_errors() {
         log::line(&format!("built-in device file left out: {e}"));
     }
-    let defs: Vec<Arc<DeviceDef>> =
-        device::load_all(Some(&Config::dir().join("devices"))).into_iter().map(Arc::new).collect();
+    for e in user_errors {
+        log::line(&format!("device file left out: {e}"));
+    }
     let shared = Arc::new(Shared {
         config: RwLock::new(Arc::new(config)),
         generation: AtomicU32::new(0),
@@ -129,9 +171,9 @@ fn main() -> Result<()> {
         t0: Instant::now(),
         open_paths: Mutex::new(HashSet::new()),
         stats: Mutex::new(HashMap::new()),
-        registry: Arc::new(control::Registry::default()),
+        registry,
         journal: Arc::new(exec::Journal { path: Some(exec::Journal::default_path()) }),
-        status: Arc::new(Mutex::new(Status::default())),
+        status,
         inputs: Arc::new(inputs::Inputs::new()),
     });
     let mut listeners = inputs::Listeners::default();
@@ -142,18 +184,6 @@ fn main() -> Result<()> {
     }
     let mut connected = shared.registry.connected_ids();
     let mut logged_unknown: HashSet<u16> = HashSet::new();
-
-    // control pipe: commands for the GUI / CLI, executed by the device threads
-    let ctl = Arc::new(control::Control {
-        registry: shared.registry.clone(),
-        defs: defs.clone(),
-        status: shared.status.clone(),
-    });
-    let name = pipe_name(ipc::PIPE_NAME);
-    match pipe::serve(&name, Arc::new(move |r| ctl.handle(r))) {
-        Ok(()) => log::line(&format!("control pipe {name}")),
-        Err(e) => log::line(&format!("control pipe {name} unavailable: {e:#}")),
-    }
 
     let mut api = HidApi::new()?;
     let mut cfg_mtime = mtime(&Config::path());
@@ -407,7 +437,7 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                             }
                         }
                         Err(RecvTimeoutError::Timeout) => break,
-                        // another endpoint of the same device took over the control channel
+                        // the registry dropped this endpoint's queue (does not happen while it is registered)
                         Err(RecvTimeoutError::Disconnected) => jobs_open = false,
                     }
                 }
@@ -475,12 +505,18 @@ fn write_status(shared: &Shared, started: u64, ds: DisplayState, me: &mut selfst
     };
     *shared.status.lock().unwrap() = st.clone();
     let path = Status::path();
-    if let Some(dir) = path.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
     let tmp = path.with_extension("json.tmp");
-    if std::fs::write(&tmp, serde_json::to_vec_pretty(&st).unwrap_or_default()).is_ok() {
-        let _ = std::fs::rename(tmp, path);
+    let written = winsec::open_user_file(&tmp, false).and_then(|mut f| {
+        use std::io::Write;
+        f.set_len(0)?;
+        f.write_all(&serde_json::to_vec_pretty(&st).unwrap_or_default())
+    });
+    match written {
+        // renaming replaces status.json itself, never a file it might link to
+        Ok(()) => {
+            let _ = std::fs::rename(tmp, path);
+        }
+        Err(e) => winsec::warn_once(&e),
     }
 }
 
@@ -490,21 +526,4 @@ fn mtime(p: &std::path::Path) -> Option<SystemTime> {
 
 fn unix_now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
-}
-
-#[cfg(windows)]
-fn single_instance() -> bool {
-    use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
-    use windows_sys::Win32::System::Threading::CreateMutexW;
-    let name: Vec<u16> = "Local\\uncoild-single-instance\0".encode_utf16().collect();
-    unsafe {
-        let h = CreateMutexW(std::ptr::null(), 0, name.as_ptr());
-        // handle intentionally leaked: held for the life of the process
-        !h.is_null() && GetLastError() != ERROR_ALREADY_EXISTS
-    }
-}
-
-#[cfg(not(windows))]
-fn single_instance() -> bool {
-    true
 }

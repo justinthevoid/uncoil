@@ -3,7 +3,9 @@
 //! the current value with the matching "get" command and checks the reply makes sense. One check per
 //! feature, run on first need or by `check.run`, cached until the device disconnects (the cache lives on the
 //! device's own thread). A failed or untested check makes that feature's writes fail; reads still work.
-//! Lighting checks are informational only and never block lighting.
+//! Lighting checks never block lighting; the firmware-effect check (the same regions read) blocks only
+//! saving an effect to the device. Every check reads through `proto::query_read`, so it can send nothing but
+//! "get" commands.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -12,7 +14,7 @@ use uncoil_core::features::keymap::{self, Function, Layer};
 use uncoil_core::features::performance as perf;
 use uncoil_core::features::{dial, hw_effect, oled, power, profile, Feature};
 use uncoil_core::ipc::{coded, codes, CheckState, FeatureCheck};
-use uncoil_core::proto::{query_ok, Transport};
+use uncoil_core::proto::{query_read as query_ok, Transport};
 
 /// Check results for one connected device.
 pub struct Checks {
@@ -75,9 +77,10 @@ impl Checks {
     }
 
     /// Before a write for `f`: fine when no check is needed or it passed; an untested check runs now; a
-    /// failed one refuses with `check_failed`. Lighting and firmware effects are never refused.
+    /// failed one refuses with `check_failed`. Lighting is never refused; `HwEffects` is asked for only when
+    /// an effect is saved to the device (exec's `gated_features`), never for showing one.
     pub fn require(&mut self, t: &mut dyn Transport, def: &DeviceDef, tid: u8, f: Feature) -> anyhow::Result<()> {
-        if !def.needs_check(f) || matches!(f, Feature::Lighting | Feature::HwEffects) {
+        if !def.needs_check(f) || f == Feature::Lighting {
             return Ok(());
         }
         if matches!(self.states.get(&f), None | Some((CheckState::Untested, _))) {
@@ -101,7 +104,8 @@ fn what(f: Feature) -> &'static str {
         Feature::Power => "power settings",
         Feature::Dial => "dial settings",
         Feature::Oled => "display settings",
-        Feature::Lighting | Feature::HwEffects => "lighting",
+        Feature::Lighting => "lighting",
+        Feature::HwEffects => "saved lighting effects",
     }
 }
 

@@ -10,7 +10,7 @@ use uncoil_core::device::{DeviceDef, UsbEndpoint};
 use uncoil_core::proto::{self, DeviceMode, Reply, Report, Status, Transport, WIRE_LEN};
 
 /// Razer's USB vendor id.
-pub const RAZER_VID: u16 = 0x1532;
+pub use uncoil_core::device::RAZER_VID;
 
 /// An opened device. Devices with lighting receive frames; feature-only devices (no `lighting`, e.g. a
 /// mouse without RGB) are opened for control commands only and never get a frame.
@@ -193,7 +193,7 @@ impl LiveDevice {
         for r in 0..rows {
             row_buf.clear();
             row_buf.extend((0..cols).map(|c| color(r, c)));
-            let rep = proto::custom_frame_row(tid, r as u8, 0, &row_buf);
+            let rep = proto::custom_frame_row(tid, r as u8, 0, &row_buf)?;
             self.send(&rep)?;
         }
         if !self.def.quirks.custom_mode_once {

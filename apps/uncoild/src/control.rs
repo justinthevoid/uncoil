@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use uncoil_core::config::Status;
 use uncoil_core::device::DeviceDef;
 use uncoil_core::features::dial::DialMode;
@@ -21,6 +21,10 @@ use uncoil_core::proto::Transport;
 
 /// How long a client waits for a device thread (a full key map dump takes about a second).
 const DEVICE_TIMEOUT: Duration = Duration::from_secs(15);
+/// A job the device thread has not started by then is dropped, not run: its requester is about to be told
+/// the device did not answer, and a GUI retry must not apply the same change twice. The gap to
+/// [`DEVICE_TIMEOUT`] leaves a started job time to finish.
+const START_DEADLINE: Duration = Duration::from_secs(10);
 
 pub enum JobKind {
     Command(Command),
@@ -55,6 +59,14 @@ impl From<anyhow::Error> for Failure {
 pub struct Job {
     pub kind: JobKind,
     pub reply: Sender<Result<Raw, Failure>>,
+    /// Not started by then: dropped (see [`START_DEADLINE`]).
+    pub deadline: Instant,
+}
+
+impl Job {
+    pub fn new(kind: JobKind, reply: Sender<Result<Raw, Failure>>) -> Job {
+        Job { kind, reply, deadline: Instant::now() + START_DEADLINE }
+    }
 }
 
 /// A connected device, as seen by the control channel.
@@ -70,9 +82,12 @@ pub struct DeviceHandle {
     token: u64,
 }
 
+/// Connected devices by id. A device seen on two endpoints at once (cable and dongle) has two handles; the
+/// first one registered serves commands, and the other takes over when it goes away, so neither endpoint's
+/// thread is left without a job queue.
 #[derive(Default)]
 pub struct Registry {
-    devices: Mutex<HashMap<String, DeviceHandle>>,
+    devices: Mutex<HashMap<String, Vec<DeviceHandle>>>,
     next: AtomicU64,
 }
 
@@ -86,8 +101,11 @@ pub struct Registration {
 impl Drop for Registration {
     fn drop(&mut self) {
         let mut d = self.registry.devices.lock().unwrap();
-        if d.get(&self.id).is_some_and(|h| h.token == self.token) {
-            d.remove(&self.id);
+        if let Some(list) = d.get_mut(&self.id) {
+            list.retain(|h| h.token != self.token);
+            if list.is_empty() {
+                d.remove(&self.id);
+            }
         }
     }
 }
@@ -105,10 +123,15 @@ impl Registry {
         let (tx, rx) = mpsc::channel();
         let token = self.next.fetch_add(1, Ordering::Relaxed);
         let id = def.id.clone();
-        self.devices
-            .lock()
-            .unwrap()
-            .insert(id.clone(), DeviceHandle { def, product_id, connection, tx, hw, checks, token });
+        self.devices.lock().unwrap().entry(id.clone()).or_default().push(DeviceHandle {
+            def,
+            product_id,
+            connection,
+            tx,
+            hw,
+            checks,
+            token,
+        });
         (rx, Registration { registry: self.clone(), id, token })
     }
 
@@ -125,7 +148,7 @@ impl Registry {
     }
 
     fn checks_of(&self, id: &str) -> Option<Vec<FeatureCheck>> {
-        self.devices.lock().unwrap().get(id).map(|h| h.checks.lock().unwrap().clone())
+        self.devices.lock().unwrap().get(id).and_then(|l| l.first()).map(|h| h.checks.lock().unwrap().clone())
     }
 
     fn infos(&self) -> Vec<DeviceInfo> {
@@ -134,6 +157,7 @@ impl Registry {
             .lock()
             .unwrap()
             .values()
+            .filter_map(|l| l.first())
             .map(|h| DeviceInfo {
                 id: h.def.id.clone(),
                 name: h.def.name.clone(),
@@ -149,12 +173,21 @@ impl Registry {
         v
     }
 
+    /// Queue a probe without waiting for it (tests).
+    #[cfg(test)]
+    fn send_nowait(&self, id: &str) -> Result<(), String> {
+        let (tx, _rx) = mpsc::channel();
+        let d = self.devices.lock().unwrap();
+        let h = d.get(id).and_then(|l| l.first()).ok_or("not connected")?;
+        h.tx.send(Job::new(JobKind::ProbeLighting, tx)).map_err(|_| "gone".to_string())
+    }
+
     fn send(&self, id: &str, kind: JobKind) -> Result<Raw, Failure> {
         let (tx, rx) = mpsc::channel();
         {
             let d = self.devices.lock().unwrap();
-            let h = d.get(id).ok_or_else(|| format!("{id} is not connected"))?;
-            h.tx.send(Job { kind, reply: tx }).map_err(|_| format!("{id} just disconnected"))?;
+            let h = d.get(id).and_then(|l| l.first()).ok_or_else(|| format!("{id} is not connected"))?;
+            h.tx.send(Job::new(kind, tx)).map_err(|_| format!("{id} just disconnected"))?;
         }
         rx.recv_timeout(DEVICE_TIMEOUT).map_err(|_| format!("{id} did not answer in time"))?
     }
@@ -169,6 +202,15 @@ pub fn serve_job(
     journal: &Journal,
     checks: &mut Checks,
 ) -> Lighting {
+    if Instant::now() > job.deadline {
+        let what = match &job.kind {
+            JobKind::Command(c) => c.to_parts().0,
+            JobKind::ProbeLighting => "lighting probe",
+        };
+        crate::log::line(&format!("{}: dropped a {what} that waited too long to start", def.name));
+        let _ = job.reply.send(Err(format!("{} was busy for too long; nothing was done", def.name).into()));
+        return Lighting::Unchanged;
+    }
     let (res, lighting) = match &job.kind {
         JobKind::ProbeLighting => {
             (exec::probe_lighting(t, tid).map(|p| ipc::raw(&p)).map_err(Failure::from), Lighting::Unchanged)
@@ -180,7 +222,12 @@ pub fn serve_job(
                 }
                 (Ok(out.result), out.lighting)
             }
-            Err(e) => (Err(Failure::from(e)), Lighting::Unchanged),
+            Err(e) => {
+                if cmd.writes_onboard() && cmd.write_confirmed() {
+                    crate::log::line(&format!("ONBOARD WRITE NOT DONE {} ({}): {e:#}", def.id, cmd.to_parts().0));
+                }
+                (Err(Failure::from(e)), Lighting::Unchanged)
+            }
         },
     };
     let _ = job.reply.send(res);
@@ -478,6 +525,53 @@ mod tests {
                     .unwrap();
             }
         }
+    }
+
+    #[test]
+    fn jobs_that_waited_too_long_are_dropped_not_run() {
+        let def = crate::fake::deathadder();
+        let mut dev = crate::fake::FakeDevice::for_def(&def);
+        let journal = Journal { path: None };
+        let mut checks = Checks::new(&def);
+        let (tx, rx) = mpsc::channel();
+        let cmd = Command::from_parts("power.set", Some(r#"{"idle_s": 300, "write": true}"#)).unwrap();
+        let mut job = Job::new(JobKind::Command(cmd.clone()), tx.clone());
+        job.deadline = Instant::now() - Duration::from_millis(1);
+        serve_job(job, &mut dev, &def, 0x1F, &journal, &mut checks);
+        assert!(rx.recv().unwrap().is_err());
+        assert!(dev.setters().is_empty(), "an expired write never reaches the device");
+        assert!(dev.sent().is_empty(), "nor does its check");
+        // on time, the same job runs
+        serve_job(Job::new(JobKind::Command(cmd), tx), &mut dev, &def, 0x1F, &journal, &mut checks);
+        assert!(rx.recv().unwrap().is_ok());
+        assert!(!dev.setters().is_empty());
+    }
+
+    #[test]
+    fn a_second_endpoint_does_not_orphan_the_first() {
+        let registry = Arc::new(Registry::default());
+        let def = Arc::new(crate::fake::deathadder());
+        let reg = |r: &Arc<Registry>| {
+            r.register(def.clone(), 1, "x".into(), Arc::new(Mutex::new(None)), Arc::new(Mutex::new(vec![])))
+        };
+        let (rx1, reg1) = reg(&registry);
+        let (rx2, reg2) = reg(&registry);
+        // commands go to the first endpoint, which keeps its queue
+        let _ = registry.send_nowait(&def.id);
+        assert!(rx1.try_recv().is_ok());
+        assert!(rx2.try_recv().is_err());
+        // the second going away changes nothing for the first
+        drop(reg2);
+        assert!(registry.is_connected(&def.id));
+        let _ = registry.send_nowait(&def.id);
+        assert!(rx1.try_recv().is_ok());
+        // the first going away hands the device to whoever is left; then it is gone
+        let (rx3, reg3) = reg(&registry);
+        drop(reg1);
+        let _ = registry.send_nowait(&def.id);
+        assert!(rx3.try_recv().is_ok());
+        drop(reg3);
+        assert!(!registry.is_connected(&def.id));
     }
 
     #[cfg(windows)]

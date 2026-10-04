@@ -19,8 +19,49 @@ pub struct Config {
     pub display: DisplayPolicy,
     /// Desk position per device id; missing devices use `layout::default_placement`.
     pub desk: HashMap<String, Placement>,
-    /// Run OpenRGB once at start to put non-Razer RGB (motherboard, GPU, RAM) on a hardware rainbow.
+    /// Hand non-Razer RGB (motherboard, GPU, RAM) to OpenRGB once at logon: OpenRGB puts each device in
+    /// `openrgb.devices` on its own hardware mode and exits. Off by default. Needs OpenRGB installed and, for
+    /// RAM over SMBus, the elevated `uncoil-openrgb` task (`scripts\install-task.ps1 -OpenRgb`).
     pub openrgb_hardware_rainbow: bool,
+    /// What the OpenRGB hand-off sets. Empty by default: there is no built-in device list.
+    pub openrgb: OpenRgb,
+}
+
+/// `openrgb` in `config.json`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OpenRgb {
+    pub devices: Vec<OpenRgbDevice>,
+}
+
+/// One OpenRGB device and the hardware mode to put it in, e.g.
+/// `{"match": "GeForce", "mode": "wave"}`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OpenRgbDevice {
+    /// Part of the device name as OpenRGB lists it (passed to `OpenRGB.exe -d`).
+    #[serde(rename = "match")]
+    pub name: String,
+    /// OpenRGB mode name (passed to `-m`).
+    pub mode: String,
+    /// RAM on the SMBus: skipped while Corsair iCUE runs, because both would write the same bus.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ram: bool,
+}
+
+impl OpenRgbDevice {
+    /// Why this entry may not be passed to OpenRGB, if it may not. The hand-off runs elevated and this
+    /// comes from a user-writable file, so both strings are plain names: 1 to 64 letters, digits, spaces
+    /// and `-_.()+#&:/`, not starting with `-` (an OpenRGB option) or a space.
+    pub fn problem(&self) -> Option<String> {
+        for (what, s) in [("match", &self.name), ("mode", &self.mode)] {
+            let ok_char = |c: char| c.is_ascii_alphanumeric() || " -_.()+#&:/".contains(c);
+            if s.is_empty() || s.len() > 64 || s.starts_with(['-', ' ']) || s.ends_with(' ') || !s.chars().all(ok_char)
+            {
+                return Some(format!("openrgb.devices: {what} {s:?} is not a plain name"));
+            }
+        }
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -48,7 +89,8 @@ impl Default for Config {
             fps: 30,
             display: DisplayPolicy::default(),
             desk: HashMap::new(),
-            openrgb_hardware_rainbow: true,
+            openrgb_hardware_rainbow: false,
+            openrgb: OpenRgb::default(),
         }
     }
 }
@@ -121,5 +163,50 @@ impl Status {
     pub fn path() -> PathBuf {
         let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
         base.join("uncoil").join("status.json")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn openrgb_is_off_with_no_built_in_devices() {
+        let c = Config::default();
+        assert!(!c.openrgb_hardware_rainbow);
+        assert!(c.openrgb.devices.is_empty());
+        // configs written before the device list existed still load (the old flag alone does nothing)
+        let old: Config = serde_json::from_str(r#"{"openrgb_hardware_rainbow": true}"#).unwrap();
+        assert!(old.openrgb_hardware_rainbow && old.openrgb.devices.is_empty());
+        let new: Config = serde_json::from_str(
+            r#"{"openrgb_hardware_rainbow": true, "openrgb": {"devices": [
+                {"match": "GeForce", "mode": "wave"}, {"match": "Vengeance", "mode": "rainbow wave", "ram": true}]}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            new.openrgb.devices[1],
+            OpenRgbDevice { name: "Vengeance".into(), mode: "rainbow wave".into(), ram: true }
+        );
+        let back = serde_json::to_string(&new.openrgb.devices[0]).unwrap();
+        assert_eq!(back, r#"{"match":"GeForce","mode":"wave"}"#);
+    }
+
+    #[test]
+    fn openrgb_names_cannot_become_options() {
+        let d = |name: &str, mode: &str| OpenRgbDevice { name: name.into(), mode: mode.into(), ram: false };
+        assert_eq!(d("ASUS ROG STRIX B550-F GAMING (WI-FI)", "Rainbow Wave").problem(), None);
+        assert_eq!(d("GeForce", "wave").problem(), None);
+        let long = "x".repeat(65);
+        for (n, m) in [
+            ("--server", "wave"),
+            ("GeForce", "-p"),
+            ("", "wave"),
+            (" GeForce", "wave"),
+            ("GeForce\" --config x", "wave"),
+            ("GeForce\n", "wave"),
+            ("GeForce", long.as_str()),
+        ] {
+            assert!(d(n, m).problem().is_some(), "{n:?} / {m:?}");
+        }
     }
 }

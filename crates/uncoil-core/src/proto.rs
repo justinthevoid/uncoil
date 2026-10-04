@@ -189,6 +189,15 @@ pub fn query_ok(t: &mut dyn Transport, request: &Report) -> anyhow::Result<Reply
     }
 }
 
+/// Query on a read path (key map reads, checks, `*.get`, probes): refuses anything but a "get" command
+/// (high bit of the command id set), so no read can turn into a write whatever the device file says.
+pub fn query_read(t: &mut dyn Transport, request: &Report) -> anyhow::Result<Reply> {
+    if !request.is_read_only() {
+        anyhow::bail!("{:02X}/{:02X} is not a read command; refusing it on a read path", request.class, request.id);
+    }
+    query_ok(t, request)
+}
+
 /// Commands that some firmwares want with their own transaction id (`[usb.transaction_ids]` in a device
 /// file). OpenRazer sends, for example, a Viper Mini's lighting with `0x3F` and its DPI with `0xFF`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,16 +265,19 @@ pub fn effect_wave(tid: u8, direction: u8, speed: u8) -> Report {
     Report::new(tid, 0x0F, 0x02, &[0x00, 0x00, 0x04, direction, speed, 0x00])
 }
 
-/// One row of a custom frame (extended matrix): colours for columns `start..=stop`.
-pub fn custom_frame_row(tid: u8, row: u8, start: u8, colors: &[[u8; 3]]) -> Report {
-    assert!(!colors.is_empty() && colors.len() * 3 + 5 <= MAX_ARGS, "row too long for one report");
-    let stop = start + colors.len() as u8 - 1;
+/// One row of a custom frame (extended matrix): colours for columns `start..=stop`. At most 25 columns fit
+/// one report; device files cannot ask for more (`device::MAX_COLS`), and this refuses rather than panics.
+pub fn custom_frame_row(tid: u8, row: u8, start: u8, colors: &[[u8; 3]]) -> anyhow::Result<Report> {
+    if colors.is_empty() || colors.len() * 3 + 5 > MAX_ARGS || start as usize + colors.len() > 256 {
+        anyhow::bail!("a frame row of {} colours does not fit one report", colors.len());
+    }
+    let stop = start + (colors.len() - 1) as u8;
     let mut args = Vec::with_capacity(5 + colors.len() * 3);
     args.extend_from_slice(&[0x00, 0x00, row, start, stop]);
     for c in colors {
         args.extend_from_slice(c);
     }
-    Report::new(tid, 0x0F, 0x03, &args)
+    Ok(Report::new(tid, 0x0F, 0x03, &args))
 }
 
 /// OLED command dial (BlackWidow V4 Pro 75%): which function the dial drives.
@@ -297,7 +309,7 @@ mod tests {
 
     #[test]
     fn crc_is_xor_of_body() {
-        let w = custom_frame_row(0x1F, 2, 0, &[[1, 2, 3], [4, 5, 6]]).to_wire();
+        let w = custom_frame_row(0x1F, 2, 0, &[[1, 2, 3], [4, 5, 6]]).unwrap().to_wire();
         let r = &w[1..];
         let expect = r[2..88].iter().fold(0u8, |a, b| a ^ b);
         assert_eq!(r[88], expect);
@@ -308,8 +320,10 @@ mod tests {
     #[test]
     fn full_keyboard_row_fits() {
         let row = [[0u8; 3]; 18];
-        let r = custom_frame_row(0x1F, 0, 0, &row);
+        let r = custom_frame_row(0x1F, 0, 0, &row).unwrap();
         assert_eq!(r.args.len(), 5 + 54);
+        assert!(custom_frame_row(0x1F, 0, 0, &[]).is_err());
+        assert!(custom_frame_row(0x1F, 0, 250, &[[0; 3]; 10]).is_err(), "stop column would wrap");
     }
 
     #[test]
@@ -336,7 +350,7 @@ mod tests {
     #[test]
     fn command_groups() {
         use CommandGroup as G;
-        assert_eq!(G::of(&custom_frame_row(1, 0, 0, &[[0, 0, 0]])), G::Frame);
+        assert_eq!(G::of(&custom_frame_row(1, 0, 0, &[[0, 0, 0]]).unwrap()), G::Frame);
         assert_eq!(G::of(&effect_custom_frame(1)), G::Frame);
         assert_eq!(G::of(&effect_wave(1, 1, 0x28)), G::Effect);
         assert_eq!(G::of(&Report::new(1, 0x0F, 0x80, &[])), G::Effect);
@@ -349,6 +363,24 @@ mod tests {
         assert_eq!(G::of(&Report::new(1, 0x07, 0x83, &[])), G::Power);
         assert_eq!(G::of(&set_device_mode(1, DeviceMode::Normal)), G::Device);
         assert_eq!(G::of(&set_oled_brightness(1, 50)), G::Other);
+    }
+
+    struct Echo(Vec<(u8, u8)>);
+    impl Transport for Echo {
+        fn query(&mut self, r: &Report) -> anyhow::Result<Reply> {
+            self.0.push((r.class, r.id));
+            Ok(Reply { status: Status::Ok, transaction_id: 0, size: 0, class: r.class, id: r.id, raw: [0; MAX_ARGS] })
+        }
+    }
+
+    #[test]
+    fn read_paths_send_only_get_commands() {
+        let mut t = Echo(vec![]);
+        assert!(query_read(&mut t, &get_device_mode(0x1F)).is_ok());
+        let e = query_read(&mut t, &set_device_mode(0x1F, DeviceMode::Normal)).unwrap_err().to_string();
+        assert!(e.contains("not a read command"), "{e}");
+        assert!(query_read(&mut t, &Report::new(0x1F, 0x02, 0x0D, &[1, 26, 1])).is_err());
+        assert_eq!(t.0, vec![(0x00, 0x84)], "the refused setters never reached the device");
     }
 
     #[test]

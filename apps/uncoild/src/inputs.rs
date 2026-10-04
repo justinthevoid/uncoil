@@ -104,8 +104,15 @@ impl Inputs {
         self.presses.lock().unwrap().iter().filter(|p| now - p.t <= KEEP).copied().collect()
     }
 
+    /// Forget every press, overwriting the whole buffer (every slot it ever used) with zeros first.
     fn clear_presses(&self) {
-        self.presses.lock().unwrap().clear();
+        let mut q = self.presses.lock().unwrap();
+        q.clear();
+        let zero = Press { x: 0.0, y: 0.0, t: 0.0 };
+        let cap = q.capacity();
+        q.resize(cap, zero);
+        q.iter_mut().for_each(|p| *p = zero);
+        q.clear();
     }
 }
 
@@ -205,6 +212,19 @@ mod tests {
         inputs.push(Press { x: 3.0, y: 4.0, t: 10.0 });
         assert_eq!(inputs.presses(10.0), vec![Press { x: 3.0, y: 4.0, t: 10.0 }], "older than 5 s are dropped");
         assert!(inputs.presses(16.0).is_empty());
+    }
+
+    #[test]
+    fn clearing_zeroes_the_buffer() {
+        let inputs = Inputs::new();
+        for i in 0..10 {
+            inputs.push(Press { x: 3.0, y: 4.0, t: i as f32 });
+        }
+        let cap = inputs.presses.lock().unwrap().capacity();
+        inputs.clear_presses();
+        let q = inputs.presses.lock().unwrap();
+        assert!(q.is_empty());
+        assert_eq!(q.capacity(), cap, "the same allocation, overwritten in place");
     }
 
     #[test]

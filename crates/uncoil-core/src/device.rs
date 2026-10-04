@@ -290,6 +290,90 @@ fn default_features() -> Vec<Feature> {
     vec![Feature::Lighting]
 }
 
+/// Razer's USB vendor id; every device file must use it.
+pub const RAZER_VID: u16 = 0x1532;
+/// Transaction ids Razer devices use (OpenRazer and the maintainer's devices).
+pub const TRANSACTION_IDS: [u8; 4] = [0x1F, 0x3F, 0x9F, 0xFF];
+/// Matrix limits: a frame row (5 bytes + 3 per column) must fit one report's 80 argument bytes.
+pub const MAX_COLS: usize = 25;
+pub const MAX_ROWS: usize = 32;
+/// Underglow LEDs per side and points of a `points` layout.
+pub const MAX_LEDS: usize = 64;
+pub const MAX_REPLY_WAIT_US: u32 = 100_000;
+pub const MAX_DPI: u16 = 50_000;
+const MAX_NAME: usize = 64;
+/// Key, LED, shape and effect names.
+const MAX_SHORT: usize = 32;
+
+/// `^[a-z0-9][a-z0-9-]{0,63}$`
+fn valid_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    (1..=64).contains(&b.len())
+        && b[0] != b'-'
+        && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
+}
+
+/// Text from a device file that reaches the log or the GUI: no control characters, at most `max` chars.
+fn text(what: &str, s: &str, max: usize) -> Result<()> {
+    if s.chars().count() > max {
+        bail!("{what}: {:?}… is longer than {max} characters", s.chars().take(max).collect::<String>());
+    }
+    if s.chars().any(char::is_control) {
+        bail!("{what}: {s:?} contains a control character");
+    }
+    Ok(())
+}
+
+fn validate_layout(l: &LayoutDef) -> Result<()> {
+    let num = |what: &str, v: f32| -> Result<()> {
+        if !v.is_finite() || v.abs() > 1000.0 {
+            bail!("layout: {what} {v} is not a size on a desk");
+        }
+        Ok(())
+    };
+    match l {
+        LayoutDef::Keyboard { width, depth, rows, underglow } => {
+            num("width", *width)?;
+            num("depth", *depth)?;
+            if rows.len() > 16 {
+                bail!("layout: more than 16 key rows");
+            }
+            for r in rows {
+                num("row y", r.y)?;
+                if r.keys.len() > 48 {
+                    bail!("layout: a key row has more than 48 keys");
+                }
+                for k in &r.keys {
+                    text("layout.rows.keys", k, 48)?;
+                }
+            }
+            if let Some(u) = underglow {
+                num("underglow y_start", u.y_start)?;
+                num("underglow y_end", u.y_end)?;
+                for side in [&u.left, &u.right].into_iter().flatten() {
+                    num("underglow x", side.x)?;
+                    text("layout.underglow prefix", &side.prefix, MAX_SHORT)?;
+                    if side.count > MAX_LEDS {
+                        bail!("layout.underglow: count {} is more than {MAX_LEDS}", side.count);
+                    }
+                }
+            }
+        }
+        LayoutDef::Points { width, depth, points } => {
+            num("width", *width)?;
+            num("depth", *depth)?;
+            if points.len() > MAX_LEDS {
+                bail!("layout.points: {} points, more than {MAX_LEDS}", points.len());
+            }
+            for p in points {
+                num("point", p[0])?;
+                num("point", p[1])?;
+            }
+        }
+    }
+    Ok(())
+}
+
 impl DeviceDef {
     /// Parse and validate a device file. Errors name the file as "device file"; use
     /// [`DeviceDef::from_toml_named`] to name it properly.
@@ -304,16 +388,52 @@ impl DeviceDef {
         Ok(d)
     }
 
-    fn validate(&self) -> Result<()> {
-        if self.id.trim().is_empty() {
-            bail!("id is empty");
+    /// A file from the user's devices folder: like [`DeviceDef::from_toml_named`], but without a `support`
+    /// line it is `experimental` (nobody vouched for it), so its writes wait for the read-only checks.
+    pub fn from_toml_user(origin: &str, src: &str) -> Result<Self> {
+        #[derive(Deserialize)]
+        struct SupportLine {
+            support: Option<Support>,
         }
-        if self.usb.is_empty() {
-            bail!("no [[usb]] endpoint");
+        let mut d = DeviceDef::from_toml_named(origin, src)?;
+        let given = toml::from_str::<SupportLine>(src).map_err(|e| anyhow!("{origin}: {e}"))?.support;
+        d.support = given.unwrap_or(Support::Experimental);
+        Ok(d)
+    }
+
+    /// Device files are untrusted input (a user file runs in the daemon, and every value here ends up in a
+    /// HID report, the log or the GUI), so everything with a size or a set of meaningful values is checked.
+    fn validate(&self) -> Result<()> {
+        if !valid_id(&self.id) {
+            bail!(
+                "id {:?} must be 1-64 lowercase letters, digits and dashes, starting with a letter or digit",
+                self.id
+            );
+        }
+        text("name", &self.name, MAX_NAME)?;
+        if self.vendor_id != RAZER_VID {
+            bail!("vendor_id 0x{:04X} is not Razer's (0x{RAZER_VID:04X})", self.vendor_id);
+        }
+        if self.usb.is_empty() || self.usb.len() > 8 {
+            bail!("[[usb]]: {} endpoints (1 to 8)", self.usb.len());
         }
         for (i, e) in self.usb.iter().enumerate() {
             if self.usb[..i].iter().any(|o| o.product_id == e.product_id) {
                 bail!("[[usb]]: product_id 0x{:04X} listed twice", e.product_id);
+            }
+            text("[[usb]]: connection", &e.connection, 16)?;
+            if e.alt_usages.len() > 8 {
+                bail!("[[usb]]: more than 8 alt_usages");
+            }
+            if e.reply_wait_us.is_some_and(|w| w > MAX_REPLY_WAIT_US) {
+                bail!("[[usb]]: reply_wait_us is above {MAX_REPLY_WAIT_US}");
+            }
+            let t = &e.transaction_ids;
+            let groups = [t.frame, t.effect, t.keymap, t.profile, t.dpi, t.poll, t.power, t.low_battery, t.device];
+            for tid in std::iter::once(Some(e.transaction_id)).chain(groups).flatten() {
+                if !TRANSACTION_IDS.contains(&tid) {
+                    bail!("[[usb]]: transaction id 0x{tid:02X} is not one Razer devices use ({TRANSACTION_IDS:02X?})");
+                }
             }
         }
         for (i, f) in self.features.iter().enumerate() {
@@ -334,12 +454,19 @@ impl DeviceDef {
             _ => {}
         }
         if let Some(m) = &self.matrix {
+            // a frame row is one report: 5 header bytes + 3 per column must fit the 80 argument bytes
+            if !(1..=MAX_COLS).contains(&m.cols) || !(1..=MAX_ROWS).contains(&m.rows) {
+                bail!("matrix is {}x{}; rows must be 1-{MAX_ROWS} and cols 1-{MAX_COLS}", m.rows, m.cols);
+            }
             if m.names.len() != m.rows {
                 bail!("matrix.names has {} rows, expected {}", m.names.len(), m.rows);
             }
             for (r, row) in m.names.iter().enumerate() {
                 if row.len() != m.cols {
                     bail!("matrix.names row {r} has {} cols, expected {}", row.len(), m.cols);
+                }
+                for n in row {
+                    text("matrix.names", n, MAX_SHORT)?;
                 }
             }
             if let Some(LayoutDef::Points { points, .. }) = &self.layout {
@@ -348,17 +475,41 @@ impl DeviceDef {
                 }
             }
         }
+        if let Some(l) = &self.layout {
+            validate_layout(l)?;
+        }
         if self.has(Feature::Keymap) && self.keymap.is_none() {
             bail!("features has \"keymap\" but there is no [keymap] section");
         }
         if self.has(Feature::HwEffects) && self.hw_effects.is_none() {
             bail!("features has \"hw_effects\" but there is no [hw_effects] section");
         }
+        if let Some(h) = &self.hw_effects {
+            if h.effects.len() > 16 {
+                bail!("[hw_effects]: more than 16 effects");
+            }
+            for e in &h.effects {
+                text("[hw_effects]: effects", e, MAX_SHORT)?;
+            }
+        }
         if let Some(k) = &self.keymap {
+            use crate::features::keymap::{KEYBOARD_GET, MOUSE_GET};
+            // only the two known key map getters, each with its own setter (get without the read bit)
+            if !matches!(k.get, KEYBOARD_GET | MOUSE_GET) || k.set != k.get & 0x7F {
+                bail!(
+                    "[keymap]: get 0x{:02X} / set 0x{:02X} must be 0x8D / 0x0D (keyboards) or 0x8C / 0x0C (mice)",
+                    k.get,
+                    k.set
+                );
+            }
             let mut ids = std::collections::HashSet::new();
             for key in &k.keys {
                 if !ids.insert(key.id) {
                     bail!("keymap.keys: id {} listed twice", key.id);
+                }
+                text("keymap.keys: name", &key.name, MAX_SHORT)?;
+                if let Some(led) = &key.led {
+                    text("keymap.keys: led", led, MAX_SHORT)?;
                 }
                 if let Some(d) = &key.default {
                     crate::features::keymap::Function::parse_spec(d)
@@ -369,8 +520,8 @@ impl DeviceDef {
         match &self.dpi {
             None if self.has(Feature::Dpi) => bail!("features has \"dpi\" but there is no [dpi] section"),
             Some(d) => {
-                if d.min == 0 || d.min >= d.max {
-                    bail!("[dpi]: min {} must be above 0 and below max {}", d.min, d.max);
+                if d.min == 0 || d.min >= d.max || d.max > MAX_DPI {
+                    bail!("[dpi]: min {} must be above 0 and below max {}, and max at most {MAX_DPI}", d.min, d.max);
                 }
                 if d.stages_max as usize > MAX_STAGES {
                     bail!("[dpi]: stages_max {} is more than the {MAX_STAGES} the command carries", d.stages_max);
@@ -383,8 +534,8 @@ impl DeviceDef {
                 bail!("features has \"poll_rate\" but there is no [poll_rate] section")
             }
             Some(p) => {
-                if p.rates.is_empty() {
-                    bail!("[poll_rate]: rates is empty");
+                if p.rates.is_empty() || p.rates.len() > 8 {
+                    bail!("[poll_rate]: rates lists {} rates (1 to 8)", p.rates.len());
                 }
                 if let Some(r) = p.rates.iter().find(|r| p.kind.code(**r).is_none()) {
                     bail!("[poll_rate]: {r} Hz is not a rate the {:?} command can set", p.kind);
@@ -469,9 +620,16 @@ pub fn builtin_errors() -> Vec<String> {
     builtin_parsed().into_iter().filter_map(|r| r.err().map(|e| e.to_string())).collect()
 }
 
-/// Built-ins plus any `*.toml` in `dir` (user definitions override built-ins with the same id).
+/// Built-ins plus any `*.toml` in `dir` (user definitions override built-ins with the same id; without a
+/// `support` line they are experimental, see [`DeviceDef::from_toml_user`]).
 pub fn load_all(dir: Option<&std::path::Path>) -> Vec<DeviceDef> {
+    load_all_with_errors(dir).0
+}
+
+/// [`load_all`], plus why each user file that was left out failed.
+pub fn load_all_with_errors(dir: Option<&std::path::Path>) -> (Vec<DeviceDef>, Vec<String>) {
     let mut defs = builtin();
+    let mut errors = vec![];
     if let Some(dir) = dir {
         if let Ok(rd) = std::fs::read_dir(dir) {
             for e in rd.flatten() {
@@ -479,17 +637,22 @@ pub fn load_all(dir: Option<&std::path::Path>) -> Vec<DeviceDef> {
                 if p.extension().and_then(|x| x.to_str()) != Some("toml") {
                     continue;
                 }
-                if let Ok(d) = std::fs::read_to_string(&p)
-                    .map_err(anyhow::Error::from)
-                    .and_then(|s| DeviceDef::from_toml_named(&p.display().to_string(), &s))
-                {
-                    defs.retain(|x| x.id != d.id);
-                    defs.push(d);
+                // a device file is a few KB; anything far bigger is not one
+                let read = match std::fs::metadata(&p) {
+                    Ok(m) if m.len() > 1024 * 1024 => Err(anyhow!("{}: larger than 1 MB", p.display())),
+                    _ => std::fs::read_to_string(&p).map_err(anyhow::Error::from),
+                };
+                match read.and_then(|s| DeviceDef::from_toml_user(&p.display().to_string(), &s)) {
+                    Ok(d) => {
+                        defs.retain(|x| x.id != d.id);
+                        defs.push(d);
+                    }
+                    Err(e) => errors.push(format!("{e:#}")),
                 }
             }
         }
     }
-    defs
+    (defs, errors)
 }
 
 #[cfg(test)]
@@ -640,7 +803,7 @@ mod tests {
         [usb.transaction_ids]
         effect = 0x3F
         dpi = 0xFF
-        power = 0xFE
+        power = 0x9F
 
         [dpi]
         min = 100
@@ -673,8 +836,8 @@ mod tests {
         use crate::features::{performance as perf, power};
         assert_eq!(e.tid_for(&perf::get_dpi(0, DpiStorage::Nostore)), 0xFF);
         assert_eq!(e.tid_for(&perf::get_poll(0, PollKind::Classic)), 0x1F, "poll group not set");
-        assert_eq!(e.tid_for(&power::get_idle(0)), 0xFE);
-        assert_eq!(e.tid_for(&power::get_low_battery(0)), 0xFE, "low_battery falls back to power");
+        assert_eq!(e.tid_for(&power::get_idle(0)), 0x9F);
+        assert_eq!(e.tid_for(&power::get_low_battery(0)), 0x9F, "low_battery falls back to power");
         assert_eq!(e.tid_for(&crate::proto::effect_wave(0, 1, 0x28)), 0x3F);
         assert_eq!(e.tid_for(&crate::proto::effect_custom_frame(0)), 0x1F, "custom frame is the frame group");
         let w = e.wire(&perf::get_dpi(0x1F, DpiStorage::Nostore));
@@ -699,7 +862,7 @@ mod tests {
         assert!(e.contains("[poll_rate]"), "{e}");
         let e = err(&MINIMAL.replace("features = [\"dpi\",", "features = [\"lighting\", \"dpi\","));
         assert!(e.contains("no [matrix] section"), "{e}");
-        let e = err(&MINIMAL.replace("power = 0xFE", "powr = 0xFE"));
+        let e = err(&MINIMAL.replace("power = 0x9F", "powr = 0x9F"));
         assert!(e.contains("powr"), "{e}");
         let e = err(&MINIMAL.replace("support = \"experimental\"", "support = \"maybe\""));
         assert!(e.contains("support") || e.contains("maybe"), "{e}");
@@ -710,5 +873,129 @@ mod tests {
             "features = [\"dpi\"]\nunverified = [\"power\"]",
         ));
         assert!(e.contains("unverified"), "{e}");
+    }
+
+    /// One with a key map and lighting, for the untrusted-input checks.
+    const LIT: &str = r#"
+        id = "razer-test-kb"
+        name = "Razer Test Keyboard"
+        kind = "keyboard"
+        vendor_id = 0x1532
+        features = ["lighting", "keymap"]
+
+        [[usb]]
+        product_id = 0x0098
+        interface = 3
+        usage_page = 0x01
+        usage = 0x06
+        transaction_id = 0x1F
+
+        [matrix]
+        rows = 1
+        cols = 2
+        names = [["A", "B"]]
+
+        [layout]
+        type = "points"
+        width = 4.0
+        depth = 2.0
+        points = [[-1.0, 0.0], [1.0, 0.0]]
+
+        [keymap]
+        get = 0x8D
+        set = 0x0D
+        keys = [ { id = 31, name = "A", led = "A", default = "key A" } ]
+    "#;
+
+    #[test]
+    fn ids_and_names_are_plain() {
+        assert!(DeviceDef::from_toml(LIT).is_ok());
+        for bad in ["", "-razer", "Razer-Test", "razer test", "razer/../x", "razer_test", &"r".repeat(65)] {
+            let e = err(&LIT.replace("id = \"razer-test-kb\"", &format!("id = {bad:?}")));
+            assert!(e.contains("id "), "{bad:?}: {e}");
+        }
+        assert!(DeviceDef::from_toml(&LIT.replace("razer-test-kb", &"r".repeat(64))).is_ok());
+        for (from, to) in [
+            ("name = \"Razer Test Keyboard\"", "name = \"Razer\\nnext line\""),
+            ("name = \"Razer Test Keyboard\"", &format!("name = {:?}", "x".repeat(65))),
+            ("name = \"A\", led", "name = \"A\\u001b[31m\", led"),
+            ("names = [[\"A\", \"B\"]]", "names = [[\"A\", \"B\\r\"]]"),
+            ("led = \"A\"", &format!("led = {:?}", "x".repeat(33))),
+        ] {
+            assert!(DeviceDef::from_toml(&LIT.replace(from, to)).is_err(), "{to}");
+        }
+    }
+
+    #[test]
+    fn only_razer_devices() {
+        let e = err(&LIT.replace("vendor_id = 0x1532", "vendor_id = 0x046D"));
+        assert!(e.contains("vendor_id 0x046D"), "{e}");
+    }
+
+    #[test]
+    fn key_map_commands_are_the_known_pairs() {
+        let km = |get: &str, set: &str| {
+            DeviceDef::from_toml(
+                &LIT.replace("get = 0x8D\n        set = 0x0D", &format!("get = {get}\n        set = {set}")),
+            )
+        };
+        assert!(km("0x8C", "0x0C").is_ok());
+        for (get, set) in [("0x8D", "0x0C"), ("0x0D", "0x0D"), ("0x8D", "0x8D"), ("0x85", "0x05"), ("0x8E", "0x0E")] {
+            assert!(km(get, set).is_err(), "{get}/{set}");
+        }
+    }
+
+    #[test]
+    fn sizes_are_bounded() {
+        let bad = [
+            ("rows = 1\n        cols = 2", "rows = 1\n        cols = 26"),
+            ("rows = 1\n        cols = 2", "rows = 0\n        cols = 2"),
+            ("rows = 1\n        cols = 2", "rows = 33\n        cols = 2"),
+            ("transaction_id = 0x1F", "transaction_id = 0x20"),
+            ("transaction_id = 0x1F", "transaction_id = 0x1F\n        reply_wait_us = 100001"),
+            ("transaction_id = 0x1F", "transaction_id = 0x1F\n        [usb.transaction_ids]\n        dpi = 0x00"),
+            ("points = [[-1.0, 0.0], [1.0, 0.0]]", "points = [[-1.0, 0.0], [nan, 0.0]]"),
+        ];
+        for (from, to) in bad {
+            assert_eq!(LIT.matches(from).count(), 1, "{from}");
+            assert!(DeviceDef::from_toml(&LIT.replace(from, to)).is_err(), "{to}");
+        }
+        // a 25-column row is the widest that fits one report, and validation stops there
+        let wide = LIT
+            .replace("cols = 2", "cols = 25")
+            .replace("[[\"A\", \"B\"]]", &format!("[[{}]]", vec!["\"\""; 25].join(", ")))
+            .replace("[[-1.0, 0.0], [1.0, 0.0]]", &format!("[{}]", vec!["[0.0, 0.0]"; 25].join(", ")));
+        assert!(DeviceDef::from_toml(&wide).is_ok());
+        assert!(crate::proto::custom_frame_row(0x1F, 0, 0, &[[0; 3]; MAX_COLS]).is_ok());
+        assert!(crate::proto::custom_frame_row(0x1F, 0, 0, &[[0; 3]; MAX_COLS + 1]).is_err());
+        // DPI, stages, poll rates
+        assert!(err(&MINIMAL.replace("max = 30000", "max = 60000")).contains("[dpi]"));
+        assert!(err(&MINIMAL.replace("stages_max = 5", "stages_max = 6")).contains("stages_max"));
+        assert!(err(&MINIMAL.replace("rates = [125, 1000, 8000]", "rates = [125, 1000, 3000]")).contains("3000"));
+        // a keyboard layout's underglow count
+        let kb = builtin_files().iter().find(|(p, _)| *p == "devices/razer-blackwidow-v4-pro-75.toml").unwrap().1;
+        assert!(kb.contains("count = 9"));
+        let e = format!("{:#}", DeviceDef::from_toml(&kb.replacen("count = 9", "count = 1000000", 1)).unwrap_err());
+        assert!(e.contains("underglow"), "{e}");
+    }
+
+    #[test]
+    fn user_files_are_experimental_unless_they_say_otherwise() {
+        let d = DeviceDef::from_toml_user("user.toml", LIT).unwrap();
+        assert_eq!(d.support, Support::Experimental);
+        assert!(d.needs_check(Feature::Keymap));
+        let said = LIT.replace("kind = \"keyboard\"", "kind = \"keyboard\"\n        support = \"supported\"");
+        assert_eq!(DeviceDef::from_toml_user("user.toml", &said).unwrap().support, Support::Supported);
+        // built-ins keep their rule (the default is supported, see every_device_file_parses)
+        assert_eq!(DeviceDef::from_toml(LIT).unwrap().support, Support::Supported);
+        let dir = std::env::temp_dir().join(format!("uncoil-test-devices-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("kb.toml"), LIT).unwrap();
+        std::fs::write(dir.join("bad.toml"), LIT.replace("0x1532", "0x1234")).unwrap();
+        let (defs, errors) = load_all_with_errors(Some(&dir));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(defs.iter().find(|d| d.id == "razer-test-kb").unwrap().support, Support::Experimental);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert!(errors[0].contains("bad.toml"), "{errors:?}");
     }
 }
