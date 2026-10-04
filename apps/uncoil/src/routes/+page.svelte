@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount, type Component } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { CircleDot, Info, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
+	import { CircleDot, Info, Layers, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
 	import { app, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
-	import { getDesk } from '#lib/api.ts';
+	import { daemon, getDesk } from '#lib/api.ts';
+	import { pipe, loadDevices } from '#lib/daemon.svelte.ts';
 	import { ms } from '#lib/motion.ts';
 	import LightingView from '#lib/views/LightingView.svelte';
+	import StudioView from '#lib/views/StudioView.svelte';
 	import DevicesView from '#lib/views/DevicesView.svelte';
 	import KeysView from '#lib/views/KeysView.svelte';
 	import DialScreenView from '#lib/views/DialScreenView.svelte';
@@ -13,10 +15,10 @@
 	import DeviceInfoView from '#lib/views/DeviceInfoView.svelte';
 	import SettingsView from '#lib/views/SettingsView.svelte';
 	import AboutView from '#lib/views/AboutView.svelte';
-	import type { Config, DeskDevice, DeviceKind } from '#lib/types.ts';
+	import type { Config, DeskDevice, DeviceKind, ProfileInfo } from '#lib/types.ts';
 
 	type Icon = Component<{ size?: number; strokeWidth?: number }>;
-	type Feature = 'lighting' | 'devices' | 'keys' | 'dial' | 'effects' | 'info' | 'settings' | 'about';
+	type Feature = 'lighting' | 'studio' | 'devices' | 'keys' | 'dial' | 'effects' | 'info' | 'settings' | 'about';
 
 	const shortName = (n: string) => n.replace(/^Razer /, '').replace(/ Chroma Extended$/, ' Chroma');
 
@@ -29,6 +31,7 @@
 	const FEATURES: Record<string, { id: Feature; label: string; icon: Icon }[]> = {
 		desk: [
 			{ id: 'lighting', label: 'Lighting', icon: Lightbulb },
+			{ id: 'studio', label: 'Studio', icon: Layers },
 			{ id: 'devices', label: 'Devices', icon: LayoutGrid }
 		],
 		keyboard: [
@@ -66,7 +69,19 @@
 
 	const live = (id: string) => !!app.status?.devices.some((d) => d.id === id);
 
+	// The selected device's onboard profiles, for the rail note.
+	let profile = $state<{ id: string; info: ProfileInfo } | null>(null);
+	$effect(() => {
+		const id = device?.id;
+		if (!id || !pipe.devices.find((d) => d.id === id)?.features.includes('profiles')) return;
+		daemon<ProfileInfo>('profile.list', id)
+			.then((info) => (profile = { id, info }))
+			.catch(() => (profile = null));
+	});
+	const profileText = $derived(profile && profile.id === device?.id ? `Profile ${profile.info.active ?? 1} of ${profile.info.max} slots (${profile.info.count} in use).` : '');
+
 	onMount(() => {
+		loadDevices();
 		loadConfig().then(async () => {
 			if (app.config) desk = await getDesk($state.snapshot(app.config) as Config);
 		});
@@ -161,7 +176,7 @@
 		{#if engine.state === 'stopped'}
 			<p class="rail-note">The engine isn't running. Lighting changes are saved and apply when it starts.</p>
 		{:else if device}
-			<p class="rail-note">Changes on this {device.kind === 'mousemat' ? 'mat' : device.kind}'s pages are saved in the device itself, so they keep working without uncoil.</p>
+			<p class="rail-note">{#if profileText}<b>{profileText}</b><br />{/if}Changes on this {device.kind === 'mousemat' ? 'mat' : device.kind}'s pages are saved in the device itself, so they keep working without uncoil.</p>
 		{/if}
 	</nav>
 
@@ -174,7 +189,9 @@
 			{#key `${tab}/${feature}`}
 				<div class="view" in:fade={{ duration: ms(160) }}>
 					{#if feature === 'lighting'}
-						<LightingView config={app.config} />
+						<LightingView config={app.config} onstudio={() => (feature = 'studio')} />
+					{:else if feature === 'studio'}
+						<StudioView config={app.config} />
 					{:else if feature === 'devices'}
 						<DevicesView config={app.config} onopen={openTab} />
 					{:else if feature === 'keys' && device}
@@ -360,6 +377,10 @@
 	}
 	.save-error {
 		color: var(--color-warn);
+	}
+	.rail-note b {
+		color: var(--color-ink-2);
+		font-weight: 600;
 	}
 	main {
 		grid-area: main;

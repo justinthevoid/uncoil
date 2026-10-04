@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uncoil_core::config::{Config, Status};
 use uncoil_core::device::{self, DeviceDef, Kind};
+use uncoil_core::effect::{Inputs, Press};
 use uncoil_core::ipc::{self, Client, Command};
 use uncoil_core::layout::{self, PlacedDevice};
 
@@ -54,13 +55,21 @@ fn get_desk(config: Config) -> Vec<DeskDevice> {
 }
 
 /// Hex colour of every shape of every device (same order as `get_desk`) at time `t`, computed by the
-/// same effect code the daemon runs.
+/// same effect code the daemon runs. `presses` simulate key presses (desk position + time on the same clock
+/// as `t`) for reactive and ripple; `audio` simulates the audio level 0..1 for the audio meter.
 #[tauri::command]
-fn preview_frame(config: Config, t: f32) -> Vec<Vec<String>> {
-    let frame = config.effect.at(t, config.saturation, config.brightness);
-    placed(&config)
-        .iter()
-        .map(|(_, dev)| dev.shapes.iter().map(|s| frame.color_at(s.x, s.y).to_hex()).collect())
+fn preview_frame(config: Config, t: f32, presses: Option<Vec<Press>>, audio: Option<f32>) -> Vec<Vec<String>> {
+    let desk = placed(&config);
+    let presses = presses.unwrap_or_default();
+    let inputs = Inputs {
+        presses: &presses,
+        audio: audio.unwrap_or(0.0),
+        bounds: layout::desk_bounds(desk.iter().map(|(_, d)| d)),
+        keyboard_center: desk.iter().find(|(k, _)| *k == Kind::Keyboard).map(|(_, d)| d.center()),
+    };
+    let frame = config.effect.at_with(t, config.saturation, config.brightness, &inputs);
+    desk.iter()
+        .map(|(_, dev)| dev.shapes.iter().map(|s| frame.color_led(&dev.id, &s.name, s.x, s.y).to_hex()).collect())
         .collect()
 }
 
@@ -162,11 +171,64 @@ mod tests {
     fn preview_frame_matches_desk_shape() {
         let config = Config::default();
         let desk = get_desk(config.clone());
-        let frame = preview_frame(config, 1.5);
+        let frame = preview_frame(config, 1.5, None, None);
         assert_eq!(frame.len(), desk.len());
         for (colors, dev) in frame.iter().zip(&desk) {
             assert_eq!(colors.len(), dev.placed.shapes.len());
             assert!(colors.iter().all(|c| c.len() == 7 && c.starts_with('#')));
         }
+    }
+
+    fn with_effect(json: &str) -> Config {
+        Config { effect: serde_json::from_str(json).unwrap(), ..Config::default() }
+    }
+
+    /// Colour of one named shape of one device in a preview.
+    fn shape_color(frame: &[Vec<String>], desk: &[DeskDevice], device: &str, shape: &str) -> String {
+        let (i, dev) = desk.iter().enumerate().find(|(_, d)| d.placed.id == device).unwrap();
+        let j = dev.placed.shapes.iter().position(|s| s.name == shape).unwrap();
+        frame[i][j].clone()
+    }
+
+    #[test]
+    fn preview_applies_studio_masks_per_device_and_key() {
+        let config = with_effect(
+            r#"{"kind":"studio","layers":[
+                {"name":"base","enabled":true,"opacity":1,"effect":{"kind":"static","color":[0,0,255]},"mask":{"kind":"all"}},
+                {"name":"mouse","enabled":true,"opacity":1,"effect":{"kind":"static","color":[255,0,0]},
+                 "mask":{"kind":"devices","ids":["razer-basilisk-v3-pro"]}},
+                {"name":"wasd","enabled":true,"opacity":1,"effect":{"kind":"static","color":[0,255,0]},
+                 "mask":{"kind":"keys","device":"razer-blackwidow-v4-pro-75","shapes":["W","Left Shift"]}}
+            ]}"#,
+        );
+        let desk = get_desk(config.clone());
+        let frame = preview_frame(config, 0.0, None, None);
+        let kb = "razer-blackwidow-v4-pro-75";
+        assert_eq!(shape_color(&frame, &desk, kb, "W"), "#00ff00");
+        assert_eq!(shape_color(&frame, &desk, kb, "Left Shift"), "#00ff00");
+        assert_eq!(shape_color(&frame, &desk, kb, "Q"), "#0000ff");
+        assert_eq!(shape_color(&frame, &desk, "razer-basilisk-v3-pro", "Logo"), "#ff0000");
+        assert_eq!(shape_color(&frame, &desk, "razer-goliathus-chroma-extended", "Edge"), "#0000ff");
+    }
+
+    #[test]
+    fn preview_uses_presses_and_audio() {
+        let config = with_effect(r#"{"kind":"reactive","color":[255,255,255],"fade_s":1}"#);
+        let desk = get_desk(config.clone());
+        let kb = "razer-blackwidow-v4-pro-75";
+        let keyboard = desk.iter().find(|d| d.placed.id == kb).unwrap();
+        let w = keyboard.placed.shapes.iter().find(|s| s.name == "W").unwrap();
+        let press = vec![Press { x: w.x, y: w.y, t: 2.0 }];
+        let lit = preview_frame(config.clone(), 2.0, Some(press), None);
+        assert_eq!(shape_color(&lit, &desk, kb, "W"), "#ffffff");
+        assert_eq!(shape_color(&lit, &desk, kb, "Q"), "#000000");
+        let idle = preview_frame(config, 2.0, None, None);
+        assert_eq!(shape_color(&idle, &desk, kb, "W"), "#000000");
+
+        let meter = with_effect(r#"{"kind":"audio_meter","sensitivity":1}"#);
+        let loud = preview_frame(meter.clone(), 0.0, None, Some(1.0));
+        let quiet = preview_frame(meter, 0.0, None, Some(0.0));
+        assert_ne!(shape_color(&loud, &desk, kb, "Escape"), "#000000");
+        assert_eq!(shape_color(&quiet, &desk, kb, "Escape"), "#000000");
     }
 }

@@ -2,6 +2,7 @@
 //! x to the right, y toward the user.
 
 use crate::device::{DeviceDef, LayoutDef};
+use crate::effect::Bounds;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -148,6 +149,34 @@ pub fn place(def: &DeviceDef, at: Placement) -> PlacedDevice {
     PlacedDevice { id: def.id.clone(), name: def.name.clone(), x: bx, y: by, w: bw, h: bh, positions, shapes }
 }
 
+impl PlacedDevice {
+    /// Centre of the device body on the desk.
+    pub fn center(&self) -> (f32, f32) {
+        (self.x + self.w / 2.0, self.y + self.h / 2.0)
+    }
+
+    /// Desk position of the LED with this shape name.
+    pub fn shape_position(&self, name: &str) -> Option<(f32, f32)> {
+        self.shapes.iter().find(|s| s.name == name).map(|s| (s.x, s.y))
+    }
+}
+
+/// The desk's extent: the union of every device body. `None` for an empty desk.
+pub fn desk_bounds<'a>(devices: impl IntoIterator<Item = &'a PlacedDevice>) -> Option<Bounds> {
+    devices.into_iter().fold(None, |acc, d| {
+        let b = Bounds { min_x: d.x, min_y: d.y, max_x: d.x + d.w, max_y: d.y + d.h };
+        Some(match acc {
+            None => b,
+            Some(a) => Bounds {
+                min_x: a.min_x.min(b.min_x),
+                min_y: a.min_y.min(b.min_y),
+                max_x: a.max_x.max(b.max_x),
+                max_y: a.max_y.max(b.max_y),
+            },
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,5 +202,20 @@ mod tests {
         let (rx, _) = p.positions[5][5].unwrap(); // RU1, stored next to the spacebar
         assert!(lx < 0.0, "LU1 should be left of the keyboard, got x={lx}");
         assert!(rx > 16.25, "RU1 should be right of the keyboard, got x={rx}");
+    }
+
+    #[test]
+    fn default_desk_bounds_match_the_effect_default() {
+        let placed: Vec<PlacedDevice> = builtin().iter().map(|d| place(d, default_placement(d))).collect();
+        let b = desk_bounds(&placed).unwrap();
+        let d = Bounds::DEFAULT;
+        for (got, want) in [(b.min_x, d.min_x), (b.min_y, d.min_y), (b.max_x, d.max_x), (b.max_y, d.max_y)] {
+            assert!((got - want).abs() < 1e-4, "{b:?} vs {d:?}");
+        }
+        let kb = placed.iter().find(|p| p.id == "razer-blackwidow-v4-pro-75").unwrap();
+        let (cx, cy) = kb.center();
+        assert!((cx - 8.125).abs() < 1e-4 && (cy - 3.125).abs() < 1e-4);
+        assert_eq!(kb.shape_position("Escape"), Some((0.5, 0.5)));
+        assert!(desk_bounds(&[]).is_none());
     }
 }

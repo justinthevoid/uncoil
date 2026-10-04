@@ -14,6 +14,7 @@ mod control;
 mod exec;
 #[cfg(any(test, feature = "fake"))]
 mod fake;
+mod inputs;
 mod log;
 mod openrgb;
 mod pipe;
@@ -30,6 +31,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use uncoil_core::config::{Config, DeviceStatus, Status};
 use uncoil_core::device::{self, DeviceDef};
+use uncoil_core::effect::Inputs;
 use uncoil_core::features::hw_effect::{HwEffect, Storage};
 use uncoil_core::ipc;
 use uncoil_core::layout;
@@ -57,6 +59,8 @@ struct Shared {
     journal: Arc<exec::Journal>,
     /// Latest status snapshot (also served over the pipe).
     status: Arc<Mutex<Status>>,
+    /// Key presses (positions only), audio level and desk geometry for the effects.
+    inputs: Arc<inputs::Inputs>,
 }
 
 impl Shared {
@@ -109,7 +113,14 @@ fn main() -> Result<()> {
         registry: Arc::new(control::Registry::default()),
         journal: Arc::new(exec::Journal { path: Some(exec::Journal::default_path()) }),
         status: Arc::new(Mutex::new(Status::default())),
+        inputs: Arc::new(inputs::Inputs::new()),
     });
+    let mut listeners = inputs::Listeners::default();
+    {
+        let cfg = shared.config();
+        shared.inputs.set_desk(inputs::Desk::new(&defs, &cfg));
+        listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
+    }
 
     // control pipe: commands for the GUI / CLI, executed by the device threads
     let ctl = Arc::new(control::Control {
@@ -141,7 +152,10 @@ fn main() -> Result<()> {
         let m = mtime(&Config::path());
         if m != cfg_mtime {
             cfg_mtime = m;
-            *shared.config.write().unwrap() = Arc::new(Config::load());
+            let cfg = Arc::new(Config::load());
+            *shared.config.write().unwrap() = cfg.clone();
+            shared.inputs.set_desk(inputs::Desk::new(&defs, &cfg));
+            listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
             shared.generation.fetch_add(1, Ordering::Relaxed);
             log::line("config reloaded");
         }
@@ -216,6 +230,7 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
             let mut gen = u32::MAX;
             let mut wake = shared.wake.load(Ordering::Relaxed);
             let mut positions = Vec::new();
+            let def = dev.def.clone();
             let mut dark_frames = 0u32;
             let mut frames = 0u32;
             let mut fps_window = Instant::now();
@@ -269,9 +284,18 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                 } else if !dark || dark_frames < 3 {
                     // once faded out, send a few black frames and then idle (the device holds the frame)
                     let t = shared.t0.elapsed().as_secs_f32();
-                    let frame = cfg.effect.at(t, cfg.saturation, cfg.brightness * level);
+                    let presses = if cfg.effect.uses_keys() { shared.inputs.presses(t) } else { Vec::new() };
+                    let desk = shared.inputs.desk();
+                    let inputs = Inputs {
+                        presses: &presses,
+                        audio: shared.inputs.audio(),
+                        bounds: desk.bounds,
+                        keyboard_center: desk.keyboard_center,
+                    };
+                    let frame = cfg.effect.at_with(t, cfg.saturation, cfg.brightness * level, &inputs);
+                    let names = &def.matrix.names;
                     let res = dev.send_frame(|r, c| match positions[r][c] {
-                        Some((x, y)) => frame.color_at(x, y).bytes(),
+                        Some((x, y)) => frame.color_led(&def.id, &names[r][c], x, y).bytes(),
                         None => [0, 0, 0],
                     });
                     if let Err(e) = res {

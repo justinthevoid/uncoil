@@ -3,10 +3,11 @@
 //
 // desk.json is a snapshot of the real `get_desk` output for the default desk, kept honest by the
 // `mock_desk_matches_default_desk` test in src-tauri (regenerate: UNCOIL_UPDATE_MOCK=1 cargo test -p uncoil-gui).
-// The colour maths is the shared port in ../effect.ts (uncoil_core::{color::rainbow, effect::Frame}).
+// The colour maths is the shared port in ../effect.ts (uncoil_core::{color::rainbow, effect}), studio masks,
+// simulated key presses and audio level included.
 import desk from './desk.json';
-import type { Config, DeskDevice, Status } from '../types';
-import { frame, hex } from '../effect';
+import type { Config, DeskDevice, PreviewPress, Status } from '../types';
+import { deskInputs, frameWith, hex } from '../effect';
 
 const defaultConfig = (): Config => ({
 	effect: { kind: 'wave', angle_deg: 35, period_s: 14, wavelength: 26, reverse: false },
@@ -52,8 +53,10 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
 			return desk as unknown as T;
 		case 'preview_frame': {
 			const c = config!;
-			const at = frame(c.effect, args.t as number, c.saturation, c.brightness);
-			return (desk as DeskDevice[]).map((d) => d.shapes.map((s) => hex(at(s.x, s.y)))) as T;
+			const devices = desk as DeskDevice[];
+			const inputs = deskInputs(devices, (args.presses as PreviewPress[] | undefined) ?? [], (args.audio as number | undefined) ?? 0);
+			const at = frameWith(c.effect, args.t as number, c.saturation, c.brightness, inputs);
+			return devices.map((d) => d.shapes.map((s) => hex(at(d.id, s.name, s.x, s.y)))) as T;
 		}
 		case 'get_status':
 			return status() as T;

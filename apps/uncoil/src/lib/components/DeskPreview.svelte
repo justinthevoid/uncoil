@@ -1,3 +1,12 @@
+<script lang="ts" module>
+	export interface Hit {
+		device: string;
+		shape: string;
+		x: number;
+		y: number;
+	}
+</script>
+
 <script lang="ts">
 	// The desk to scale, lit with live colours from the real effect engine: the mat's edge glows, the
 	// keyboard's caps and underglow light up, the mouse's LEDs shine. Away devices are dimmed.
@@ -10,8 +19,82 @@
 		colors: string[][];
 		/** Device ids to dim (unplugged / not reported by the engine). */
 		away?: Set<string>;
+		/** LEDs to outline, as "deviceId/shape". */
+		marked?: Set<string>;
+		/** Pointer picks: the LED nearest the pointer. `phase` is start on press, move while dragging. */
+		onpick?: (hit: Hit, phase: 'start' | 'move') => void;
+		/** Accessible description of what clicking does. */
+		pickLabel?: string;
 	}
-	let { desk, colors, away = new Set() }: Props = $props();
+	let { desk, colors, away = new Set(), marked, onpick, pickLabel }: Props = $props();
+
+	let deskEl: HTMLDivElement | undefined = $state();
+	let dragging = false;
+	let lastKey = '';
+	/** The LED under (or nearest to, within ~1 key) a pointer position. */
+	function hitAt(e: PointerEvent): Hit | null {
+		if (!deskEl) return null;
+		const r = deskEl.getBoundingClientRect();
+		const x = bounds.x0 + ((e.clientX - r.left) / r.width) * bounds.w;
+		const y = bounds.y0 + ((e.clientY - r.top) / r.height) * bounds.h;
+		let best: Hit | null = null;
+		let bestD = 1.1;
+		for (const d of desk) {
+			if (d.kind === 'mousemat') continue;
+			for (const s of d.shapes) {
+				const dx = Math.max(Math.abs(x - s.x) - s.w / 2, 0);
+				const dy = Math.max(Math.abs(y - s.y) - s.h / 2, 0);
+				const dist = Math.hypot(dx, dy);
+				if (dist < bestD) {
+					bestD = dist;
+					best = { device: d.id, shape: s.name, x: s.x, y: s.y };
+				}
+			}
+		}
+		if (best) return best;
+		// Nothing close: the mat, if the pointer is on it.
+		const mat = desk.find((d) => d.kind === 'mousemat');
+		if (mat && x >= mat.x && x <= mat.x + mat.w && y >= mat.y && y <= mat.y + mat.h) return { device: mat.id, shape: mat.shapes[0]?.name ?? 'Edge', x, y };
+		return null;
+	}
+	function down(e: PointerEvent) {
+		if (!onpick) return;
+		const h = hitAt(e);
+		if (!h) return;
+		dragging = true;
+		lastKey = `${h.device}/${h.shape}`;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		onpick(h, 'start');
+	}
+	function move(e: PointerEvent) {
+		if (!onpick || !dragging) return;
+		const h = hitAt(e);
+		if (!h) return;
+		const k = `${h.device}/${h.shape}`;
+		if (k === lastKey) return;
+		lastKey = k;
+		onpick(h, 'move');
+	}
+	const up = () => (dragging = false);
+
+	// Outlines for marked LEDs (desk units → % of the desk box).
+	const outlines = $derived.by(() => {
+		if (!marked?.size) return [];
+		const out: { key: string; style: string; mat: boolean }[] = [];
+		for (const d of desk) {
+			for (const s of d.shapes) {
+				const key = `${d.id}/${s.name}`;
+				if (!marked.has(key)) continue;
+				if (d.kind === 'mousemat') out.push({ key, style: box(d), mat: true });
+				else {
+					const w = s.is_key ? s.w : 0.5;
+					const h = s.is_key ? s.h : 0.5;
+					out.push({ key, style: box({ x: s.x - w / 2, y: s.y - h / 2, w, h }), mat: false });
+				}
+			}
+		}
+		return out;
+	});
 
 	const bounds = $derived.by(() => {
 		const xs = desk.flatMap((d) => [d.x, d.x + d.w]);
@@ -30,7 +113,20 @@
 
 {#if desk.length}
 	<div class="fit">
-	<div class="desk" style:aspect-ratio="{bounds.w} / {bounds.h}" style:--ar={bounds.w / bounds.h} role="img" aria-label="Your desk, lit with the current effect">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="desk"
+		class:pickable={!!onpick}
+		bind:this={deskEl}
+		style:aspect-ratio="{bounds.w} / {bounds.h}"
+		style:--ar={bounds.w / bounds.h}
+		role={onpick ? 'application' : 'img'}
+		aria-label={onpick ? (pickLabel ?? 'Your desk') : 'Your desk, lit with the current effect'}
+		onpointerdown={down}
+		onpointermove={move}
+		onpointerup={up}
+		onpointercancel={up}
+	>
 		{#each order as { d, i } (d.id)}
 			{#if d.kind === 'mousemat'}
 				<div class="mat" class:away={away.has(d.id)} style={box(d)} style:--c={colors[i]?.[0] ?? 'transparent'}></div>
@@ -51,6 +147,9 @@
 				</div>
 			{/if}
 		{/each}
+		{#each outlines as o (o.key)}
+			<span class="mark" class:mat-mark={o.mat} style={o.style}></span>
+		{/each}
 	</div>
 	</div>
 {/if}
@@ -64,6 +163,22 @@
 		container-type: size;
 		display: grid;
 		place-items: center;
+	}
+	.desk.pickable {
+		cursor: crosshair;
+		touch-action: none;
+	}
+	.mark {
+		position: absolute;
+		border-radius: 4px;
+		box-shadow:
+			0 0 0 2px var(--color-select),
+			0 0 0 4px var(--color-ground);
+		pointer-events: none;
+	}
+	.mark.mat-mark {
+		border-radius: 1.6%/4%;
+		box-shadow: inset 0 0 0 2px var(--color-select);
 	}
 	.desk {
 		position: relative;

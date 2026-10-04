@@ -52,6 +52,25 @@ combination is where the interesting bugs live.
 - **External processes.** The optional OpenRGB hand-off launches `C:\Program Files\OpenRGB\OpenRGB.exe` and
   `taskkill`. Search-path or argument injection issues there are in scope.
 
+### Key presses and audio level (reactive and audio effects)
+
+The reactive, ripple and audio meter effects read input from Windows. Because the daemon runs elevated and
+all day, these are held to hard rules, and any way around them is in scope:
+
+- **Key presses.** Only while the active config uses `reactive` or `ripple` (on its own or in an enabled
+  studio layer), `uncoild` registers for keyboard Raw Input (`RIDEV_INPUTSINK`, on a message-only window
+  in `crates/uncoil-hid/src/keys.rs`). Each event's scan code is turned into a desk position on the spot
+  (`apps/uncoild/src/inputs.rs`) and then dropped. Which key was pressed is never logged, written to disk,
+  sent over the control pipe or kept as a sequence; memory holds at most 64 `(x, y, time)` entries from
+  the last 5 seconds, and they are cleared when the listener stops. The log records only "key listener
+  on/off". The listener is unregistered on the config reload that stops needing it.
+- **Audio.** Only while `audio_meter` is in use, the daemon reads the default playback device's peak level
+  (`IAudioMeterInformation::GetPeakValue`, one number 0..1) at frame rate. No audio samples are captured,
+  and nothing about audio is stored.
+
+A change that logs key identities, keeps a key history, exposes presses outside the daemon, or keeps the
+listener running when no effect needs it is a security bug.
+
 ### Elevation
 
 The logon task runs elevated so OpenRGB can reach RAM lighting over SMBus. Its binary is installed to

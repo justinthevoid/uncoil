@@ -34,7 +34,12 @@ is opened when you want to change something and closed again. The daemon does th
 
 - **One effect across the whole desk.** Every LED has a physical position, so an angled rainbow wave flows
   from the keyboard (including its side underglow) onto the mouse and the mat as one continuous field.
-- **Effects:** wave, spectrum, static, off. Brightness, saturation, speed, band width and angle.
+- **The Razer quick effects:** wave, spectrum, breathing, static, starlight, fire, wheel, reactive, ripple and
+  an audio meter, each with its own settings, plus brightness and saturation.
+- **Studio.** Stack effects as layers with opacity, and limit each layer to the whole desk, chosen devices or
+  keys you paint. Reactive and ripple only ever learn where a key is, never which key it was.
+- **Keys and buttons.** Remap keys on the normal and Fn layers and the mouse's buttons, set the command dial
+  and its screen. These write to the device's own memory, so they keep working without uncoil.
 - **Colour tuned for LEDs.** Uses FastLED's rainbow hue map, so no colour band looks wider or brighter than
   the rest.
 - **Behaves like Synapse where it matters.** Lighting fades out when Windows turns the display off, dims with
@@ -46,7 +51,7 @@ is opened when you want to change something and closed again. The daemon does th
 
 ## Screenshots
 
-![The uncoil desktop app, Lighting page: a white hairline pulse plot of the desk's wave effect, effect controls and live device rows on matte black](docs/assets/app.png)
+![The uncoil desktop app, Lighting page: the desk drawn to scale and lit with the wave, a gallery of effect cards, and the wave's settings in the right-hand panel](docs/assets/app.png)
 
 <sub>The Lighting page, running on the app's built-in demo data (engine figures and device rows are synthetic in
 this capture).</sub>

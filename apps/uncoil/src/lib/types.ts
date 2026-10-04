@@ -16,8 +16,57 @@ export type WaveEffect = {
 export type SpectrumEffect = { kind: 'spectrum'; period_s: number };
 export type StaticEffect = { kind: 'static'; color: Rgb };
 export type OffEffect = { kind: 'off' };
-export type Effect = WaveEffect | SpectrumEffect | StaticEffect | OffEffect;
+/** Fades in and out. No colours = cycles through the rainbow; one or two colours alternate. */
+export type BreathingEffect = { kind: 'breathing'; colors: Rgb[]; period_s: number };
+/** Random LEDs twinkle. No colours = random hues. `density` = share of LEDs lit at once (0..1). */
+export type StarlightEffect = { kind: 'starlight'; colors: Rgb[]; density: number; twinkle_s: number };
+/** Flames rising from the front edge of the desk. `height` 0..1 of the desk depth; `speed` 0.25..3. */
+export type FireEffect = { kind: 'fire'; speed: number; height: number };
+/** A rainbow turning around a centre point (desk units; null = the keyboard's centre). */
+export type WheelEffect = { kind: 'wheel'; period_s: number; reverse: boolean; center: [number, number] | null };
+/** Keys light up when pressed and fade. `color` null = a new rainbow hue per press. Needs key input. */
+export type ReactiveEffect = { kind: 'reactive'; color: Rgb | null; fade_s: number };
+/** A ring spreads across the desk from each pressed key. Needs key input. */
+export type RippleEffect = { kind: 'ripple'; color: Rgb | null; speed: number; width: number; fade_s: number };
+/** The desk fills left to right with the system audio level, green to yellow to red. */
+export type AudioMeterEffect = { kind: 'audio_meter'; sensitivity: number };
+/** A layered composition (Chroma Studio style), bottom layer first. */
+export type StudioEffect = { kind: 'studio'; layers: StudioLayer[] };
+
+/** Any effect that can be a layer (everything but a studio). */
+export type LayerEffect =
+	| WaveEffect
+	| SpectrumEffect
+	| StaticEffect
+	| OffEffect
+	| BreathingEffect
+	| StarlightEffect
+	| FireEffect
+	| WheelEffect
+	| ReactiveEffect
+	| RippleEffect
+	| AudioMeterEffect;
+export type Effect = LayerEffect | StudioEffect;
 export type EffectKind = Effect['kind'];
+
+/** Which LEDs a layer covers. Shape names are the desk layout's (e.g. "W", "Left Shift", "Logo", "Edge"). */
+export type Mask = { kind: 'all' } | { kind: 'devices'; ids: string[] } | { kind: 'keys'; device: string; shapes: string[] };
+
+export interface StudioLayer {
+	name: string;
+	enabled: boolean;
+	/** 0..1. Effects with their own transparency (reactive, ripple, starlight, audio meter) multiply this. */
+	opacity: number;
+	effect: LayerEffect;
+	mask: Mask;
+}
+
+/** A simulated key press for the preview: desk position and time (seconds, same clock as `t`). */
+export interface PreviewPress {
+	x: number;
+	y: number;
+	t: number;
+}
 
 export interface DisplayPolicy {
 	off_when_display_off: boolean;

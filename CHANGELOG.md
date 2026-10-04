@@ -17,6 +17,15 @@ Everything so far. Nothing has been released yet.
 - **Desk-wide effects.** Wave (angle, speed, band width, direction), spectrum, static and off, with
   brightness and saturation. Effects are sampled at each LED's physical position, so one wave crosses
   keyboard, underglow, mouse and mat continuously. FastLED rainbow hue map for even-looking colour bands.
+- **More effects:** breathing, starlight, fire (flames rising from the front of the desk), wheel, reactive
+  (keys light when pressed), ripple (rings spread from each press) and an audio meter that fills the desk
+  with the system volume peak. Starlight and fire are deterministic per LED position, so every device
+  shares one field with no per-LED state.
+- **Studio:** stack effects as layers with opacity and masks (whole desk, chosen devices, or chosen keys
+  and LEDs). Reactive, ripple, starlight and the audio meter are transparent where unlit.
+- **Key presses and audio stay private.** The key listener runs only while reactive or ripple is in use,
+  turns each press into a desk position immediately, and never logs or stores which key it was. The audio
+  meter reads only Windows' peak level, never samples. See `SECURITY.md`.
 - **Display-aware lighting.** Fades out when Windows turns the display off, dims with it, returns on wake.
 - **Hot-plug.** Unplugged and replugged devices are picked up again within seconds.
 - **Normal-mode restore.** Devices are put back in normal mode on connect, which revives the dial and

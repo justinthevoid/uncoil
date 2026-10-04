@@ -28,6 +28,10 @@ live in [`PROTOCOL.md`](PROTOCOL.md); this file is about how the code is put tog
 | `crates/uncoil-core/src/features/` | one module per feature: `hw_effect`, `keymap`, `profile`, `dial`, `oled` — report builders and reply parsers, each unit-tested against Synapse-logged or hardware-read bytes | none |
 | `crates/uncoil-core/src/device.rs` | device definitions from `devices/*.toml`, now with `features = [...]`, `[hw_effects]` and `[keymap]` | reads TOML |
 | `crates/uncoil-core/src/ipc.rs` | the pipe protocol: `Request`, `Response`, `Command` and its argument structs, result types, device-name resolution, a blocking `Client` | client only |
+| `crates/uncoil-core/src/effect.rs` | effects, studio layers and masks, `Frame` | none |
+| `crates/uncoil-core/src/scancode.rs` | scan code to layout shape name (reactive effects) | none |
+| `crates/uncoil-hid/src/keys.rs`, `audio.rs` | key press listener (Raw Input), audio peak meter (WASAPI) | Windows input / audio |
+| `apps/uncoild/src/inputs.rs` | press buffer (positions only), listener start/stop, desk geometry | via `uncoil-hid` |
 | `crates/uncoil-hid/src/transport.rs` | `LiveDevice`: frames, quirks, and `query()` (send + matching reply, busy/new retry) implementing `Transport` | HID |
 | `apps/uncoild/src/pipe.rs` | named-pipe server | pipe |
 | `apps/uncoild/src/control.rs` | request router, device registry, job queues | channels |
@@ -124,6 +128,34 @@ reads back, and reports `before`, `after` and `verified`. Each write gets a line
 restores the value from before uncoil's *first* write to that key (from the journal), falling back to the
 factory default in the device file.
 
+## Effects, layers and inputs
+
+Effects live in `crates/uncoil-core/src/effect.rs` and are pure functions of (desk position, time):
+`Effect::at_with(t, sat, val, &Inputs)` freezes the effect into a `Frame`, and
+`Frame::color_led(device_id, shape_name, x, y)` colours one LED (`color_at(x, y)` remains for callers that
+don't know the LED). Every effect yields a colour and an alpha. A plain effect is composited over black.
+`studio` stacks layers bottom (index 0) to top; each enabled layer whose mask (`all`, `devices`, or `keys` by
+desk shape name) covers the LED blends over the result: `out = mix(out, rgb, alpha * opacity)`. Alpha is 1
+for the area effects, the intensity for reactive, ripple and starlight, and lit/unlit for the audio meter.
+
+`Inputs` carries what a pure function can't know: recent key presses as `(x, y, t)`, the audio peak level,
+the desk bounds (union of device bodies; fire uses its depth, the audio meter its width) and the keyboard's
+centre (the wheel's default pivot). Starlight and fire need no state: they hash the LED's position and a time
+bucket, or sample value noise of (x, y, t). `apps/uncoil/src/lib/effect.ts` is a line-for-line TypeScript
+port (bit-exact hashes) used by the browser mock; the GUI's `preview_frame` runs the Rust engine with
+simulated presses and audio.
+
+In the daemon (`apps/uncoild/src/inputs.rs`), the main loop starts and stops two listeners on every config
+(re)load, only while the effect needs them (`Effect::uses_keys`, `uses_audio`):
+
+- **Keys:** keyboard Raw Input on a message-only window (`uncoil-hid::keys`). The callback maps the scan code
+  to a layout shape name (`uncoil-core::scancode`) and the name to its desk position on the placed keyboard,
+  then keeps only `(x, y, t)` in a ring buffer (64 entries, 5 s). Auto-repeat is ignored. **Privacy is a
+  hard rule:** which key was pressed is never logged, stored or sent; see [`SECURITY.md`](../SECURITY.md).
+- **Audio:** the default render endpoint's WASAPI peak meter, polled at frame rate on its own thread
+  (`uncoil-hid::audio`, three COM calls through hand-written vtables rather than the `windows` crate). No
+  samples are captured.
+
 ## Testing without hardware
 
 - `uncoil-core`: every report builder is asserted against bytes from Synapse's logs, OpenRazer's captures
@@ -139,3 +171,5 @@ factory default in the device file.
 
 Release `uncoild.exe`: 0.66 MB before the control channel, about 0.91 MB with it (serde for the requests,
 the five feature modules, the pipe server). The CLI is a separate 0.6 MB binary that only runs when used.
+The layered effects, key listener and audio meter added about 82 KB (0.93 MB to 1.02 MB, measured
+2026-10-03); most of it is serde for the new effect, layer and mask types.

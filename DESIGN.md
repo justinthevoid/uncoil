@@ -179,10 +179,13 @@ Flat keycaps from the device's real geometry. Keys that do something different o
 The mouse seen from above, with every remappable button as a clickable region (main buttons, wheel and tilt, scroll mode, side buttons, clutch), plus the two underside buttons as chips. Changed buttons get a gel outline.
 
 ### Desk preview
-The desk to scale, lit with the live effect: the mat's edge ring takes its LED colour, keycaps and underglow light up, and the mouse's LEDs show. Devices that aren't connected are dimmed.
+The desk to scale, lit with the live effect: the mat's edge ring takes its LED colour, keycaps and underglow light up, and the mouse's LEDs show. Devices that aren't connected are dimmed. Where an effect needs input, the preview is also the input: click a key to preview a press (reactive, ripple), or click and drag to pick lights for a Studio layer, with picked lights outlined in ink.
 
 ### Effect swatch cards
-The effects (Wave, Spectrum, Static, Off) as cards, each with a swatch showing what it does. Static colours are offered as named gel chips (Warm white, Straw, Amber, Primary red, Steel blue and others) plus a custom picker.
+Every effect (Wave, Spectrum, Breathing, Static, Starlight, Fire, Wheel, Reactive, Ripple, Audio meter, Off) as a card with a swatch painted from its current settings, plus a Studio card. Colours are offered as named gel chips (Warm white, Straw, Amber, Primary red, Steel blue and others) plus a custom picker; effects that can cycle the rainbow offer Rainbow first. Effects that listen to keys or audio say in plain words what they read and what they never read.
+
+### Studio layers
+A plain list of layers, top first, each row showing its swatch, name, what it covers (Whole desk, device names, or "N lights on …"), and show/hide, move up/down and delete. The selected layer's settings sit in the right panel: name, Covers (Desk / Devices / Lights), opacity, effect and that effect's settings. "Paint keys" adds a static layer already set to pick lights.
 
 ## Do's and Don'ts
 

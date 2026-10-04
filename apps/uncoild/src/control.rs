@@ -78,6 +78,11 @@ impl Registry {
         (rx, Registration { registry: self.clone(), id, token })
     }
 
+    /// Whether a device with this id is connected right now.
+    pub fn is_connected(&self, id: &str) -> bool {
+        self.devices.lock().unwrap().contains_key(id)
+    }
+
     fn infos(&self) -> Vec<DeviceInfo> {
         let mut v: Vec<DeviceInfo> = self
             .devices
