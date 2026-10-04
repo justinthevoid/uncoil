@@ -35,12 +35,14 @@ so you can check yours.
 
 What uncoil doesn't do yet:
 
-- editing the Fn layer from a UI (the [protocol](/docs/protocol/#onboard-key-mappings-the-fn-layer-lives-in-the-keyboard)
-  is mapped and one remap is proven; there is no editor);
-- the BlackWidow's command-dial functions and OLED images;
-- mouse button remapping, macros and DPI settings;
+- macros and DPI settings;
+- custom images on the BlackWidow's dial screen;
 - firmware updates;
 - devices that aren't on the [list](/docs/devices/).
+
+Key and button remapping (normal and Fn layers) works from the app and the CLI. Only one remap, Fn+P to Print
+Screen, has been checked on a real keyboard so far; see the
+[protocol](/docs/protocol/#onboard-key-mappings-the-fn-layer-lives-in-the-keyboard).
 
 Anything already stored in a device's own memory stays there after Synapse is uninstalled. If you need one of
 the above occasionally, you can install Synapse, make the change, quit it properly, and uninstall it again.

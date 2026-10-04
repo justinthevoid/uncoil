@@ -13,7 +13,7 @@ const year = new Date().getFullYear();
 ---
 
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -21,8 +21,9 @@ const year = new Date().getFullYear();
 		<meta name="description" content={description} />
 		<link rel="canonical" href={canonical} />
 		<link rel="icon" href={url('favicon.svg')} type="image/svg+xml" />
-		<meta name="theme-color" content="#0b0b0b" />
-		<meta name="color-scheme" content="dark" />
+		<meta name="color-scheme" content="light dark" />
+		<meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)" />
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
@@ -31,43 +32,46 @@ const year = new Date().getFullYear();
 		<meta name="generator" content={Astro.generator} />
 	</head>
 	<body>
-		<a class="skip caps" href="#main">Skip to content</a>
+		<a class="skip" href="#main">Skip to content</a>
 		<header class="top">
-			<a class="brand" href={url()} aria-label="uncoil home">
-				<Mark size={22} />
-				<span class="word" translate="no">uncoil</span>
-			</a>
-			<nav aria-label="Site">
-				<a class="caps" href={url('docs/')}>Docs</a>
-				<a class="caps hide-sm" href={url('docs/protocol/')}>Protocol</a>
-				<a class="caps" href={REPO}>GitHub</a>
-			</nav>
+			<div class="wrap top-in">
+				<a class="brand" href={url()} aria-label="uncoil home">
+					<Mark size={20} />
+					<span class="word" translate="no">uncoil</span>
+				</a>
+				<nav aria-label="Site">
+					<a href={url('docs/')}>Docs</a>
+					<a class="hide-sm" href={url('docs/protocol/')}>Protocol</a>
+					<a href={REPO}>GitHub</a>
+				</nav>
+			</div>
 		</header>
-		<slot name="rail" />
 		<main id="main">
 			<slot />
 		</main>
 		<footer class="foot">
-			<div class="foot-grid">
-				<div class="foot-brand">
-					<a class="brand" href={url()}>
-						<Mark size={22} />
-						<span class="word" translate="no">uncoil</span>
-					</a>
-					<p class="shed">Sheds the skin, keeps the colours.</p>
+			<div class="wrap">
+				<div class="foot-grid">
+					<div class="foot-brand">
+						<a class="brand" href={url()}>
+							<Mark size={20} />
+							<span class="word" translate="no">uncoil</span>
+						</a>
+						<p class="shed">Sheds the skin, keeps the colours.</p>
+					</div>
+					<dl class="foot-meta">
+						<div><dt>Licence</dt><dd><a href={`${REPO}/blob/main/LICENSE`}>GPL-3.0-or-later</a></dd></div>
+						<div><dt>Source</dt><dd><a href={REPO}>github.com/justinthevoid/uncoil</a></dd></div>
+						<div><dt>Docs</dt><dd><a href={url('docs/')}>Getting started, protocol, devices</a></dd></div>
+					</dl>
 				</div>
-				<dl class="foot-meta">
-					<div><dt class="caps-sm">Licence</dt><dd><a href={`${REPO}/blob/main/LICENSE`}>GPL-3.0-or-later</a></dd></div>
-					<div><dt class="caps-sm">Source</dt><dd><a href={REPO}>github.com/justinthevoid/uncoil</a></dd></div>
-					<div><dt class="caps-sm">Docs</dt><dd><a href={url('docs/')}>Getting started, protocol, devices</a></dd></div>
-				</dl>
+				<p class="legal">
+					uncoil is an independent open-source project, not affiliated with, endorsed by or sponsored by Razer Inc.
+					“Razer”, “Synapse” and “Chroma” are trademarks of Razer Inc., used here only to say which hardware and
+					software uncoil works with. Protocol facts and some device data derive from OpenRazer and OpenRGB (GPL-2.0).
+				</p>
+				<p class="legal">© {year} uncoil contributors</p>
 			</div>
-			<p class="legal">
-				uncoil is an independent open-source project, not affiliated with, endorsed by or sponsored by Razer Inc.
-				“Razer”, “Synapse” and “Chroma” are trademarks of Razer Inc., used here only to say which hardware and software
-				uncoil works with. Protocol facts and some device data derive from OpenRazer and OpenRGB (GPL-2.0).
-			</p>
-			<p class="legal">© {year} uncoil contributors</p>
 		</footer>
 	</body>
 </html>
@@ -76,11 +80,13 @@ const year = new Date().getFullYear();
 	.skip {
 		position: absolute;
 		left: var(--gutter);
-		top: -40px;
+		top: -48px;
 		z-index: 50;
 		background: var(--color-ink);
 		color: var(--color-ground);
-		padding: 8px 12px;
+		padding: 8px 14px;
+		border-radius: var(--radius);
+		font-weight: 600;
 		text-decoration: none;
 	}
 	.skip:focus {
@@ -91,110 +97,118 @@ const year = new Date().getFullYear();
 		top: 0;
 		z-index: 20;
 		height: var(--header);
+		background: var(--color-raised);
+		border-bottom: var(--hair);
+	}
+	.top-in {
+		height: 100%;
 		display: flex;
 		align-items: center;
-		gap: 24px;
-		padding: 0 var(--gutter) 0 calc(var(--gutter) + var(--rail));
-		background: var(--color-ground);
-		border-bottom: var(--hair);
+		gap: 16px;
 	}
 	.brand {
 		display: inline-flex;
 		align-items: center;
-		gap: 12px;
+		gap: 8px;
 		text-decoration: none;
 		color: var(--color-ink);
 	}
 	.word {
+		font-family: var(--font-display);
 		font-size: 17px;
-		font-weight: 500;
-		font-stretch: 125%;
-		letter-spacing: 0.16em;
-	}
-	.top :global(.top-strip) {
-		display: none;
+		font-weight: 650;
+		letter-spacing: -0.01em;
 	}
 	nav {
 		margin-left: auto;
 		display: flex;
-		gap: 22px;
+		gap: 2px;
 	}
 	nav a {
+		display: inline-flex;
+		align-items: center;
+		height: 34px;
+		padding: 0 12px;
+		border-radius: var(--radius);
+		font-size: 15px;
+		font-weight: 500;
 		text-decoration: none;
 		color: var(--color-ink-2);
-		padding: 6px 0;
-		border-bottom: 1px solid transparent;
-		transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+		transition:
+			background-color var(--t-fast) var(--ease),
+			color var(--t-fast) var(--ease);
 	}
 	nav a:hover {
+		background: var(--color-surface-2);
 		color: var(--color-ink);
-		border-color: var(--color-ink);
 	}
-	@media (min-width: 768px) {
-		.top :global(.top-strip) {
-			display: inline-grid;
-		}
-		nav {
-			gap: 32px;
-		}
-	}
-	@media (max-width: 480px) {
+	@media (max-width: 420px) {
 		.hide-sm {
 			display: none;
 		}
+		nav a {
+			padding: 0 10px;
+		}
 	}
 
-	main {
-		padding-left: var(--rail);
-	}
 	.foot {
+		margin-top: 32px;
 		border-top: var(--hair);
-		padding: 56px var(--gutter) 40px calc(var(--gutter) + var(--rail));
-		display: grid;
-		gap: 32px;
+		background: var(--color-raised);
+		padding: 48px 0 40px;
 	}
 	.foot-grid {
 		display: grid;
-		gap: 32px;
+		gap: 28px;
+		margin-bottom: 32px;
 	}
 	.shed {
-		margin-top: 14px;
+		margin-top: 10px;
 		color: var(--color-ink-3);
 		font-size: 14px;
 	}
 	.foot-meta {
 		display: grid;
-		gap: 0;
 		margin: 0;
 	}
 	.foot-meta > div {
 		display: grid;
-		grid-template-columns: 7rem 1fr;
+		grid-template-columns: 6rem 1fr;
 		gap: 16px;
 		padding: 10px 0;
 		border-top: var(--hair);
 		font-size: 14px;
 	}
+	.foot-meta > div:last-child {
+		border-bottom: var(--hair);
+	}
 	.foot-meta dt {
 		color: var(--color-ink-3);
-		padding-top: 3px;
+		font-weight: 500;
 	}
 	.foot-meta dd {
 		margin: 0;
 		color: var(--color-ink-2);
 		overflow-wrap: anywhere;
 	}
+	.foot-meta a {
+		text-decoration-color: var(--color-ink-4);
+	}
+	.foot-meta a:hover {
+		color: var(--color-ink);
+		text-decoration-color: var(--color-ink);
+	}
 	.legal {
 		color: var(--color-ink-3);
 		font-size: 13px;
 		max-width: 80ch;
 	}
-	p.caps-sm {
-		color: var(--color-ink-3);
+	.legal + .legal {
+		margin-top: 8px;
 	}
 	@media (min-width: 900px) {
 		.foot-grid {
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
 		}
 	}
 </style>

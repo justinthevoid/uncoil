@@ -1,9 +1,15 @@
 ---
-// uncoil's world is dark only. Starlight's provider would pick light from the OS preference; this one
-// pins the theme to dark and keeps the global Starlight scripts expect (updatePickers) as a no-op.
+// The docs follow the OS theme, like the app and the landing page: data-theme mirrors prefers-color-scheme and
+// tracks it live. There is no picker (see ThemeSelect.astro); Starlight's global scripts still call
+// updatePickers, so it stays as a no-op.
 ---
 
 <script is:inline>
-	document.documentElement.dataset.theme = 'dark';
-	window.StarlightThemeProvider = { updatePickers() {} };
+	(() => {
+		const light = matchMedia('(prefers-color-scheme: light)');
+		const apply = () => (document.documentElement.dataset.theme = light.matches ? 'light' : 'dark');
+		apply();
+		light.addEventListener('change', apply);
+		window.StarlightThemeProvider = { updatePickers() {} };
+	})();
 </script>

@@ -1,29 +1,31 @@
 /*
- * Starlight themed into the uncoil catalog world (Read mode). Same tokens as the app and the landing
- * page; dark only (the ThemeSelect override removes the picker). Unlayered on purpose: these rules
- * win over Starlight's @layer starlight.* styles without !important.
+ * Starlight in the Swatch Book world: the same tokens as the app and the landing page (./tokens.css), light and
+ * dark following the OS (ThemeProvider.astro mirrors it into data-theme). System UI type, sentence case, hairline
+ * borders, 8/10px radii, no accent colour. Unlayered on purpose: these rules win over Starlight's
+ * @layer starlight.* styles without !important.
+ *
+ * Starlight's grey scale runs from --sl-color-white (strongest ink) to --sl-color-black (page) in both themes,
+ * so one mapping onto the tokens serves light and dark; the tokens themselves switch.
  */
 @import './tokens.css';
 
 :root,
 :root[data-theme='light'],
 ::backdrop {
-	color-scheme: dark;
-
-	--sl-font: 'Archivo Variable';
-	--sl-font-mono: 'Cascadia Mono', ui-monospace, Consolas;
+	--sl-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+	--sl-font-mono: 'Cascadia Mono', ui-monospace, 'SF Mono', Consolas;
 
 	--sl-color-white: var(--color-ink);
-	--sl-color-gray-1: #d4d4d4;
+	--sl-color-gray-1: var(--color-ink);
 	--sl-color-gray-2: var(--color-ink-2);
 	--sl-color-gray-3: var(--color-ink-3);
 	--sl-color-gray-4: var(--color-ink-4);
 	--sl-color-gray-5: var(--color-seam-2);
-	--sl-color-gray-6: var(--color-seam);
-	--sl-color-gray-7: var(--color-raised);
+	--sl-color-gray-6: var(--color-surface-2);
+	--sl-color-gray-7: var(--color-surface);
 	--sl-color-black: var(--color-ground);
 
-	--sl-color-accent-low: var(--color-raised);
+	--sl-color-accent-low: var(--color-surface-2);
 	--sl-color-accent: var(--color-ink-2);
 	--sl-color-accent-high: var(--color-ink);
 
@@ -31,50 +33,43 @@
 	--sl-color-text-accent: var(--color-ink);
 	--sl-color-text-invert: var(--color-ground);
 	--sl-color-bg: var(--color-ground);
-	--sl-color-bg-nav: var(--color-ground);
+	--sl-color-bg-nav: var(--color-raised);
 	--sl-color-bg-sidebar: var(--color-ground);
-	--sl-color-bg-inline-code: var(--color-raised);
+	--sl-color-bg-inline-code: var(--color-surface-2);
 	--sl-color-bg-accent: var(--color-ink);
-	--sl-color-hairline-light: var(--color-seam-2);
+	--sl-color-hairline-light: var(--color-seam);
 	--sl-color-hairline: var(--color-seam);
-	--sl-color-hairline-shade: var(--color-ground);
-	--sl-color-backdrop-overlay: rgba(11, 11, 11, 0.8);
+	--sl-color-hairline-shade: var(--color-seam-2);
+	--sl-color-backdrop-overlay: color-mix(in srgb, var(--color-ground) 80%, transparent);
 
-	/* FAC code hues stand in for Starlight's named colours (asides, badges). */
-	--sl-color-blue: var(--color-fac-blue);
-	--sl-color-blue-low: var(--color-raised);
+	/* Starlight's named colours (asides, badges) collapse to ink: the gels have other jobs. */
+	--sl-color-blue: var(--color-ink-3);
+	--sl-color-blue-low: var(--color-surface-2);
 	--sl-color-blue-high: var(--color-ink);
-	--sl-color-orange: var(--color-fac-yellow);
-	--sl-color-orange-low: var(--color-raised);
+	--sl-color-orange: var(--color-warn);
+	--sl-color-orange-low: var(--color-surface-2);
 	--sl-color-orange-high: var(--color-ink);
-	--sl-color-red: var(--color-fac-red);
-	--sl-color-red-low: var(--color-raised);
+	--sl-color-red: var(--color-warn);
+	--sl-color-red-low: var(--color-surface-2);
 	--sl-color-red-high: var(--color-ink);
-	--sl-color-purple: var(--color-fac-white);
-	--sl-color-purple-low: var(--color-raised);
+	--sl-color-purple: var(--color-ink-3);
+	--sl-color-purple-low: var(--color-surface-2);
 	--sl-color-purple-high: var(--color-ink);
-	--sl-color-green: var(--color-fac-grey);
-	--sl-color-green-low: var(--color-raised);
+	--sl-color-green: var(--color-ok);
+	--sl-color-green-low: var(--color-surface-2);
 	--sl-color-green-high: var(--color-ink);
 
 	--sl-shadow-sm: none;
-	--sl-shadow-md: none;
-	--sl-shadow-lg: none;
+	--sl-shadow-md: 0 8px 24px rgb(0 0 0 / 0.12);
+	--sl-shadow-lg: 0 10px 28px rgb(0 0 0 / 0.18);
 
-	--sl-text-h1: clamp(1.9rem, 1.2rem + 2.4vw, 2.75rem);
-	--sl-text-h2: 1.6rem;
+	--sl-text-h1: clamp(1.9rem, 1.4rem + 1.6vw, 2.5rem);
+	--sl-text-h2: 1.5rem;
 	--sl-text-h3: 1.2rem;
 	--sl-text-h4: 1.05rem;
-	--sl-line-height: 1.7;
-	--sl-line-height-headings: 1.15;
+	--sl-line-height: 1.65;
+	--sl-line-height-headings: 1.2;
 	--sl-content-width: 46rem;
-}
-
-/* Zero radius everywhere: hairlines, not pills. */
-*,
-*::before,
-*::after {
-	border-radius: 0;
 }
 
 ::selection {
@@ -84,15 +79,14 @@
 * {
 	scrollbar-width: thin;
 	scrollbar-color: var(--color-seam-2) transparent;
-	caret-color: var(--color-fac-red);
+	caret-color: var(--color-ink);
 }
 :focus-visible {
-	outline: 1px solid var(--color-ink);
-	outline-offset: 3px;
+	outline: 2px solid var(--color-select);
+	outline-offset: 2px;
 }
 
 body {
-	font-stretch: 100%;
 	-webkit-font-smoothing: antialiased;
 	font-variant-numeric: tabular-nums;
 }
@@ -100,64 +94,77 @@ body {
 /* ── Header ───────────────────────────────────────────────────────────────── */
 header.header {
 	border-bottom: var(--hair);
-	background: var(--color-ground);
+	background: var(--color-raised);
 }
 
-/* Search reads as a hairline field. */
+/* Search: a field, as in the app. */
 site-search button[data-open-modal] {
-	border: var(--hair-strong);
-	background: transparent;
-	font-stretch: 112%;
-	letter-spacing: 0.12em;
-	text-transform: uppercase;
-	font-size: 11px;
+	border: var(--hair);
+	border-radius: var(--radius);
+	background: var(--color-surface);
+	color: var(--color-ink-3);
+	font-size: 14px;
+	transition: border-color var(--t-fast) var(--ease);
 }
 site-search button[data-open-modal]:hover {
-	border-color: var(--color-ink);
+	border-color: var(--color-seam-2);
+	color: var(--color-ink-2);
 }
 site-search kbd {
-	background: transparent;
-	border: var(--hair);
+	background: var(--color-surface-2);
+	border-radius: var(--radius-sm);
+	color: var(--color-ink-3);
+}
+site-search dialog {
+	border-radius: var(--radius-lg);
 }
 
-/* ── Sidebar: a catalog index ─────────────────────────────────────────────── */
+/* Social icon and other header buttons. */
+.social-icons a,
+starlight-menu-button button {
+	border-radius: var(--radius);
+}
+.social-icons a:hover {
+	background: var(--color-surface-2);
+	color: var(--color-ink);
+}
+
+/* ── Sidebar: the app's rail ──────────────────────────────────────────────── */
 nav.sidebar .sidebar-pane {
 	border-inline-end: var(--hair);
+	background: var(--color-ground);
 }
 nav.sidebar .large,
 nav.sidebar summary .group-label span {
-	font-size: 11px;
+	font-size: 13px;
 	font-weight: 500;
-	font-stretch: 115%;
-	letter-spacing: 0.22em;
-	text-transform: uppercase;
 	color: var(--color-ink-3);
 }
 nav.sidebar a {
-	position: relative;
-	font-size: 0.875rem;
-	border: 1px solid transparent;
+	font-size: 15px;
+	border-radius: var(--radius);
+	padding-block: 0.4em;
+	color: var(--color-ink-2);
+	transition:
+		background-color var(--t-fast) var(--ease),
+		color var(--t-fast) var(--ease);
 }
 nav.sidebar a:hover {
-	border-color: var(--color-seam-2);
+	background: var(--color-surface-2);
+	color: var(--color-ink);
 }
-/* Active entry: the board's active nav item, white field with the red code block. */
-nav.sidebar a[aria-current='page'] {
-	background: var(--color-ink);
-	color: var(--color-ground);
-	font-weight: 560;
-	padding-inline-end: 1.25rem;
-}
-nav.sidebar a[aria-current='page']::after {
-	content: '';
-	position: absolute;
-	inset-block: -1px;
-	inset-inline-end: -1px;
-	width: 6px;
-	background: var(--color-fac-red);
+nav.sidebar a[aria-current='page'],
+nav.sidebar a[aria-current='page']:hover,
+nav.sidebar a[aria-current='page']:focus {
+	background: var(--color-surface-2);
+	color: var(--color-ink);
+	font-weight: 600;
 }
 nav.sidebar ul ul li {
 	border-inline-start-color: var(--color-seam);
+}
+nav.sidebar summary {
+	border-radius: var(--radius);
 }
 
 /* ── Page title and headings ──────────────────────────────────────────────── */
@@ -165,26 +172,20 @@ nav.sidebar ul ul li {
 	border-top-color: var(--color-seam);
 }
 h1#_top {
-	font-weight: 380;
-	font-stretch: 125%;
+	font-family: var(--font-display);
+	font-weight: 600;
 	letter-spacing: -0.02em;
-	line-height: 1.05;
+	line-height: 1.1;
 }
 .sl-markdown-content :is(h2, h3, h4) {
+	font-family: var(--font-display);
 	color: var(--color-ink);
-	font-stretch: 112%;
-	font-weight: 460;
-	letter-spacing: -0.005em;
+	font-weight: 600;
+	letter-spacing: -0.01em;
 }
-.sl-markdown-content h2 {
-	font-stretch: 118%;
-	font-weight: 400;
-}
-/* A hairline above each section, across the full measure (on the wrapper when Starlight adds one). */
 .sl-markdown-content .sl-heading-wrapper.level-h2,
 .sl-markdown-content > h2 {
-	padding-top: 1.25rem;
-	border-top: var(--hair);
+	margin-top: 2.5rem;
 }
 .sl-markdown-content :is(h2, h3, h4, h5) + * {
 	margin-top: 0.75rem;
@@ -193,9 +194,9 @@ h1#_top {
 /* ── Body copy ────────────────────────────────────────────────────────────── */
 .sl-markdown-content a {
 	color: var(--color-ink);
-	text-decoration-color: var(--color-seam-2);
+	text-decoration-color: var(--color-ink-4);
 	text-decoration-thickness: 1px;
-	text-underline-offset: 0.22em;
+	text-underline-offset: 0.2em;
 	transition: text-decoration-color var(--t-fast) var(--ease);
 }
 .sl-markdown-content a:hover {
@@ -203,107 +204,124 @@ h1#_top {
 }
 .sl-markdown-content strong {
 	color: var(--color-ink);
-	font-weight: 560;
+	font-weight: 600;
 }
 .sl-markdown-content :not(pre) > code {
 	color: var(--color-ink);
-	background: var(--color-raised);
-	border: var(--hair);
-	padding: 0.05em 0.3em;
+	background: var(--color-surface-2);
+	border: 0;
+	border-radius: var(--radius-sm);
+	padding: 0.1em 0.35em;
 	font-size: 0.85em;
 }
 .sl-markdown-content kbd {
-	font-family: var(--font-mono);
+	font-family: var(--font-sans);
 	font-size: 0.8em;
-	border: var(--hair-strong);
-	padding: 0.05em 0.4em;
+	font-weight: 600;
+	padding: 0.1em 0.45em;
 	color: var(--color-ink);
-	background: transparent;
+	background: var(--cap);
+	border: 0;
+	border-radius: var(--radius-sm);
+	box-shadow:
+		inset 0 -2px 0 var(--cap-edge),
+		0 0 0 1px var(--cap-edge);
 }
 
-/* Tables: ruled ledger, caps header. */
+/* Tables: a card with small sentence-case headers. */
 .sl-markdown-content table {
-	border-collapse: collapse;
-	font-size: 0.9rem;
 	display: block;
 	overflow-x: auto;
+	border-collapse: separate;
+	border-spacing: 0;
+	border: var(--hair);
+	border-radius: var(--radius-lg);
+	background: var(--color-surface);
+	font-size: 0.9rem;
 }
 .sl-markdown-content :is(th, td) {
 	border: 0;
 	border-bottom: var(--hair);
-	padding: 0.55rem 1rem 0.55rem 0;
+	padding: 0.6rem 0.9rem;
 	background: transparent;
 	vertical-align: top;
 }
+.sl-markdown-content tbody tr:last-child > * {
+	border-bottom: 0;
+}
 .sl-markdown-content th {
-	font-size: 10px;
+	font-size: 13px;
 	font-weight: 500;
-	font-stretch: 112%;
-	letter-spacing: 0.2em;
-	text-transform: uppercase;
 	color: var(--color-ink-3);
-	border-bottom: var(--hair-strong);
+	background: var(--color-raised);
 	text-align: start;
 }
 .sl-markdown-content tr:nth-child(2n) {
 	background: transparent;
 }
 
-/* Asides: raised field, hairline, a coded block for the kind (colour as code, title says it too). */
+/* Asides: a raised card; the title says what kind, with a status dot for cautions. */
 .starlight-aside {
 	background: var(--color-raised);
 	border: var(--hair);
-	border-inline-start: 4px solid var(--sl-color-asides-border, var(--color-fac-grey));
+	border-radius: var(--radius-lg);
 	padding: 1rem 1.1rem;
-}
-.starlight-aside--note {
-	--sl-color-asides-border: var(--color-fac-blue);
-}
-.starlight-aside--tip {
-	--sl-color-asides-border: var(--color-fac-white);
-}
-.starlight-aside--caution {
-	--sl-color-asides-border: var(--color-fac-yellow);
-}
-.starlight-aside--danger {
-	--sl-color-asides-border: var(--color-fac-red);
+	color: var(--color-ink-2);
 }
 .starlight-aside__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 	color: var(--color-ink);
-	font-size: 11px;
-	font-weight: 500;
-	font-stretch: 115%;
-	letter-spacing: 0.22em;
-	text-transform: uppercase;
+	font-size: 15px;
+	font-weight: 600;
 }
 .starlight-aside__icon {
 	display: none;
+}
+.starlight-aside__title::before {
+	content: '';
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--color-ink-3);
+	flex: none;
+}
+.starlight-aside--caution .starlight-aside__title::before,
+.starlight-aside--danger .starlight-aside__title::before {
+	background: var(--color-warn);
 }
 
 /* Table of contents and pagination. */
 starlight-toc h2,
 mobile-starlight-toc .toggle {
-	font-size: 11px;
+	font-size: 13px;
 	font-weight: 500;
-	font-stretch: 115%;
-	letter-spacing: 0.22em;
-	text-transform: uppercase;
 	color: var(--color-ink-3);
+}
+starlight-toc a {
+	border-radius: var(--radius-sm);
 }
 starlight-toc a[aria-current='true'] {
 	color: var(--color-ink);
-	box-shadow: inset 2px 0 0 var(--color-fac-red);
+	font-weight: 600;
+}
+mobile-starlight-toc .toggle {
+	border-radius: var(--radius);
 }
 .pagination-links a {
 	border: var(--hair);
+	border-radius: var(--radius-lg);
+	background: var(--color-surface);
 	box-shadow: none;
+	transition: border-color var(--t-fast) var(--ease);
 }
 .pagination-links a:hover {
-	border-color: var(--color-ink);
+	border-color: var(--color-seam-2);
 }
 .pagination-links .link-title {
 	color: var(--color-ink);
-	font-stretch: 112%;
+	font-weight: 600;
 }
 
 /* Expressive Code frames sit on the same hairline as everything else. */
@@ -315,13 +333,6 @@ starlight-toc a[aria-current='true'] {
 footer .meta a {
 	color: var(--color-ink-3);
 }
-
-/* Visible code-strip helper used by the custom SiteTitle and PageTitle. */
-.fac {
-	font-size: 11px;
-	font-weight: 500;
-	font-stretch: 115%;
-	letter-spacing: 0.22em;
-	text-transform: uppercase;
-	color: var(--color-ink-3);
+footer .meta a:hover {
+	color: var(--color-ink);
 }

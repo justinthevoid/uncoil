@@ -2,7 +2,7 @@
 import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import starlight from '@astrojs/starlight';
-import svelte from '@astrojs/svelte';
+import { unified } from '@astrojs/markdown-remark';
 import tailwindcss from '@tailwindcss/vite';
 
 // Where the site is served from. Defaults to the GitHub Pages project site
@@ -30,9 +30,8 @@ export default defineConfig({
 	site,
 	base,
 	trailingSlash: 'ignore',
-	markdown: { rehypePlugins: [rehypeBaseLinks] },
+	markdown: { processor: unified({ rehypePlugins: [rehypeBaseLinks] }) },
 	integrations: [
-		svelte(),
 		starlight({
 			title: 'uncoil',
 			description:
@@ -44,34 +43,23 @@ export default defineConfig({
 			// The 404 page is the site's own (src/pages/404.astro), in the landing page's layout.
 			disable404Route: true,
 			lastUpdated: false,
-			customCss: ['@fontsource-variable/archivo/wdth.css', './src/styles/starlight.css'],
+			customCss: ['./src/styles/starlight.css'],
 			components: {
 				SiteTitle: './src/components/docs/SiteTitle.astro',
 				PageTitle: './src/components/docs/PageTitle.astro',
 				ThemeProvider: './src/components/docs/ThemeProvider.astro',
 				ThemeSelect: './src/components/docs/ThemeSelect.astro',
 			},
+			// Starlight's own light and dark code themes, which read the --sl-color-* values (mapped to the Swatch Book
+			// tokens in starlight.css), so code blocks follow the OS theme with the rest of the page.
 			expressiveCode: {
-				themes: ['github-dark-default'],
 				// Plain frames: no faux window chrome on shell snippets.
 				defaultProps: { frame: 'code' },
 				styleOverrides: {
-					borderRadius: '0',
-					borderColor: '#262626',
-					borderWidth: '1px',
-					codeBackground: '#111111',
-					codeFontFamily: "'Cascadia Mono', ui-monospace, Consolas, monospace",
-					uiFontFamily: "'Archivo Variable', 'Segoe UI', system-ui, sans-serif",
-					frames: {
-						editorTabBarBackground: '#0b0b0b',
-						editorActiveTabBackground: '#111111',
-						editorActiveTabIndicatorTopColor: '#e2372c',
-						editorActiveTabIndicatorBottomColor: 'transparent',
-						terminalTitlebarBackground: '#0b0b0b',
-						terminalBackground: '#111111',
-						terminalTitlebarBorderBottomColor: '#262626',
-						frameBoxShadowCssValue: 'none',
-					},
+					borderRadius: '8px',
+					borderColor: 'var(--color-seam)',
+					codeFontFamily: "'Cascadia Mono', ui-monospace, 'SF Mono', Consolas, monospace",
+					uiFontFamily: "'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif",
 				},
 			},
 			sidebar: [
@@ -93,7 +81,7 @@ export default defineConfig({
 	vite: {
 		plugins: [tailwindcss()],
 		resolve: {
-			// The landing page's pulse plot runs the desktop app's own effect maths and desk snapshot.
+			// The landing page's desk runs the desktop app's own effect maths on its desk snapshot.
 			alias: { $uncoil: fileURLToPath(new URL('../apps/uncoil/src/lib', import.meta.url)) },
 		},
 		// ../apps (effect maths, desk snapshot) and ../devices (TOML data) live outside the site root.

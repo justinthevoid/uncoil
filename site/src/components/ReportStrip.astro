@@ -1,15 +1,16 @@
 ---
-// One Razer feature report, all 90 bytes, coded by field (colour as code; the legend names each one).
+// One Razer feature report, all 90 bytes, shaded by field in neutral ink tones (no gels: those have other
+// jobs). The legend names each field next to its shade.
 // Source: docs/PROTOCOL.md, "Transport".
 type Field = { from: number; to: number; name: string; code: string; note: string };
 const fields: Field[] = [
-	{ from: 0, to: 0, name: 'Status', code: 'red', note: '00 new · 01 busy · 02 ok · 03 fail · 04 no answer · 05 unsupported' },
-	{ from: 1, to: 1, name: 'Transaction id', code: 'yellow', note: '1F keyboard and mouse · 3F mat' },
-	{ from: 2, to: 5, name: 'Header', code: 'grey', note: 'remaining packets, protocol type, data size' },
-	{ from: 6, to: 7, name: 'Command', code: 'blue', note: 'class, id (high bit set = get)' },
-	{ from: 8, to: 87, name: 'Arguments', code: 'open', note: 'up to 80 bytes' },
-	{ from: 88, to: 88, name: 'CRC', code: 'white', note: 'XOR of bytes 2–87' },
-	{ from: 89, to: 89, name: 'Reserved', code: 'dim', note: '' },
+	{ from: 0, to: 0, name: 'Status', code: 'status', note: '00 new · 01 busy · 02 ok · 03 fail · 04 no answer · 05 unsupported' },
+	{ from: 1, to: 1, name: 'Transaction id', code: 'txn', note: '1F keyboard and mouse · 3F mat' },
+	{ from: 2, to: 5, name: 'Header', code: 'header', note: 'remaining packets, protocol type, data size' },
+	{ from: 6, to: 7, name: 'Command', code: 'command', note: 'class, id (high bit set = get)' },
+	{ from: 8, to: 87, name: 'Arguments', code: 'args', note: 'up to 80 bytes' },
+	{ from: 88, to: 88, name: 'CRC', code: 'crc', note: 'XOR of bytes 2–87' },
+	{ from: 89, to: 89, name: 'Reserved', code: 'reserved', note: '' },
 ];
 const codeAt = (i: number) => fields.find((f) => i >= f.from && i <= f.to)!.code;
 const cells = Array.from({ length: 90 }, (_, i) => codeAt(i));
@@ -27,7 +28,7 @@ const range = (f: Field) => (f.from === f.to ? `${f.from}` : `${f.from}–${f.to
 					<div class="row">
 						<dt>
 							<span class={`key ${f.code}`} aria-hidden="true" />
-							<span class="caps-sm">{f.name}</span>
+							<span>{f.name}</span>
 						</dt>
 						<dd>
 							<span class="off">{range(f)}</span>
@@ -43,82 +44,85 @@ const range = (f: Field) => (f.from === f.to ? `${f.from}` : `${f.from}–${f.to
 <style>
 	.report {
 		margin: 0;
+		padding: clamp(14px, 3vw, 22px);
+		background: var(--color-surface);
+		border: var(--hair);
+		border-radius: var(--radius-lg);
 	}
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(30, 1fr);
 		gap: 3px;
-		padding-left: 0;
+		row-gap: 22px;
+		margin-top: 18px;
 	}
 	.cell {
 		aspect-ratio: 1 / 1.6;
 		position: relative;
+		border-radius: 2px;
 	}
 	.cell[data-i]::before {
 		content: attr(data-i);
 		position: absolute;
 		bottom: calc(100% + 4px);
 		left: 0;
-		font-size: 10px;
-		letter-spacing: 0.1em;
+		font-size: 11px;
 		color: var(--color-ink-3);
 		font-variant-numeric: tabular-nums;
 	}
-	.grid {
-		margin-top: 18px;
-		row-gap: 22px;
+	.status {
+		background: var(--color-ink);
 	}
-	.red {
-		background: var(--color-fac-red);
+	.txn {
+		background: var(--color-ink-3);
 	}
-	.yellow {
-		background: var(--color-fac-yellow);
+	.header {
+		background: var(--color-seam-2);
 	}
-	.grey {
-		background: var(--color-fac-grey);
+	.command {
+		background: var(--color-ink-2);
 	}
-	.blue {
-		background: var(--color-fac-blue);
-	}
-	.white {
-		background: var(--color-fac-white);
-	}
-	.open {
+	.args {
 		box-shadow: inset 0 0 0 1px var(--color-seam-2);
 	}
-	.dim {
-		box-shadow: inset 0 0 0 1px var(--color-seam);
+	.crc {
+		box-shadow: inset 0 0 0 2px var(--color-ink);
+	}
+	.reserved {
+		outline: 1px dashed var(--color-seam-2);
+		outline-offset: -1px;
 	}
 	.legend {
 		margin: 22px 0 0;
 		display: grid;
-		gap: 0;
 	}
 	.row {
 		display: grid;
-		grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
 		gap: 16px;
 		padding: 8px 0;
-		border-top: 1px solid var(--color-seam);
-		font-size: 13px;
+		border-top: var(--hair);
+		font-size: 14px;
 	}
 	dt {
 		display: flex;
 		align-items: center;
 		gap: 10px;
 		color: var(--color-ink);
+		font-weight: 500;
 	}
 	.key {
 		width: 10px;
-		height: 10px;
+		height: 14px;
 		flex: none;
+		border-radius: 2px;
 	}
 	dd {
 		margin: 0;
 		color: var(--color-ink-3);
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 14px;
+		display: grid;
+		grid-template-columns: 3.5em minmax(0, 1fr);
+		gap: 4px 12px;
 	}
 	.off {
 		color: var(--color-ink-2);

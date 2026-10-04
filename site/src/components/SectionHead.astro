@@ -2,25 +2,35 @@
 interface Props {
 	id: string;
 	title: string;
+	/** One line under the title saying what the section is for. */
+	lede?: string;
 }
-const { id, title } = Astro.props;
+const { id, title, lede } = Astro.props;
 ---
 
-<h2 {id}>{title}</h2>
+<div class="head">
+	<h2 {id}>{title}</h2>
+	{lede && <p>{lede}</p>}
+</div>
 
 <style>
+	.head {
+		margin-bottom: 32px;
+	}
 	h2 {
-		margin-bottom: 40px;
-		font-size: clamp(1.75rem, 1.2rem + 2vw, 3rem);
-		font-weight: 450;
-		font-stretch: 118%;
-		letter-spacing: -0.02em;
-		line-height: 1.05;
-		color: var(--color-ink);
+		font-size: clamp(1.5rem, 1.25rem + 1vw, 2rem);
+		letter-spacing: -0.015em;
+		line-height: 1.15;
+	}
+	p {
+		margin-top: 8px;
+		max-width: 60ch;
+		color: var(--color-ink-2);
+		font-size: 17px;
 	}
 	@media (max-width: 560px) {
-		h2 {
-			margin-bottom: 28px;
+		.head {
+			margin-bottom: 24px;
 		}
 	}
 </style>

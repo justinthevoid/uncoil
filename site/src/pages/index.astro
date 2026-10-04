@@ -1,45 +1,41 @@
 ---
 import { Picture } from 'astro:assets';
 import Base from '../layouts/Base.astro';
-import PulsePlot from '../components/PulsePlot.svelte';
-import DeskMap from '../components/DeskMap.astro';
+import DeskHero from '../components/DeskHero.astro';
+import FnKeys from '../components/FnKeys.astro';
 import ReportStrip from '../components/ReportStrip.astro';
 import SectionHead from '../components/SectionHead.astro';
-import appShot from '../assets/app-lighting.png';
-import { devices, totalLeds } from '../lib/devices';
+import shotLight from '../assets/app-lighting-light.png';
+import shotDark from '../assets/app-lighting-dark.png';
+import { devices } from '../lib/devices';
 import { url, REPO, RELEASES, blob } from '../lib/url';
 
 // Measured on the maintainer's PC (README.md, PRODUCT.md). The only numbers on this site.
 const ledger = [
-	{ k: 'Processes', synapse: '17', uncoil: '1', unit: '' },
-	{ k: 'Memory', synapse: '~1.4 GB at start, leaking', uncoil: '~3', unit: 'MB' },
-	{ k: 'CPU, animating', synapse: '~7% of one core', uncoil: '<1', unit: '% of one core' },
-	{ k: 'Install size', synapse: '~500 MB', uncoil: '651', unit: 'KB' },
+	{ k: 'Processes', uncoil: '1', unit: '', synapse: '17' },
+	{ k: 'Memory', uncoil: '~3', unit: 'MB', synapse: '~1.4 GB at start, leaking' },
+	{ k: 'CPU while animating', uncoil: '<1%', unit: 'of one core', synapse: '~7% of one core' },
+	{ k: 'Install size', uncoil: '651', unit: 'KB', synapse: '~500 MB' },
 ];
 
 const features = [
 	{
-		n: '201',
 		title: 'One effect across the whole desk',
-		body: 'Every LED has a physical position in key units (1u = 19.05 mm), so an angled rainbow wave runs from the keyboard and its side underglow onto the mouse and the mat as one continuous field, not three effects that happen to be in sync.',
+		body: 'Every LED has a physical position in key units (1u = 19.05 mm), so an angled rainbow wave runs from the keyboard and its underglow onto the mouse and the mat as one continuous field, not three effects that happen to be in sync.',
 	},
 	{
-		n: '202',
 		title: 'The keyboard keeps its own brain',
-		body: 'Devices stay in firmware (normal) mode, so Fn keys, media keys and the dial keep working even when uncoil is not running. Key remaps can be written into the keyboard’s own memory: on the BlackWidow, Fn+P becomes a native Print Screen that works with nothing installed at all.',
+		body: 'Devices stay in firmware (normal) mode, so Fn keys, media keys and the dial keep working when uncoil is not running. Key remaps can be written into the keyboard’s own memory: on the BlackWidow, Fn+P becomes a native Print Screen that works with nothing installed at all.',
 	},
 	{
-		n: '203',
 		title: 'Follows the display',
 		body: 'Lighting fades out when Windows turns the display off, dims when Windows dims it, and comes back on wake. Devices that were unplugged are picked up again within seconds.',
 	},
 	{
-		n: '204',
 		title: 'Even colour',
 		body: 'Uses FastLED’s rainbow hue map, tuned for LEDs, so no band of the wave looks wider or brighter than the rest.',
 	},
 	{
-		n: '205',
 		title: 'Written down',
 		body: 'The protocol, the quirks and every device are documented in the repository. A new device is a data file, not a fork.',
 	},
@@ -56,7 +52,7 @@ const faq = [
 	},
 	{
 		q: 'What still needs Synapse?',
-		a: 'Anything uncoil does not do yet: editing the Fn layer from a UI, the BlackWidow’s dial functions and OLED images, macros and button remapping, DPI settings, firmware updates, and devices that are not on the list. Settings already stored in a device’s own memory stay there after Synapse is gone.',
+		a: 'Anything uncoil does not do yet: macros, DPI settings, custom images on the BlackWidow’s dial screen, firmware updates, and devices that are not on the list. Key and button remapping works from the app, though only one remap (Fn+P to Print Screen) has been checked on a real keyboard so far. Settings already stored in a device’s own memory stay there after Synapse is gone.',
 	},
 	{
 		q: 'Can Synapse stay installed?',
@@ -79,131 +75,157 @@ const faq = [
 		a: 'Windows 10 and 11 only. On Linux, <a href="https://openrazer.github.io/">OpenRazer</a> already does this job well.',
 	},
 ];
+
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const shotAlt =
+	'The uncoil desktop app’s Lighting screen: the desk drawn to scale and lit with the wave, cards for every effect from Wave to Audio meter plus Studio, and the wave’s direction, speed, band width, brightness and saturation controls.';
 ---
 
 <Base
 	title="uncoil: a 651 KB replacement for Razer Synapse"
-	description="uncoil runs the lighting on Razer keyboards, mice and mats from one small background process on Windows. Open source, GPL-3.0. Measured: ~3 MB RAM, under 1% of one core."
+	description="uncoil runs the lighting on Razer keyboards, mice and mats from one small background process on Windows. Open source, GPL-3.0. Measured on one PC: ~3 MB RAM, under 1% of one core."
 >
-
-	<section id="top" class="hero" aria-labelledby="hero-title">
-		<div class="hero-copy">
-			<h1 id="hero-title">
-				A <span class="hl">651&nbsp;KB</span> replacement for Razer Synapse.
-			</h1>
-			<p class="lede">
-				uncoil runs the lighting on your Razer keyboard, mouse and mat from one small background process on Windows.
-				Uninstall Synapse; keep the desk.
-			</p>
-			<p class="sublede">Open source. No services, no account, no telemetry, no kernel drivers.</p>
-
-			<table class="ledger">
-				<caption class="sr-only">Resource use, Razer Synapse 4 against uncoild, measured on the maintainer's PC</caption>
-				<thead>
-					<tr>
-						<th scope="col" class="caps-sm">Measured</th>
-						<th scope="col" class="caps-sm">Synapse 4</th>
-						<th scope="col" class="caps-sm">uncoild</th>
-					</tr>
-				</thead>
-				<tbody>
-					{
-						ledger.map((r) => (
-							<tr>
-								<th scope="row">{r.k}</th>
-								<td class="syn">{r.synapse}</td>
-								<td class="unc">
-									<span class="display val">{r.uncoil}</span>
-									{r.unit && <span class="unit">{r.unit}</span>}
-								</td>
-							</tr>
-						))
-					}
-				</tbody>
-			</table>
-			<p class="fine">
-				Measured on the maintainer’s PC (a Ryzen desktop with a BlackWidow V4 Pro 75%, Basilisk V3 Pro and Goliathus
-				Chroma Extended), where Synapse’s memory grew to several GB over a few days. One machine; yours will differ.
-			</p>
-
-			<div class="ctas">
-				<a class="btn-primary" href={RELEASES}>
-					<span class="caps">Download for Windows</span>
-					<span class="block" aria-hidden="true"></span>
-				</a>
-				<a class="caps caps-link" href={url('docs/getting-started/')}>Read the setup guide</a>
+	<section id="top" class="hero wrap" aria-labelledby="hero-title">
+		<div class="hero-top">
+			<h1 id="hero-title">A 651&nbsp;KB replacement for Razer Synapse.</h1>
+			<div class="hero-side">
+				<p class="lede">
+					uncoil runs the lighting on your Razer keyboard, mouse and mat from one small background process on Windows.
+					Uninstall Synapse; keep the desk.
+				</p>
+				<p class="sublede">Open source. No services, no account, no telemetry, no kernel drivers.</p>
+				<div class="ctas">
+					<a class="btn" href={RELEASES}>
+						<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>
+						Download for Windows
+					</a>
+					<a class="btn-quiet" href={url('docs/getting-started/')}>Read the setup guide</a>
+				</div>
 			</div>
 		</div>
 
-		<div class="hero-plot">
-			<div class="plot-frame">
-				<PulsePlot client:load />
-			</div>
-			<dl class="tx">
-				<div><dt class="caps-sm">Effect</dt><dd>Wave</dd></div>
-				<div><dt class="caps-sm">Angle</dt><dd class="num">35°</dd></div>
-				<div><dt class="caps-sm">Cycle</dt><dd class="num">14 s</dd></div>
-				<div><dt class="caps-sm">Band</dt><dd class="num">26 keys</dd></div>
-				<div><dt class="caps-sm">LEDs</dt><dd class="num">{totalLeds} on {devices.length} devices</dd></div>
+		<DeskHero />
+		<p class="fine hero-note">
+			The default effect on the maintainer’s desk, computed in your browser by the same wave maths uncoild runs. Every
+			key, underglow LED, mouse LED and the mat’s edge sits at its measured position.
+		</p>
+	</section>
+
+	<section id="measured" class="sec" aria-labelledby="measured-title">
+		<div class="wrap">
+			<SectionHead
+				id="measured-title"
+				title="Measured on one PC"
+				lede="uncoild against Razer Synapse 4, on the maintainer’s desktop."
+			/>
+			<dl class="stats">
+				{
+					ledger.map((r) => (
+						<div class="stat card">
+							<dt class="label">{r.k}</dt>
+							<dd class="now">
+								<span class="val num">{r.uncoil}</span>
+								{r.unit && <span class="unit">{r.unit}</span>}
+							</dd>
+							<dd class="was">
+								<span class="sr-only">Synapse 4: </span>
+								<span aria-hidden="true">Synapse 4 · </span>
+								{r.synapse}
+							</dd>
+						</div>
+					))
+				}
 			</dl>
-			<p class="fine plot-note">
-				The default effect on the maintainer’s real desk, computed in your browser by the same wave maths uncoild runs.
-				Each line is one slice of the desk, back to front; point at it to decode a slice into its live colours.
+			<p class="fine">
+				A Ryzen desktop with a BlackWidow V4 Pro 75%, Basilisk V3 Pro and Goliathus Chroma Extended, where Synapse’s
+				memory grew to several GB over a few days. One machine; yours will differ.
 			</p>
 		</div>
 	</section>
 
 	<section id="does" class="sec" aria-labelledby="does-title">
-		<SectionHead id="does-title" title="What it does" />
-		<div class="does-grid">
-			<ol class="features">
-				{
-					features.map((f) => (
-						<li>
-														<div>
+		<div class="wrap">
+			<SectionHead id="does-title" title="What it does" />
+			<div class="does-grid">
+				<ul class="features">
+					{
+						features.map((f) => (
+							<li>
 								<h3>{f.title}</h3>
 								<p>{f.body}</p>
-							</div>
-						</li>
-					))
-				}
-			</ol>
-			<div class="does-figure">
-				<DeskMap />
+							</li>
+						))
+					}
+				</ul>
+				<div class="does-figure">
+					<h3>What the colours on keys mean</h3>
+					<p class="prose-ink">
+						When a key does something different, the app gives it a coloured tab: a gel that names the kind of change.
+						There are four, each with one job, and each always appears with its name.
+					</p>
+					<ul class="gels" aria-label="The four gels">
+						<li><span class="gel gel-yours" aria-hidden="true"></span><span><b>Your change</b> keys and buttons you remapped</span></li>
+						<li><span class="gel gel-media" aria-hidden="true"></span><span><b>Media &amp; macros</b> media keys, macro record, game mode</span></li>
+						<li><span class="gel gel-light" aria-hidden="true"></span><span><b>Lighting</b> backlight brighter and dimmer</span></li>
+						<li><span class="gel gel-system" aria-hidden="true"></span><span><b>System</b> sleep, low power, profiles and DPI</span></li>
+					</ul>
+					<FnKeys />
+					<p class="fine">
+						The BlackWidow V4 Pro 75% with Fn held, drawn from its real layout. The actions are the keyboard’s own
+						onboard Fn map; Fn+P is the one uncoil wrote. Any other colour on this site is a device’s real LED colour.
+					</p>
+				</div>
 			</div>
+			<p class="prose-ink also">
+				Also: an optional one-shot hand-off of motherboard, GPU and RAM lighting to their own hardware rainbow via
+				OpenRGB, so the rest of the case matches without anything else running.
+			</p>
 		</div>
-		<p class="prose-ink also">
-			Also: an optional one-shot hand-off of motherboard, GPU and RAM lighting to their own hardware rainbow via OpenRGB,
-			so the rest of the case matches without anything else running.
-		</p>
 	</section>
 
 	<section id="app" class="sec" aria-labelledby="app-title">
-		<SectionHead id="app-title" title="The app" />
-		<div class="app-grid">
-			<div class="prose-ink">
-				<p>
-					A small desktop app sets the effect and shows whether each device is live. You open it, change something, close
-					it. The daemon does not need it running, and keeps its own footprint on screen so the claim above stays checkable.
-				</p>
-				<p>
-					Changes land in <code>%APPDATA%\uncoil\config.json</code>, which uncoild hot-reloads. Editing the file by hand
-					works just as well.
-				</p>
+		<div class="wrap app-grid">
+			<div>
+				<SectionHead id="app-title" title="The app" />
+				<div class="prose-ink">
+					<p>
+						A small desktop app sets the effect, layers effects and painted keys in Studio, remaps keys and buttons, and shows whether each device is live. You open it, change something,
+						close it. The daemon does not need it running. The app shows the daemon’s own memory and CPU in its top bar,
+						so the numbers above stay checkable.
+					</p>
+					<p>
+						Changes land in <code>%APPDATA%\uncoil\config.json</code>, which uncoild hot-reloads. Editing the file by
+						hand works just as well.
+					</p>
+					<p>It follows Windows for light and dark, like this page.</p>
+				</div>
 			</div>
 			<figure class="shot">
-				<Picture
-					src={appShot}
-					formats={['avif', 'webp']}
-					widths={[720, 1100]}
-					sizes="(min-width: 1100px) 60vw, 100vw"
-					alt="The uncoil desktop app's Lighting screen: a white line plot of the wave with one slice decoded in colour, effect controls, and three Razer devices marked live."
-				/>
+				<div class="shot-frame">
+					<Picture
+						class="shot-light"
+						src={shotLight}
+						formats={["avif"]}
+						fallbackFormat="webp"
+						widths={[720, 1100, 1440]}
+						sizes="(min-width: 1100px) 760px, 100vw"
+						alt={shotAlt}
+					/>
+					<Picture
+						class="shot-dark"
+						src={shotDark}
+						formats={["avif"]}
+						fallbackFormat="webp"
+						widths={[720, 1100, 1440]}
+						sizes="(min-width: 1100px) 760px, 100vw"
+						alt={shotAlt}
+					/>
+				</div>
 				<figcaption>
-					<span class="caps-sm">The Lighting screen</span>
+					<span class="cap-title">The Lighting screen</span>
 					<span>
-						The desktop app at its default window size, running on its built-in demo data, so the engine figures and
-						device rows here are synthetic.
+						The desktop app at its default window size, running on its built-in demo data, so the device rows and engine
+						figures shown are synthetic.
 					</span>
 				</figcaption>
 			</figure>
@@ -211,84 +233,89 @@ const faq = [
 	</section>
 
 	<section id="devices" class="sec" aria-labelledby="devices-title">
-		<SectionHead id="devices-title" title="Supported devices" />
-		<div class="table-wrap">
-			<table class="devices">
-				<thead>
-					<tr>
-						<th scope="col" class="caps-sm">Device</th>
-						<th scope="col" class="caps-sm">Lighting</th>
-						<th scope="col" class="caps-sm">LEDs</th>
-						<th scope="col" class="caps-sm">USB</th>
-						<th scope="col" class="caps-sm">Data file</th>
-					</tr>
-				</thead>
-				<tbody>
-					{
-						devices.map((d) => (
-							<tr>
-								<th scope="row">
-									<span class="dev-name">{d.name}</span>
-									<span class="caps-sm kind">{d.kind}</span>
-								</th>
-								<td>{d.lighting}</td>
-								<td class="num">{d.leds}</td>
-								<td>
-									{d.usb.map((u) => (
-										<span class="usb">
-											<span class="num">{u.pid}</span> <span class="conn">{u.connection}</span>
-										</span>
-									))}
-								</td>
-								<td>
-									<a href={blob(d.file)}>{d.file.replace('devices/', '')}</a>
-								</td>
-							</tr>
-						))
-					}
-				</tbody>
-			</table>
+		<div class="wrap">
+			<SectionHead id="devices-title" title="Supported devices" />
+			<div class="table-wrap card">
+				<table class="devices">
+					<thead>
+						<tr>
+							<th scope="col">Device</th>
+							<th scope="col">Lighting</th>
+							<th scope="col">LEDs</th>
+							<th scope="col">USB</th>
+							<th scope="col">Data file</th>
+						</tr>
+					</thead>
+					<tbody>
+						{
+							devices.map((d) => (
+								<tr>
+									<th scope="row">
+										<span class="dev-name">{d.name}</span>
+										<span class="kind">{sentence(d.kind)}</span>
+									</th>
+									<td>{d.lighting}</td>
+									<td class="num">{d.leds}</td>
+									<td>
+										{d.usb.map((u) => (
+											<span class="usb">
+												<span class="num">{u.pid}</span> <span class="conn">{u.connection}</span>
+											</span>
+										))}
+									</td>
+									<td>
+										<a href={blob(d.file)}>{d.file.replace('devices/', '')}</a>
+									</td>
+								</tr>
+							))
+						}
+					</tbody>
+				</table>
+			</div>
+			<p class="prose-ink after-table">
+				Generated from the same <code>devices/*.toml</code> files the daemon compiles in. Supporting another device is
+				mostly a data file: USB endpoints, quirks, the LED matrix and where each LED physically sits.{' '}
+				<a href={url('docs/devices/')}>How to add one</a>.
+			</p>
 		</div>
-		<p class="prose-ink after-table">
-			This table is generated from the same <code>devices/*.toml</code> files the daemon compiles in. Supporting another
-			device is mostly a data file: USB endpoints, quirks, the LED matrix and where each LED physically sits.{' '}
-			<a href={url('docs/devices/')}>How to add one</a>.
-		</p>
 	</section>
 
 	<section id="built" class="sec" aria-labelledby="built-title">
-		<SectionHead id="built-title" title="How it was built" />
-		<div class="built-grid">
-			<div class="prose-ink">
-				<p>
-					<strong>Prior art first.</strong> The report format is public thanks to OpenRazer and OpenRGB; uncoil
-					re-implements it from those facts.
-				</p>
-				<p>
-					<strong>Then Razer’s own logs.</strong> Synapse 4 logs every command it sends, with a readable name and the raw
-					bytes. Mining 130 MB of those logs produced a catalog of 30 commands and 116 distinct input events, with no USB
-					sniffer involved.
-				</p>
-				<p>
-					<strong>Then the hardware.</strong> Small Python probes against the real devices, reading back status codes and
-					asking a human what the LEDs actually did. The expensive lessons: Synapse leaves devices in driver mode, the
-					BlackWidow freezes if the custom-frame command is sent twice, and it silently stops applying frames unless every
-					reply is read.
-				</p>
+		<div class="wrap built-grid">
+			<div>
+				<SectionHead id="built-title" title="How it was built" />
+				<div class="prose-ink">
+					<p>
+						<strong>Prior art first.</strong> The report format is public thanks to OpenRazer and OpenRGB; uncoil
+						re-implements it from those facts.
+					</p>
+					<p>
+						<strong>Then Razer’s own logs.</strong> Synapse 4 logs every command it sends, with a readable name and the
+						raw bytes. Mining 130 MB of those logs produced a catalogue of 30 commands and 116 distinct input events, with
+						no USB sniffer involved.
+					</p>
+					<p>
+						<strong>Then the hardware.</strong> Small Python probes against the real devices, reading back status codes
+						and asking a human what the LEDs actually did. The expensive lessons: Synapse leaves devices in driver mode,
+						the BlackWidow freezes if the custom-frame command is sent twice, and it silently stops applying frames
+						unless every reply is read.
+					</p>
+				</div>
 				<p class="links">
-					<a class="caps caps-link" href={url('docs/protocol/')}>Read the protocol write-up</a>
-					<a class="caps caps-link" href={blob('docs/PROTOCOL.md')}>PROTOCOL.md on GitHub</a>
+					<a class="btn-quiet" href={url('docs/protocol/')}>Read the protocol write-up</a>
+					<a class="more" href={blob('docs/PROTOCOL.md')}>PROTOCOL.md on GitHub</a>
 				</p>
 			</div>
 			<div class="built-figure">
+				<p class="fig-title">One feature report, all 90 bytes</p>
 				<ReportStrip />
 				<div class="fnp">
-					<p class="caps-sm">Fn+P, written to the keyboard</p>
+					<p class="fig-title">Fn+P, written to the keyboard</p>
 					<pre><code>02/0D  [1, 26, 1, 2, 2, 0, 0x46]
        profile 1 · key P · Fn layer · key code · Print Screen</code></pre>
 					<p class="fine">
-						One report into the keyboard’s onboard key map, verified on hardware. Fn+P is now handled by the firmware: no
-						driver mode, no daemon, works on any PC.
+						One report into the keyboard’s onboard key map, verified on hardware. Fn+P is now handled by the firmware:
+						no driver mode, no daemon, works on any PC.
 					</p>
 				</div>
 			</div>
@@ -296,265 +323,185 @@ const faq = [
 	</section>
 
 	<section id="install" class="sec" aria-labelledby="install-title">
-		<SectionHead id="install-title" title="Install" />
-		<ol class="steps">
-			<li>
-				<span class="caps-sm step-n">Step 1</span>
-				<div>
+		<div class="wrap">
+			<SectionHead id="install-title" title="Install" lede="Three steps, about a minute. There is no installer yet; there is not much to install." />
+			<ol class="steps">
+				<li>
 					<h3>Download</h3>
 					<p class="prose-ink">
 						Get <code>uncoild.exe</code> and <code>install-task.ps1</code> from <a href={RELEASES}>GitHub Releases</a>.
-						There is no installer yet; there is not much to install.
 					</p>
-				</div>
-			</li>
-			<li>
-				<span class="caps-sm step-n">Step 2</span>
-				<div>
+				</li>
+				<li>
 					<h3>Retire Synapse</h3>
 					<p class="prose-ink">
-						Quit Synapse from its tray icon, then uninstall it from Windows Settings. If the keyboard dial scrolls instead of
-						changing volume afterwards, the device was left in driver mode: uncoil resets it on connect, and an unplug and
-						replug fixes it either way.
+						Quit Synapse from its tray icon, then uninstall it from Windows Settings. If the keyboard dial scrolls
+						instead of changing volume afterwards, the device was left in driver mode: uncoil resets it on connect, and
+						an unplug and replug fixes it either way.
 					</p>
-				</div>
-			</li>
-			<li>
-				<span class="caps-sm step-n">Step 3</span>
-				<div>
+				</li>
+				<li>
 					<h3>Run it at logon</h3>
 					<pre><code>powershell -ExecutionPolicy Bypass -File install-task.ps1 -Exe .\uncoild.exe</code></pre>
 					<p class="prose-ink">
 						Copies the executable to <code>%LOCALAPPDATA%\uncoil\bin</code>, registers a scheduled task named{' '}
 						<code>uncoil</code> that starts at logon, and starts it now. The lighting should change within a second.
 					</p>
-				</div>
-			</li>
-		</ol>
-		<p class="prose-ink after-table">
-			Building from source instead: <code>cargo build --release -p uncoild</code>. Removing it again, changing settings and
-			everything else: <a href={url('docs/getting-started/')}>getting started</a>.
-		</p>
+				</li>
+			</ol>
+			<p class="prose-ink after-table">
+				Building from source instead: <code>cargo build --release -p uncoild</code>. Removing it again, changing
+				settings and everything else: <a href={url('docs/getting-started/')}>getting started</a>.
+			</p>
+		</div>
 	</section>
 
 	<section id="faq" class="sec" aria-labelledby="faq-title">
-		<SectionHead id="faq-title" title="Questions" />
-		<div class="faq">
-			{
-				faq.map((f, i) => (
-					<details>
-						<summary>
-														<span class="q">{f.q}</span>
-							<span class="tick" aria-hidden="true" />
-						</summary>
-						<p class="prose-ink" set:html={f.a} />
-					</details>
-				))
-			}
+		<div class="wrap">
+			<SectionHead id="faq-title" title="Questions" />
+			<div class="faq card">
+				{
+					faq.map((f) => (
+						<details>
+							<summary>
+								<span class="q">{f.q}</span>
+								<svg class="chev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+									<path d="M4 6l4 4 4-4" />
+								</svg>
+							</summary>
+							<p class="prose-ink" set:html={f.a} />
+						</details>
+					))
+				}
+			</div>
 		</div>
 	</section>
 </Base>
 
-
 <style>
 	/* ── Hero ─────────────────────────────────────────────────────────────── */
 	.hero {
+		padding-top: clamp(28px, 4vw, 52px);
+		padding-bottom: clamp(40px, 6vw, 72px);
+	}
+	.hero-top {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: 40px;
-		padding: 40px var(--gutter) 56px;
-		border-bottom: var(--hair);
+		gap: 20px;
+		margin-bottom: clamp(24px, 3vw, 36px);
 	}
 	h1 {
-		font-size: clamp(2.1rem, 1.1rem + 2.9vw, 3.4rem);
-		font-weight: 380;
-		font-stretch: 118%;
+		font-size: clamp(2.1rem, 1.3rem + 2.6vw, 3.3rem);
 		letter-spacing: -0.025em;
-		line-height: 1.03;
-		max-width: 15ch;
-		text-wrap: balance;
-	}
-	.hl {
-		font-stretch: 125%;
-		white-space: nowrap;
+		line-height: 1.05;
+		max-width: 18ch;
 	}
 	.lede {
-		margin-top: 22px;
-		font-size: clamp(1.05rem, 0.98rem + 0.25vw, 1.2rem);
+		font-size: clamp(1.05rem, 1rem + 0.25vw, 1.2rem);
 		line-height: 1.5;
 		color: var(--color-ink);
-		max-width: 44ch;
+		max-width: 46ch;
 	}
 	.sublede {
-		margin-top: 10px;
+		margin-top: 8px;
 		color: var(--color-ink-2);
-		max-width: 62ch;
 	}
-	.ledger {
-		margin-top: 28px;
-		width: 100%;
-		max-width: 40rem;
-		border-collapse: collapse;
+	.ctas {
+		margin-top: 22px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
 	}
-	.ledger thead th {
-		text-align: left;
-		color: var(--color-ink-3);
-		padding: 0 12px 10px 0;
-		border-bottom: var(--hair-strong);
-		font-weight: 500;
-	}
-	.ledger tbody th {
-		text-align: left;
-		font-weight: 400;
-		color: var(--color-ink-2);
-		font-size: 14px;
-		padding: 9px 12px 9px 0;
-		vertical-align: baseline;
-		width: 30%;
-	}
-	.ledger td {
-		padding: 9px 12px 9px 0;
-		border-bottom: var(--hair);
-		vertical-align: baseline;
-	}
-	.ledger tbody th {
-		border-bottom: var(--hair);
-	}
-	.syn {
-		color: var(--color-ink-3);
-		font-size: 14px;
-		width: 38%;
-	}
-	.unc {
-		white-space: nowrap;
-	}
-	.val {
-		font-size: 23px;
-		line-height: 1;
-		color: var(--color-ink);
-	}
-	.unit {
-		margin-left: 6px;
-		font-size: 13px;
-		color: var(--color-ink-2);
-		white-space: normal;
+	.ctas svg {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 	.fine {
 		margin-top: 12px;
-		font-size: 13px;
+		font-size: 14px;
 		line-height: 1.5;
 		color: var(--color-ink-3);
-		max-width: 60ch;
+		max-width: 72ch;
 	}
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
-	}
-	.ctas {
-		margin-top: 28px;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 20px 32px;
-	}
-	.btn-primary {
-		display: inline-flex;
-		align-items: stretch;
-		min-height: 52px;
-		border: 1px solid var(--color-ink);
-		text-decoration: none;
-		color: var(--color-ink);
-		transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
-	}
-	.btn-primary .caps {
-		display: flex;
-		align-items: center;
-		padding: 0 28px;
-	}
-	.btn-primary .block {
-		width: 44px;
-		background: var(--color-fac-red);
-	}
-	.btn-primary:hover {
-		background: var(--color-ink);
-		color: var(--color-ground);
-	}
-
-	.hero-plot {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-	.plot-frame {
-		height: clamp(300px, 70vw, 460px);
-	}
-	.tx {
-		margin: 18px 0 0;
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-		gap: 0;
-		border-top: var(--hair);
-	}
-	.tx > div {
-		padding: 10px 12px 10px 0;
-		border-bottom: var(--hair);
-	}
-	.tx dt {
-		color: var(--color-ink-3);
-	}
-	.tx dd {
-		margin: 4px 0 0;
-		font-size: 14px;
-		color: var(--color-ink);
-	}
-	.plot-note {
-		max-width: 64ch;
-	}
-
-	@media (min-width: 1100px) {
-		.hero {
-			grid-template-columns: minmax(0, 11fr) minmax(0, 13fr);
-			gap: 56px;
-			min-height: min(calc(100svh - var(--header)), 920px);
-			align-items: stretch;
-			padding-top: 40px;
-			padding-bottom: 40px;
-		}
-		.hero-copy {
-			display: flex;
-			flex-direction: column;
-			justify-content: center;
-		}
-		.plot-frame {
-			flex: 1;
-			height: auto;
-			min-height: 420px;
+	@media (min-width: 900px) {
+		.hero-top {
+			grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+			align-items: end;
+			gap: 48px;
 		}
 	}
 
 	/* ── Sections ─────────────────────────────────────────────────────────── */
 	.sec {
-		padding: 64px var(--gutter) 72px;
-		border-bottom: var(--hair);
+		padding: 64px 0 72px;
+		border-top: var(--hair);
 	}
 	@media (min-width: 900px) {
 		.sec {
-			padding-top: 88px;
-			padding-bottom: 96px;
+			padding: 88px 0 96px;
 		}
 	}
 	h3 {
 		font-size: 1.125rem;
-		font-weight: 480;
-		font-stretch: 112%;
-		color: var(--color-ink);
 		line-height: 1.3;
 	}
 
+	/* Measured */
+	.stats {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 10px;
+		margin: 0;
+	}
+	.stat {
+		display: grid;
+		align-content: start;
+		gap: 6px;
+		padding: 18px;
+	}
+	.stat dd {
+		margin: 0;
+	}
+	.now {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 2px 8px;
+	}
+	.val {
+		font-family: var(--font-display);
+		font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.5rem);
+		font-weight: 600;
+		letter-spacing: -0.02em;
+		line-height: 1.05;
+		color: var(--color-ink);
+	}
+	.unit {
+		font-size: 15px;
+		font-weight: 500;
+		color: var(--color-ink-2);
+	}
+	.was {
+		margin-top: 6px;
+		padding-top: 10px;
+		border-top: var(--hair);
+		font-size: 14px;
+		color: var(--color-ink-3);
+	}
+	@media (min-width: 900px) {
+		.stats {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+	}
+	@media (max-width: 380px) {
+		.stat {
+			padding: 14px;
+		}
+	}
+
+	/* What it does */
 	.does-grid {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -566,45 +513,59 @@ const faq = [
 		padding: 0;
 	}
 	.features li {
-		display: grid;
-		grid-template-columns: 5.5rem minmax(0, 1fr);
-		gap: 16px;
 		padding: 20px 0;
 		border-top: var(--hair);
 	}
 	.features li:last-child {
 		border-bottom: var(--hair);
 	}
-	.feat-n,
-	.step-n,
-	.faq-n {
-		color: var(--color-ink-3);
-		padding-top: 5px;
-	}
 	.features p {
 		margin-top: 6px;
 		color: var(--color-ink-2);
 		max-width: 60ch;
 	}
+	.does-figure > .prose-ink {
+		margin-top: 8px;
+	}
+	.gels {
+		list-style: none;
+		margin: 16px 0 20px;
+		padding: 0;
+		display: grid;
+		gap: 8px;
+		font-size: 15px;
+		color: var(--color-ink-2);
+	}
+	.gels li {
+		display: grid;
+		grid-template-columns: 10px minmax(0, 1fr);
+		column-gap: 10px;
+		align-items: baseline;
+	}
+	.gels .gel {
+		align-self: center;
+	}
+	.gels b {
+		font-weight: 600;
+		color: var(--color-ink);
+		margin-right: 6px;
+	}
 	.also {
-		margin-top: 32px;
+		margin-top: 40px;
 	}
 	@media (min-width: 1000px) {
 		.does-grid {
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
 			align-items: start;
-			gap: 64px;
-		}
-		.does-figure {
-			position: sticky;
-			top: calc(var(--header) + 32px);
+			gap: 56px;
 		}
 	}
 
+	/* The app */
 	.app-grid {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		gap: 40px;
+		gap: 36px;
 	}
 	.app-grid .prose-ink p + p {
 		margin-top: 14px;
@@ -612,63 +573,87 @@ const faq = [
 	.shot {
 		margin: 0;
 	}
+	.shot-frame {
+		border: var(--hair-strong);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		background: var(--color-raised);
+	}
 	.shot :global(img) {
 		display: block;
 		width: 100%;
 		height: auto;
-		border: var(--hair-strong);
+	}
+	.shot :global(.shot-dark) {
+		display: none;
+	}
+	@media (prefers-color-scheme: dark) {
+		.shot :global(.shot-dark) {
+			display: block;
+		}
+		.shot :global(.shot-light) {
+			display: none;
+		}
 	}
 	.shot figcaption {
 		display: grid;
-		gap: 4px;
+		gap: 2px;
 		margin-top: 12px;
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--color-ink-3);
 	}
-	.shot figcaption .caps-sm {
-		color: var(--color-fac-yellow);
+	.cap-title {
+		font-weight: 600;
+		color: var(--color-ink);
 	}
 	@media (min-width: 1100px) {
 		.app-grid {
 			grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
 			gap: 56px;
+			align-items: start;
 		}
 	}
 
+	/* Devices */
 	.table-wrap {
 		overflow-x: auto;
-		border-top: var(--hair-strong);
 	}
 	.devices {
 		width: 100%;
-		min-width: 680px;
+		min-width: 640px;
 		border-collapse: collapse;
-		font-size: 14px;
+		font-size: 15px;
 	}
 	.devices thead th {
 		text-align: left;
-		color: var(--color-ink-3);
-		padding: 12px 16px 12px 0;
-		border-bottom: var(--hair-strong);
+		font-size: 13px;
 		font-weight: 500;
+		color: var(--color-ink-3);
+		padding: 12px 16px;
+		border-bottom: var(--hair);
+		background: var(--color-raised);
 	}
 	.devices tbody th,
 	.devices td {
 		text-align: left;
-		padding: 16px 16px 16px 0;
+		padding: 14px 16px;
 		border-bottom: var(--hair);
 		vertical-align: top;
 		color: var(--color-ink-2);
 		font-weight: 400;
 	}
+	.devices tbody tr:last-child > * {
+		border-bottom: 0;
+	}
 	.dev-name {
 		display: block;
 		color: var(--color-ink);
-		font-size: 15px;
+		font-weight: 600;
 	}
 	.kind {
 		display: block;
-		margin-top: 4px;
+		margin-top: 2px;
+		font-size: 13px;
 		color: var(--color-ink-3);
 	}
 	.usb {
@@ -681,10 +666,18 @@ const faq = [
 	.conn {
 		color: var(--color-ink-3);
 	}
+	.devices a {
+		color: var(--color-ink);
+		text-decoration-color: var(--color-ink-4);
+	}
+	.devices a:hover {
+		text-decoration-color: var(--color-ink);
+	}
 	.after-table {
-		margin-top: 24px;
+		margin-top: 20px;
 	}
 
+	/* How it was built */
 	.built-grid {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -696,25 +689,25 @@ const faq = [
 	.links {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 16px 28px;
-		padding-top: 12px;
+		align-items: center;
+		gap: 12px 24px;
+		margin-top: 24px;
 	}
-	.links a {
+	.fig-title {
+		margin-bottom: 10px;
+		font-family: var(--font-display);
+		font-size: 16px;
+		font-weight: 600;
 		color: var(--color-ink);
 	}
 	.fnp {
-		margin-top: 40px;
-		padding-top: 16px;
-		border-top: var(--hair);
-	}
-	.fnp .caps-sm {
-		color: var(--color-ink-2);
+		margin-top: 36px;
 	}
 	pre {
-		margin-top: 12px;
 		padding: 14px 16px;
-		background: var(--color-raised);
+		background: var(--color-surface);
 		border: var(--hair);
+		border-radius: var(--radius);
 		color: var(--color-ink);
 		font-size: 13px;
 		line-height: 1.6;
@@ -726,23 +719,44 @@ const faq = [
 			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
 			gap: 64px;
 		}
+		.built-figure {
+			padding-top: 8px;
+		}
 	}
 
+	/* Install */
 	.steps {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: grid;
+		gap: 10px;
+		counter-reset: step;
 	}
 	.steps > li {
-		display: grid;
-		grid-template-columns: 5.5rem minmax(0, 1fr);
-		gap: 16px;
-		padding: 24px 0;
-		border-top: var(--hair);
+		position: relative;
+		min-width: 0;
+		padding: 18px 18px 18px 60px;
+		background: var(--color-surface);
+		border: var(--hair);
+		border-radius: var(--radius-lg);
+		counter-increment: step;
 	}
-	.steps > li:last-child {
-		border-bottom: var(--hair);
+	.steps > li::before {
+		content: counter(step);
+		position: absolute;
+		left: 18px;
+		top: 17px;
+		display: grid;
+		place-items: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		background: var(--color-surface-2);
+		color: var(--color-ink);
+		font-size: 14px;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
 	}
 	.steps h3 + * {
 		margin-top: 8px;
@@ -750,102 +764,66 @@ const faq = [
 	.steps pre + p {
 		margin-top: 10px;
 	}
+	.steps pre {
+		background: var(--color-raised);
+	}
 	.steps .prose-ink {
-		max-width: 70ch;
+		max-width: 72ch;
+	}
+	@media (max-width: 480px) {
+		.steps > li {
+			padding: 56px 16px 16px;
+		}
+		.steps > li::before {
+			left: 16px;
+			top: 16px;
+		}
 	}
 
+	/* FAQ */
 	.faq {
-		border-top: var(--hair);
 		max-width: 64rem;
+		overflow: hidden;
 	}
-	.steps > li > div {
-		min-width: 0;
-	}
-	details {
-		border-bottom: var(--hair);
+	details + details {
+		border-top: var(--hair);
 	}
 	summary {
 		display: grid;
-		grid-template-columns: 5.5rem minmax(0, 1fr) 16px;
+		grid-template-columns: minmax(0, 1fr) 16px;
 		gap: 16px;
-		align-items: baseline;
-		padding: 18px 0;
+		align-items: center;
+		padding: 16px 18px;
 		cursor: pointer;
 		list-style: none;
+		transition: background-color var(--t-fast) var(--ease);
 	}
 	summary::-webkit-details-marker {
 		display: none;
 	}
+	summary:hover {
+		background: var(--color-raised);
+	}
+	summary:focus-visible {
+		outline-offset: -2px;
+	}
 	.q {
 		color: var(--color-ink);
-		font-size: 1.0625rem;
-		font-stretch: 108%;
+		font-size: 16px;
+		font-weight: 600;
 	}
-	summary:hover .q {
-		text-decoration: underline;
-		text-decoration-thickness: 1px;
-		text-underline-offset: 0.22em;
-		text-decoration-color: var(--color-seam-2);
+	.chev {
+		fill: none;
+		stroke: var(--color-ink-3);
+		stroke-width: 1.8;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		transition: transform var(--t-mid) var(--ease);
 	}
-	.tick {
-		position: relative;
-		width: 12px;
-		height: 12px;
-		align-self: center;
-	}
-	.tick::before,
-	.tick::after {
-		content: '';
-		position: absolute;
-		background: var(--color-ink-2);
-		left: 0;
-		top: 5.5px;
-		width: 12px;
-		height: 1px;
-		transition: transform var(--t-fast) var(--ease);
-	}
-	.tick::after {
-		transform: rotate(90deg);
-	}
-	details[open] .tick::after {
-		transform: rotate(0deg);
-	}
-	details[open] summary .faq-n {
-		color: var(--color-fac-red);
+	details[open] .chev {
+		transform: rotate(180deg);
 	}
 	details > p {
-		padding: 0 0 22px calc(5.5rem + 16px);
-	}
-	@media (max-width: 560px) {
-		summary {
-			grid-template-columns: minmax(0, 1fr) 14px;
-			grid-template-areas: 'n n' 'q t';
-			row-gap: 4px;
-			gap: 12px;
-		}
-		summary .faq-n {
-			grid-area: n;
-		}
-		summary .q {
-			grid-area: q;
-		}
-		summary .tick {
-			grid-area: t;
-		}
-		details > p {
-			padding-left: 0;
-		}
-		.features li,
-		.steps > li {
-			grid-template-columns: minmax(0, 1fr);
-			gap: 6px;
-		}
-	}
-	.prose-ink :global(a) {
-		color: var(--color-ink);
-		text-decoration-color: var(--color-seam-2);
-	}
-	.prose-ink :global(a:hover) {
-		text-decoration-color: var(--color-ink);
+		padding: 0 18px 20px;
 	}
 </style>
