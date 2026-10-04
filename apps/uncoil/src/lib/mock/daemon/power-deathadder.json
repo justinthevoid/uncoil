@@ -1,0 +1,14 @@
+{
+  "battery_pct": 52,
+  "charging": true,
+  "idle_range": [
+    60,
+    900
+  ],
+  "idle_s": 600,
+  "low_battery_pct": 10,
+  "low_battery_range": [
+    5,
+    25
+  ]
+}

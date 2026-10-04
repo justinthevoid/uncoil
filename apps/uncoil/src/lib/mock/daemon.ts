@@ -12,19 +12,30 @@ import profilesKeyboard from './daemon/profiles-keyboard.json';
 import profilesMouse from './daemon/profiles-mouse.json';
 import dialState from './daemon/dial.json';
 import oledState from './daemon/oled.json';
-import type { Capabilities, DeviceInfo, DialState, KeyMapping, Layer, OledState } from '../types';
+import capsDeathAdder from './daemon/caps-deathadder.json';
+import deathAdderNormal from './daemon/keymap-deathadder-normal.json';
+import perfMouse from './daemon/performance-mouse.json';
+import perfDeathAdder from './daemon/performance-deathadder.json';
+import powerMouse from './daemon/power-mouse.json';
+import powerDeathAdder from './daemon/power-deathadder.json';
+import type { Capabilities, DeviceInfo, DialState, Dpi, Feature, FeatureCheck, KeyMapping, Layer, OledState, PerformanceState, PowerState } from '../types';
 import { describeFunction } from '../keys';
 
 const KB = 'razer-blackwidow-v4-pro-75';
 const MOUSE = 'razer-basilisk-v3-pro';
+/** Experimental: no lighting, checks start untested. */
+const DA = 'razer-deathadder-v3-pro';
 
 const state = {
 	devices: structuredClone(devices) as DeviceInfo[],
-	caps: { [KB]: capsKeyboard, [MOUSE]: capsMouse } as unknown as Record<string, Capabilities>,
+	caps: { [KB]: capsKeyboard, [MOUSE]: capsMouse, [DA]: structuredClone(capsDeathAdder) } as unknown as Record<string, Capabilities>,
 	keymap: {
 		[KB]: { normal: structuredClone(kbNormal), hypershift: structuredClone(kbFn) },
-		[MOUSE]: { normal: structuredClone(mouseNormal), hypershift: structuredClone(mouseFn) }
-	} as Record<string, Record<Layer, KeyMapping[]>>,
+		[MOUSE]: { normal: structuredClone(mouseNormal), hypershift: structuredClone(mouseFn) },
+		[DA]: { normal: structuredClone(deathAdderNormal) }
+	} as Record<string, Partial<Record<Layer, KeyMapping[]>>>,
+	performance: { [MOUSE]: structuredClone(perfMouse), [DA]: structuredClone(perfDeathAdder) } as Record<string, PerformanceState>,
+	power: { [MOUSE]: structuredClone(powerMouse), [DA]: structuredClone(powerDeathAdder) } as unknown as Record<string, PowerState>,
 	/** What each key held before the first write (like the daemon's journal). */
 	original: new Map<string, string>(),
 	profiles: { [KB]: profilesKeyboard, [MOUSE]: profilesMouse } as Record<string, unknown>,
@@ -35,7 +46,7 @@ const state = {
 // The maintainer's board has Fn+P remapped to Print Screen (docs/PROTOCOL.md); show that, with its factory
 // value as the recorded original, so Restore has something to restore.
 {
-	const p = state.keymap[KB].hypershift.find((k) => k.name === 'P');
+	const p = state.keymap[KB].hypershift!.find((k) => k.name === 'P');
 	if (p) {
 		state.original.set(`${KB}/hypershift/${p.key}`, p.function);
 		p.function = 'key PRINT_SCREEN';
@@ -63,8 +74,28 @@ function needWrite(args: Record<string, unknown>, name: string) {
 	if (args.write !== true) throw new Error(`this writes ${name}'s onboard memory; repeat with write=true (CLI: --write)`);
 }
 
+/** Experimental devices refuse onboard writes until the feature's read-only check has passed. */
+function gate(dev: string, feature: Feature) {
+	const c = state.caps[dev]?.checks?.find((x) => x.feature === feature);
+	if (c?.state === 'untested') throw new Error('check_failed: Run the device check first. uncoil only changes settings stored on an experimental device after it answers as expected.');
+	if (c?.state === 'failed') throw new Error(`check_failed: ${c.detail ?? 'The device did not answer as expected.'}`);
+}
+
+/** `?fail=keymap` (or dpi, poll_rate, power) in the dev URL makes that check fail, to see the failed state. */
+const failing = () => (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fail') : null);
+
+const DETAIL: Partial<Record<Feature, string>> = {
+	keymap: 'Button 1 read back as button 3 (expected left click).',
+	dpi: 'The DPI read back as 0, outside 100 to 30000.',
+	poll_rate: 'The polling rate reply had an unknown code.',
+	power: 'The sleep timer read back as 0 seconds.'
+};
+
+const write = <T>(before: T, after: T) => ({ before, after, verified: true, unchanged: JSON.stringify(before) === JSON.stringify(after) });
+
 function findKey(dev: string, layer: Layer, key: string): KeyMapping {
 	const rows = state.keymap[dev][layer];
+	if (!rows) throw new Error(`not_supported: this device has no ${layer} layer`);
 	const k = key.startsWith('#') ? rows.find((r) => r.key === Number(key.slice(1))) : rows.find((r) => r.name === key.toUpperCase());
 	if (!k) throw new Error(`no key \`${key}\``);
 	return k;
@@ -81,6 +112,7 @@ export async function mockDaemon(cmd: string, device: string | null, args: Recor
 		case 'keymap.dump': {
 			const dev = resolve(device);
 			needs(dev, 'keymap');
+			if (!state.keymap[dev][layer]) throw new Error(`not_supported: this device has no ${layer} layer`);
 			return structuredClone(state.keymap[dev][layer]);
 		}
 		case 'keymap.get': {
@@ -92,15 +124,21 @@ export async function mockDaemon(cmd: string, device: string | null, args: Recor
 			const dev = resolve(device);
 			needs(dev, 'keymap');
 			needWrite(args, dev);
+			gate(dev, 'keymap');
 			const k = findKey(dev, layer, args.key as string);
 			const id = `${dev}/${layer}/${k.key}`;
 			const before = structuredClone(k);
 			const target = cmd === 'keymap.set' ? (args.function as string) : (state.original.get(id) ?? k.function);
+			// Left-click guard (every mouse): never leave the normal layer without a button that left-clicks.
+			const isMouse = state.devices.find((d) => d.id === dev)?.kind === 'mouse';
+			if (isMouse && layer === 'normal' && target !== 'button 1' && !state.keymap[dev].normal!.some((r) => r.key !== k.key && r.function === 'button 1')) {
+				throw new Error('left_click_guard: This would leave no button that left-clicks. Map another button to left click first.');
+			}
 			if (!state.original.has(id)) state.original.set(id, k.function);
 			if (cmd === 'keymap.reset') state.original.delete(id);
 			if (target === k.function) return { before, after: before, verified: true, unchanged: true };
 			k.function = target;
-			k.description = describeFunction(target);
+			k.description = describeFunction(target, dev);
 			return { before, after: structuredClone(k), verified: true, unchanged: false };
 		}
 		case 'profile.list':
@@ -138,6 +176,80 @@ export async function mockDaemon(cmd: string, device: string | null, args: Recor
 			const d = state.devices.find((x) => x.id === resolve(device))!;
 			d.hw_effect = null;
 			return { effect: null, storage: 'session' };
+		}
+		case 'check.run': {
+			const dev = resolve(device);
+			const caps = state.caps[dev];
+			const fail = failing();
+			caps.checks = caps.checks.map((c): FeatureCheck => {
+				if (c.state === 'not_needed') return c;
+				if (c.feature === fail) return { ...c, state: 'failed', detail: DETAIL[c.feature] ?? 'The reply was not what uncoil expected.' };
+				return { ...c, state: 'passed', detail: null };
+			});
+			await sleep(500);
+			return structuredClone(caps.checks);
+		}
+		case 'performance.get': {
+			const dev = resolve(device);
+			if (!state.performance[dev]) throw new Error(`not_supported: ${dev} does not support dpi or poll_rate`);
+			return structuredClone(state.performance[dev]);
+		}
+		case 'performance.set': {
+			const dev = resolve(device);
+			const p = state.performance[dev];
+			if (!p) throw new Error(`not_supported: ${dev} does not support dpi or poll_rate`);
+			const inRange = (d: Dpi) => d.x >= p.dpi_min! && d.x <= p.dpi_max! && d.y >= p.dpi_min! && d.y <= p.dpi_max!;
+			if (args.stages === undefined && args.poll_hz === undefined) {
+				// Live DPI: not stored, like pressing the DPI button.
+				const dpi = args.dpi as Dpi;
+				if (!dpi || !inRange(dpi)) throw new Error(`DPI must be between ${p.dpi_min} and ${p.dpi_max}`);
+				p.dpi = { x: Math.round(dpi.x), y: Math.round(dpi.y) };
+				return structuredClone(p);
+			}
+			needWrite(args, dev);
+			const before = structuredClone(p);
+			if (args.stages !== undefined) {
+				gate(dev, 'dpi');
+				const st = args.stages as { active: number; list: Dpi[] };
+				if (!st.list.length || st.list.length > p.stages_max) throw new Error(`Between 1 and ${p.stages_max} DPI stages, please.`);
+				if (!st.list.every(inRange)) throw new Error(`Every stage must be between ${p.dpi_min} and ${p.dpi_max} DPI.`);
+				const active = Math.min(Math.max(1, st.active), st.list.length);
+				p.stages = { active, list: st.list.map((d) => ({ x: Math.round(d.x), y: Math.round(d.y) })) };
+				p.dpi = { ...p.stages.list[active - 1] };
+			}
+			if (args.poll_hz !== undefined) {
+				gate(dev, 'poll_rate');
+				if (!p.poll_rates.includes(args.poll_hz as number)) throw new Error(`The polling rate must be one of ${p.poll_rates.join(', ')} Hz.`);
+				p.poll_hz = args.poll_hz as number;
+			}
+			return write(before, structuredClone(p));
+		}
+		case 'power.get': {
+			const dev = resolve(device);
+			needs(dev, 'power');
+			return structuredClone(state.power[dev]);
+		}
+		case 'power.set': {
+			const dev = resolve(device);
+			needs(dev, 'power');
+			needWrite(args, dev);
+			gate(dev, 'power');
+			const p = state.power[dev];
+			const before = structuredClone(p);
+			if (args.idle_s !== undefined) {
+				const [lo, hi] = p.idle_range!;
+				const v = Number(args.idle_s);
+				if (v < lo || v > hi) throw new Error(`The sleep timer must be between ${lo} and ${hi} seconds.`);
+				p.idle_s = v;
+			}
+			if (args.low_battery_pct !== undefined) {
+				const [lo, hi] = p.low_battery_range!;
+				const v = Number(args.low_battery_pct);
+				if (v < lo || v > hi) throw new Error(`The low battery warning must be between ${lo} and ${hi} %.`);
+				// Stored as a fraction of 255 on the device, so it reads back rounded.
+				p.low_battery_pct = Math.round((Math.round((v / 100) * 255) / 255) * 100);
+			}
+			return write(before, structuredClone(p));
 		}
 		default:
 			throw new Error(`mock daemon: unknown command ${cmd}`);

@@ -36,8 +36,10 @@ function status(): Status {
 		devices: [
 			{ id: 'razer-blackwidow-v4-pro-75', name: 'Razer BlackWidow V4 Pro 75%', product_id: 0x02b3, connection: 'wired', fps: 29.8, busy_retries: 12, errors: 0 },
 			{ id: 'razer-basilisk-v3-pro', name: 'Razer Basilisk V3 Pro', product_id: 0x00aa, connection: 'wired', fps: 30.0, busy_retries: 3, errors: 1 },
-			{ id: 'razer-goliathus-chroma-extended', name: 'Razer Goliathus Chroma Extended', product_id: 0x0c02, connection: 'wired', fps: 30.0, busy_retries: 0, errors: 0 }
-		]
+			{ id: 'razer-goliathus-chroma-extended', name: 'Razer Goliathus Chroma Extended', product_id: 0x0c02, connection: 'wired', fps: 30.0, busy_retries: 0, errors: 0 },
+			{ id: 'razer-deathadder-v3-pro', name: 'Razer DeathAdder V3 Pro', product_id: 0x00b6, connection: 'wired', fps: 0, busy_retries: 0, errors: 0 }
+		],
+		unknown_devices: [{ product_id: 0x0ffe, interfaces: [0, 1, 2] }]
 	};
 }
 

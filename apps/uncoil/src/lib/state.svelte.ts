@@ -11,6 +11,9 @@ export const app = $state({
 	loadError: null as string | null
 });
 
+/** Ids of the devices the daemon reports as connected, sorted (for the desk and the preview). */
+export const connectedIds = (): string[] => (app.status?.devices.map((d) => d.id) ?? []).toSorted();
+
 export async function loadConfig() {
 	try {
 		app.config = await getConfig();

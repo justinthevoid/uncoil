@@ -1,16 +1,10 @@
 <script lang="ts">
 	import { ExternalLink } from '@lucide/svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
-	import { inTauri } from '#lib/api.ts';
+	import { openExternal as open } from '#lib/api.ts';
 	import { app } from '#lib/state.svelte.ts';
 
 	const REPO = 'https://github.com/justinthevoid/uncoil';
-	async function open(url: string) {
-		if (inTauri) {
-			const { openUrl } = await import('@tauri-apps/plugin-opener');
-			await openUrl(url);
-		} else window.open(url, '_blank', 'noopener');
-	}
 	const s = $derived(app.status);
 	const mb = (b: number) => (b / 1048576).toFixed(1);
 </script>

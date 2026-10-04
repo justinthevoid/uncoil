@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, type Component } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { CircleDot, Info, Layers, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
-	import { app, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
+	import { BatteryMedium, CircleDot, Gauge, Info, Layers, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
+	import { app, connectedIds, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
 	import { daemon, getDesk } from '#lib/api.ts';
 	import { pipe, loadDevices } from '#lib/daemon.svelte.ts';
 	import { ms } from '#lib/motion.ts';
@@ -13,12 +13,18 @@
 	import DialScreenView from '#lib/views/DialScreenView.svelte';
 	import OnboardEffectsView from '#lib/views/OnboardEffectsView.svelte';
 	import DeviceInfoView from '#lib/views/DeviceInfoView.svelte';
+	import PerformanceView from '#lib/views/PerformanceView.svelte';
+	import PowerView from '#lib/views/PowerView.svelte';
+	import { EXPERIMENTAL, EXPERIMENTAL_TEXT } from '#lib/checks.ts';
 	import SettingsView from '#lib/views/SettingsView.svelte';
 	import AboutView from '#lib/views/AboutView.svelte';
-	import type { Config, DeskDevice, DeviceKind, ProfileInfo } from '#lib/types.ts';
+	import type { Config, DeskDevice, DeviceInfo, DeviceKind, Feature as DeviceFeature, ProfileInfo } from '#lib/types.ts';
 
 	type Icon = Component<{ size?: number; strokeWidth?: number }>;
-	type Feature = 'lighting' | 'studio' | 'devices' | 'keys' | 'dial' | 'effects' | 'info' | 'settings' | 'about';
+	type Feature = 'lighting' | 'studio' | 'devices' | 'keys' | 'performance' | 'power' | 'dial' | 'effects' | 'info' | 'settings' | 'about';
+	type Entry = { id: Feature; label: string; icon: Icon };
+	/** A device tab: on the desk (has a layout), or only known from the engine (no lighting, e.g. most mice without RGB). */
+	type Tab = { id: string; name: string; kind: DeviceKind; desk: DeskDevice | null; info: DeviceInfo | null };
 
 	const shortName = (n: string) => n.replace(/^Razer /, '').replace(/ Chroma Extended$/, ' Chroma');
 
@@ -28,44 +34,67 @@
 	const remembered = new Map<string, Feature>();
 
 	const kindIcon: Record<DeviceKind, Icon> = { keyboard: KeyboardIcon, mouse: Mouse, mousemat: RectangleHorizontal, headset: Info, other: Info };
-	const FEATURES: Record<string, { id: Feature; label: string; icon: Icon }[]> = {
-		desk: [
-			{ id: 'lighting', label: 'Lighting', icon: Lightbulb },
-			{ id: 'studio', label: 'Studio', icon: Layers },
-			{ id: 'devices', label: 'Devices', icon: LayoutGrid }
-		],
-		keyboard: [
-			{ id: 'keys', label: 'Keys', icon: KeyboardIcon },
-			{ id: 'dial', label: 'Dial & screen', icon: CircleDot },
-			{ id: 'effects', label: 'Onboard effects', icon: Palette },
-			{ id: 'info', label: 'Device info', icon: Info }
-		],
-		mouse: [
-			{ id: 'keys', label: 'Buttons', icon: Mouse },
-			{ id: 'effects', label: 'Onboard effects', icon: Palette },
-			{ id: 'info', label: 'Device info', icon: Info }
-		],
-		mousemat: [
-			{ id: 'effects', label: 'Onboard effects', icon: Palette },
-			{ id: 'info', label: 'Device info', icon: Info }
-		],
-		settings: [
-			{ id: 'settings', label: 'Display & RGB', icon: Monitor },
-			{ id: 'about', label: 'About', icon: Info }
-		]
+	const DESK: Entry[] = [
+		{ id: 'lighting', label: 'Lighting', icon: Lightbulb },
+		{ id: 'studio', label: 'Studio', icon: Layers },
+		{ id: 'devices', label: 'Devices', icon: LayoutGrid }
+	];
+	const SETTINGS: Entry[] = [
+		{ id: 'settings', label: 'Display & RGB', icon: Monitor },
+		{ id: 'about', label: 'About', icon: Info }
+	];
+	/** What a device can do before the engine has said (or while it's unplugged): today's defaults per kind. */
+	const DEFAULT_FEATURES: Record<DeviceKind, DeviceFeature[]> = {
+		keyboard: ['keymap', 'dial', 'hw_effects'],
+		mouse: ['keymap', 'hw_effects'],
+		mousemat: ['hw_effects'],
+		headset: [],
+		other: []
 	};
 
-	const device = $derived(desk.find((d) => d.id === tab) ?? null);
-	const features = $derived(tab === 'desk' ? FEATURES.desk : tab === 'settings' ? FEATURES.settings : (FEATURES[device?.kind ?? ''] ?? FEATURES.mousemat));
+	/** The rail for a device, from what it supports. */
+	function deviceEntries(t: Tab): Entry[] {
+		const f = t.info?.features ?? DEFAULT_FEATURES[t.kind];
+		const has = (x: DeviceFeature) => f.includes(x);
+		const list: Entry[] = [];
+		if (has('keymap')) list.push(t.kind === 'mouse' ? { id: 'keys', label: 'Buttons', icon: Mouse } : { id: 'keys', label: 'Keys', icon: KeyboardIcon });
+		if (has('dpi') || has('poll_rate')) list.push({ id: 'performance', label: 'Performance', icon: Gauge });
+		if (has('power')) list.push({ id: 'power', label: 'Battery & sleep', icon: BatteryMedium });
+		if (has('dial') || has('oled')) list.push({ id: 'dial', label: 'Dial & screen', icon: CircleDot });
+		if (has('hw_effects')) list.push({ id: 'effects', label: 'Onboard effects', icon: Palette });
+		list.push({ id: 'info', label: 'Device info', icon: Info });
+		return list;
+	}
+
+	// Desk devices first (their order), then connected devices that have no place on the desk.
+	const tabs = $derived.by((): Tab[] => {
+		const list: Tab[] = desk.map((d) => ({ id: d.id, name: d.name, kind: d.kind, desk: d, info: pipe.devices.find((p) => p.id === d.id) ?? null }));
+		for (const p of pipe.devices) if (!desk.some((d) => d.id === p.id)) list.push({ id: p.id, name: p.name, kind: p.kind, desk: null, info: p });
+		return list;
+	});
+	const entriesFor = (id: string) => {
+		if (id === 'desk') return DESK;
+		if (id === 'settings') return SETTINGS;
+		const t = tabs.find((x) => x.id === id);
+		return t ? deviceEntries(t) : [{ id: 'info' as const, label: 'Device info', icon: Info }];
+	};
+
+	const device = $derived(tabs.find((d) => d.id === tab) ?? null);
+	const features = $derived(entriesFor(tab));
+	const experimental = $derived(device?.info?.support === 'experimental');
 	const railTitle = $derived(tab === 'desk' ? 'Whole desk' : tab === 'settings' ? 'Settings' : shortName(device?.name ?? ''));
 
 	function openTab(id: string) {
 		remembered.set(tab, feature);
 		tab = id;
-		const list = id === 'desk' ? FEATURES.desk : id === 'settings' ? FEATURES.settings : (FEATURES[desk.find((d) => d.id === id)?.kind ?? ''] ?? FEATURES.mousemat);
+		const list = entriesFor(id);
 		const last = remembered.get(id);
 		feature = last && list.some((f) => f.id === last) ? last : list[0].id;
 	}
+	// The engine's device list can arrive after a tab is open; keep the page on something the rail offers.
+	$effect(() => {
+		if (!features.some((f) => f.id === feature)) feature = features[0].id;
+	});
 
 	const live = (id: string) => !!app.status?.devices.some((d) => d.id === id);
 
@@ -80,11 +109,17 @@
 	});
 	const profileText = $derived(profile && profile.id === device?.id ? `Profile ${profile.info.active ?? 1} of ${profile.info.max} slots (${profile.info.count} in use).` : '');
 
+	// The desk (and so the device tabs) follows what is connected: experimental devices with a layout join it.
+	const connectedKey = $derived(connectedIds().join(','));
+	$effect(() => {
+		const ids = connectedKey ? connectedKey.split(',') : [];
+		const config = app.config;
+		if (config) getDesk($state.snapshot(config) as Config, ids).then((d) => (desk = d));
+	});
+
 	onMount(() => {
 		loadDevices();
-		loadConfig().then(async () => {
-			if (app.config) desk = await getDesk($state.snapshot(app.config) as Config);
-		});
+		loadConfig();
 		pollStatus();
 		const id = setInterval(pollStatus, 2000);
 		return () => clearInterval(id);
@@ -121,9 +156,9 @@
 			return;
 		}
 		const n = Number(e.key);
-		const tabs = ['desk', ...desk.map((d) => d.id)];
-		if (n >= 1 && n <= tabs.length) {
-			openTab(tabs[n - 1]);
+		const ids = ['desk', ...tabs.map((d) => d.id)];
+		if (n >= 1 && n <= ids.length) {
+			openTab(ids[n - 1]);
 			e.preventDefault();
 		}
 	}
@@ -141,10 +176,11 @@
 			<button type="button" class="tab" aria-current={tab === 'desk' ? 'page' : undefined} onclick={() => openTab('desk')}>
 				<LayoutGrid size={16} strokeWidth={1.75} />Desk
 			</button>
-			{#each desk as d (d.id)}
+			{#each tabs as d (d.id)}
 				{@const Icon = kindIcon[d.kind]}
-				<button type="button" class="tab" aria-current={tab === d.id ? 'page' : undefined} onclick={() => openTab(d.id)}>
-					<Icon size={16} strokeWidth={1.75} />{shortName(d.name)}
+				{@const exp = d.info?.support === 'experimental'}
+				<button type="button" class="tab" aria-current={tab === d.id ? 'page' : undefined} title={exp ? `${EXPERIMENTAL}: ${EXPERIMENTAL_TEXT}` : undefined} onclick={() => openTab(d.id)}>
+					<Icon size={16} strokeWidth={1.75} /><span class="tab-name">{shortName(d.name)}</span>
 					<span class="dot" class:on={live(d.id)} class:unknown={!app.status} aria-label={!app.status ? 'Engine not running' : live(d.id) ? 'Connected' : 'Not connected'}></span>
 					{#if app.status && !live(d.id)}<span class="away">Not connected</span>{/if}
 				</button>
@@ -175,6 +211,8 @@
 		{/if}
 		{#if engine.state === 'stopped'}
 			<p class="rail-note">The engine isn't running. Lighting changes are saved and apply when it starts.</p>
+		{:else if device && experimental}
+			<p class="rail-note"><b>{EXPERIMENTAL}.</b> {EXPERIMENTAL_TEXT} Device info has the checks and a link to tell us how it went.</p>
 		{:else if device}
 			<p class="rail-note">{#if profileText}<b>{profileText}</b><br />{/if}Changes on this {device.kind === 'mousemat' ? 'mat' : device.kind}'s pages are saved in the device itself, so they keep working without uncoil.</p>
 		{/if}
@@ -196,12 +234,16 @@
 						<DevicesView config={app.config} onopen={openTab} />
 					{:else if feature === 'keys' && device}
 						<KeysView config={app.config} deviceId={device.id} />
+					{:else if feature === 'performance' && device}
+						<PerformanceView deviceId={device.id} />
+					{:else if feature === 'power' && device}
+						<PowerView deviceId={device.id} />
 					{:else if feature === 'dial' && device}
 						<DialScreenView deviceId={device.id} />
 					{:else if feature === 'effects' && device}
 						<OnboardEffectsView deviceId={device.id} />
 					{:else if feature === 'info' && device}
-						<DeviceInfoView {device} />
+						<DeviceInfoView device={{ id: device.id, name: device.name, kind: device.kind }} desk={device.desk} />
 					{:else if feature === 'settings'}
 						<SettingsView config={app.config} />
 					{:else}
@@ -248,6 +290,12 @@
 		display: flex;
 		gap: 2px;
 		min-width: 0;
+		overflow: hidden;
+	}
+	.tab-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.tab {
 		display: flex;
@@ -261,9 +309,15 @@
 		color: var(--color-ink-3);
 		font-weight: 500;
 		white-space: nowrap;
+		min-width: 0;
+		flex: 0 1 auto;
 		transition:
 			background-color var(--t-mid) var(--ease),
 			color var(--t-mid) var(--ease);
+	}
+	.tab :global(svg),
+	.tab .dot {
+		flex: none;
 	}
 	.tab:hover {
 		color: var(--color-ink);
@@ -411,6 +465,10 @@
 		}
 		.short {
 			display: inline;
+		}
+		.brand {
+			width: auto;
+			margin-right: 14px;
 		}
 	}
 </style>

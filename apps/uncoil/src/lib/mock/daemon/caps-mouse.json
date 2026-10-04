@@ -1,11 +1,51 @@
 {
+  "checks": [
+    {
+      "detail": null,
+      "feature": "lighting",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "hw_effects",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "keymap",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "profiles",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "dpi",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "poll_rate",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "power",
+      "state": "not_needed"
+    }
+  ],
   "connected": true,
   "dial_modes": [],
   "features": [
     "lighting",
     "hw_effects",
     "keymap",
-    "profiles"
+    "profiles",
+    "dpi",
+    "poll_rate",
+    "power"
   ],
   "hw_effects": [
     "off",
@@ -89,5 +129,6 @@
   ],
   "kind": "mouse",
   "name": "Razer Basilisk V3 Pro",
-  "probed": null
+  "probed": null,
+  "support": "supported"
 }

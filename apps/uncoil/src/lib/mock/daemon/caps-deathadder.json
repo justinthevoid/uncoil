@@ -1,0 +1,78 @@
+{
+  "checks": [
+    {
+      "detail": null,
+      "feature": "keymap",
+      "state": "untested"
+    },
+    {
+      "detail": null,
+      "feature": "dpi",
+      "state": "untested"
+    },
+    {
+      "detail": null,
+      "feature": "poll_rate",
+      "state": "untested"
+    },
+    {
+      "detail": null,
+      "feature": "power",
+      "state": "untested"
+    }
+  ],
+  "connected": true,
+  "dial_modes": [],
+  "features": [
+    "keymap",
+    "dpi",
+    "poll_rate",
+    "power"
+  ],
+  "hw_effects": [],
+  "id": "razer-deathadder-v3-pro",
+  "keymap_layers": [
+    "normal"
+  ],
+  "keys": [
+    {
+      "id": 1,
+      "led": null,
+      "name": "LEFT_CLICK"
+    },
+    {
+      "id": 2,
+      "led": null,
+      "name": "RIGHT_CLICK"
+    },
+    {
+      "id": 3,
+      "led": null,
+      "name": "WHEEL_CLICK"
+    },
+    {
+      "id": 4,
+      "led": null,
+      "name": "BACK"
+    },
+    {
+      "id": 5,
+      "led": null,
+      "name": "FORWARD"
+    },
+    {
+      "id": 9,
+      "led": null,
+      "name": "WHEEL_UP"
+    },
+    {
+      "id": 10,
+      "led": null,
+      "name": "WHEEL_DOWN"
+    }
+  ],
+  "kind": "mouse",
+  "name": "Razer DeathAdder V3 Pro",
+  "probed": null,
+  "support": "experimental"
+}

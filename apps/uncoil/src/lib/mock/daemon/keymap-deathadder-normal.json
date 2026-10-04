@@ -1,0 +1,58 @@
+[
+  {
+    "description": "mouse button 1",
+    "function": "button 1",
+    "key": 1,
+    "layer": "normal",
+    "name": "LEFT_CLICK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 2",
+    "function": "button 2",
+    "key": 2,
+    "layer": "normal",
+    "name": "RIGHT_CLICK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 3",
+    "function": "button 3",
+    "key": 3,
+    "layer": "normal",
+    "name": "WHEEL_CLICK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 4",
+    "function": "button 4",
+    "key": 4,
+    "layer": "normal",
+    "name": "BACK",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 5",
+    "function": "button 5",
+    "key": 5,
+    "layer": "normal",
+    "name": "FORWARD",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 9",
+    "function": "button 9",
+    "key": 9,
+    "layer": "normal",
+    "name": "WHEEL_UP",
+    "profile": 1
+  },
+  {
+    "description": "mouse button 10",
+    "function": "button 10",
+    "key": 10,
+    "layer": "normal",
+    "name": "WHEEL_DOWN",
+    "profile": 1
+  }
+]

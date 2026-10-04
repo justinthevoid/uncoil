@@ -2,6 +2,7 @@
 // engine (or the mock), and simulated inputs so reactive, ripple and audio effects can be previewed.
 import { getDesk, previewFrame } from './api';
 import { reducedMotion } from './motion';
+import { connectedIds } from './state.svelte';
 import type { Config, DeskDevice, Effect, PreviewPress } from './types';
 
 const usesKind = (e: Effect, kinds: string[]): boolean => (e.kind === 'studio' ? e.layers.some((l) => l.enabled && kinds.includes(l.effect.kind)) : kinds.includes(e.kind));
@@ -47,19 +48,26 @@ export function createPreview(getConfig: () => Config) {
 		let alive = true;
 		let busy = false;
 		const cfg = () => $state.snapshot(getConfig()) as Config;
-		getDesk(cfg()).then(async (d) => {
+		// The desk follows what is connected: an experimental device with a layout joins it when it connects.
+		let deskKey = '';
+		const loadDesk = async () => {
+			const ids = connectedIds();
+			deskKey = ids.join(',');
+			const d = await getDesk(cfg(), ids);
 			if (!alive) return;
 			state.desk = d;
-			state.colors = await previewFrame(cfg(), time());
-		});
+			state.colors = await previewFrame(cfg(), time(), [], 0, ids);
+		};
+		loadDesk();
 		const id = setInterval(async () => {
 			if (!state.desk.length || busy || (document.hidden && state.colors.length)) return;
 			busy = true;
 			try {
+				if (connectedIds().join(',') !== deskKey) await loadDesk();
 				const c = cfg();
 				const t = time();
 				simulate(t, c);
-				const f = await previewFrame(c, t, presses, usesKind(c.effect, ['audio_meter']) ? audioAt(t) : 0);
+				const f = await previewFrame(c, t, presses, usesKind(c.effect, ['audio_meter']) ? audioAt(t) : 0, deskKey ? deskKey.split(',') : []);
 				if (alive) state.colors = f;
 			} finally {
 				busy = false;

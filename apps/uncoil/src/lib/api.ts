@@ -15,13 +15,22 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
 export const getConfig = () => invoke<Config>('get_config');
 export const saveConfig = (config: Config) => invoke<void>('save_config', { config });
-export const getDesk = (config: Config) => invoke<DeskDevice[]>('get_desk', { config });
+/** `connected`: ids of connected devices, so experimental devices with a layout join the desk. */
+export const getDesk = (config: Config, connected: string[] = []) => invoke<DeskDevice[]>('get_desk', { config, connected });
 /** Hex colour per shape per device, same order as `getDesk`, from the real effect engine. */
 /** `presses` simulate key presses (reactive, ripple); `audio` simulates the audio level 0..1 (audio meter). */
-export const previewFrame = (config: Config, t: number, presses: PreviewPress[] = [], audio = 0) =>
-	invoke<string[][]>('preview_frame', { config, t, presses, audio });
+export const previewFrame = (config: Config, t: number, presses: PreviewPress[] = [], audio = 0, connected: string[] = []) =>
+	invoke<string[][]>('preview_frame', { config, t, presses, audio, connected });
 /** `null` when the daemon is not running (no status file, or it is more than 10 s old). */
 export const getStatus = () => invoke<Status | null>('get_status');
+
+/** Open a web page in the system browser (the Tauri opener plugin; a new tab under `pnpm dev`). */
+export async function openExternal(url: string) {
+	if (inTauri) {
+		const { openUrl } = await import('@tauri-apps/plugin-opener');
+		await openUrl(url);
+	} else window.open(url, '_blank', 'noopener');
+}
 
 /** A failed control-pipe call. `unreachable` means uncoild (0.2+, with the control pipe) isn't answering. */
 export class DaemonError extends Error {

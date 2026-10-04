@@ -10,15 +10,20 @@
 		children: Snippet;
 		panel?: Snippet;
 		panelLabel?: string;
+		/** A quiet tag after the title, e.g. "Experimental", with a one-line explanation as its tooltip. */
+		badge?: { text: string; title: string } | null;
 	}
-	let { title, subtitle, tools, children, panel, panelLabel = 'Details' }: Props = $props();
+	let { title, subtitle, tools, children, panel, panelLabel = 'Details', badge = null }: Props = $props();
 </script>
 
 <div class="ws" class:has-panel={!!panel}>
 	<section class="stage">
 		<header class="head">
 			<div class="titles">
-				<h1 class="page-title">{title}</h1>
+				<div class="title-row">
+					<h1 class="page-title">{title}</h1>
+					{#if badge}<span class="badge" title={badge.title}>{badge.text}</span>{/if}
+				</div>
 				{#if subtitle}<p class="sub">{subtitle}</p>{/if}
 			</div>
 			{#if tools}<div class="tools">{@render tools()}</div>{/if}
@@ -58,6 +63,21 @@
 	.titles {
 		margin-right: auto;
 		min-width: 0;
+	}
+	.title-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.badge {
+		padding: 1px 8px;
+		border: var(--hair-strong);
+		border-radius: var(--radius-sm);
+		color: var(--color-ink-2);
+		font-size: 11.5px;
+		font-weight: 500;
+		line-height: 18px;
+		white-space: nowrap;
 	}
 	.sub {
 		margin: 2px 0 0;

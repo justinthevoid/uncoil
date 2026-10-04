@@ -42,7 +42,9 @@ export const MOUSE_BUTTONS: { value: number; label: string }[] = [
 	{ value: 105, label: 'Wheel tilt right' }
 ];
 
-const RAZER_KEYS: Record<number, string> = {
+/** The BlackWidow V4 Pro 75%'s Razer-only key codes. Other models use the same codes for other things. */
+const BLACKWIDOW = 'razer-blackwidow-v4-pro-75';
+const BW_KEYS: Record<number, string> = {
 	1: 'Fn held',
 	3: 'game mode',
 	4: 'macro record',
@@ -57,8 +59,8 @@ const RAZER_KEYS: Record<number, string> = {
 	96: 'dial'
 };
 
-/** Keycap-sized names for Razer keys. */
-const RAZER_CAPS: Record<number, string> = {
+/** Keycap-sized names for the BlackWidow's Razer keys. */
+const BW_CAPS: Record<number, string> = {
 	1: 'Fn',
 	3: 'Game',
 	4: 'Macro',
@@ -105,6 +107,11 @@ const SHORT: Record<string, string> = {
 	DOWN: '↓︎'
 };
 
+/** Razer-only key codes per device id: what each does, and a keycap-sized name. Unknown devices get neither. */
+const RAZER_KEYS: Record<string, Record<number, string>> = { [BLACKWIDOW]: BW_KEYS };
+const RAZER_CAPS: Record<string, Record<number, string>> = { [BLACKWIDOW]: BW_CAPS };
+const razerKey = (n: number, device?: string | null) => (device ? RAZER_KEYS[device]?.[n] : undefined);
+
 const ACRONYMS = /\b(dpi|oled|usb|led|kp)\b/g;
 const title = (s: string) =>
 	s.toLowerCase().replace(/_/g, ' ').replace(ACRONYMS, (m) => m.toUpperCase()).replace(/^\w/, (c) => c.toUpperCase());
@@ -150,7 +157,7 @@ export function toSpec(m: Mapping): string {
 }
 
 /** Close to `Function::describe` in keymap.rs; only used where the daemon hasn't described it (the mock). */
-export function describeFunction(spec: string): string {
+export function describeFunction(spec: string, device?: string | null): string {
 	const m = parseSpec(spec);
 	if (m.type === 'off') return 'nothing';
 	if (m.type === 'button') return `mouse button ${m.button}`;
@@ -161,14 +168,14 @@ export function describeFunction(spec: string): string {
 	}
 	const [head, n] = spec.split(/\s+/);
 	if (head === 'razer') {
-		const name = RAZER_KEYS[Number(n)];
+		const name = razerKey(Number(n), device);
 		return name ? `Razer key ${n} (${name}; handled by host software)` : `Razer key ${n} (handled by host software)`;
 	}
 	return spec;
 }
 
 /** A few characters for the key cap in the keyboard drawing. */
-export function shortLabel(spec: string): string {
+export function shortLabel(spec: string, device?: string | null): string {
 	const m = parseSpec(spec);
 	if (m.type === 'off') return 'Off';
 	if (m.type === 'button') return MOUSE_BUTTONS.find((b) => b.value === m.button)?.label.split(' ')[0] ?? `M${m.button}`;
@@ -178,7 +185,7 @@ export function shortLabel(spec: string): string {
 		return m.mods.length ? `${m.mods.map((x) => x[1].toUpperCase()).join('')}+${base}` : base;
 	}
 	const [head, n] = spec.split(/\s+/);
-	if (head === 'razer') return RAZER_CAPS[Number(n)] ?? `Rz${n}`;
+	if (head === 'razer') return (device ? RAZER_CAPS[device]?.[Number(n)] : undefined) ?? `Rz${n}`;
 	if (head === 'dpi') return 'DPI';
 	if (head === 'profile') return 'Prof';
 	return head;
@@ -209,17 +216,18 @@ export const GEL_NAMES: Record<Gel, string> = {
 	system: 'System'
 };
 
-const RAZER_GEL: Record<number, Gel> = { 1: 'system', 3: 'media', 4: 'media', 8: 'light', 9: 'light', 11: 'system', 76: 'system', 82: 'media', 83: 'media', 84: 'media', 85: 'media', 96: 'media' };
+const BW_GEL: Record<number, Gel> = { 1: 'system', 3: 'media', 4: 'media', 8: 'light', 9: 'light', 11: 'system', 76: 'system', 82: 'media', 83: 'media', 84: 'media', 85: 'media', 96: 'media' };
 const MEDIA_KEYS = new Set(['MUTE', 'VOLUME_UP', 'VOLUME_DOWN']);
+const RAZER_GEL: Record<string, Record<number, Gel>> = { [BLACKWIDOW]: BW_GEL };
 
 /**
  * Which gel a mapping carries, or null for a key doing its ordinary job. `changed` says the mapping differs
  * from what the key does normally (on the Fn layer: differs from the normal layer).
  */
-export function gelFor(spec: string, changed: boolean): Gel | null {
+export function gelFor(spec: string, changed: boolean, device?: string | null): Gel | null {
 	if (!changed) return null;
 	const [head, n] = spec.trim().split(/\s+/);
-	if (head === 'razer') return RAZER_GEL[Number(n)] ?? 'system';
+	if (head === 'razer') return (device ? RAZER_GEL[device]?.[Number(n)] : undefined) ?? 'system';
 	if (head === 'power' || head === 'profile' || head === 'dpi') return 'system';
 	if (head === 'lighting') return 'light';
 	if (head === 'media' || head === 'macro') return 'media';
@@ -229,12 +237,12 @@ export function gelFor(spec: string, changed: boolean): Gel | null {
 }
 
 /** A short, human name for what a mapping does (lists and the details panel). */
-export function actionName(spec: string, description: string): string {
+export function actionName(spec: string, description: string, device?: string | null): string {
 	const [head, ...rest] = spec.trim().split(/\s+/);
 	const n = Number(rest[0]);
 	switch (head) {
 		case 'razer': {
-			const name = RAZER_KEYS[n];
+			const name = razerKey(n, device);
 			return name ? name[0].toUpperCase() + name.slice(1) : `Synapse-only key ${n}`;
 		}
 		case 'button':

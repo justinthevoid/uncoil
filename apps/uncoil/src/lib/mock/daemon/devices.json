@@ -5,13 +5,17 @@
       "lighting",
       "hw_effects",
       "keymap",
-      "profiles"
+      "profiles",
+      "dpi",
+      "poll_rate",
+      "power"
     ],
     "hw_effect": null,
     "id": "razer-basilisk-v3-pro",
     "kind": "mouse",
     "name": "Razer Basilisk V3 Pro",
-    "product_id": 170
+    "product_id": 170,
+    "support": "supported"
   },
   {
     "connection": "fake",
@@ -27,6 +31,22 @@
     "id": "razer-blackwidow-v4-pro-75",
     "kind": "keyboard",
     "name": "Razer BlackWidow V4 Pro 75%",
-    "product_id": 691
+    "product_id": 691,
+    "support": "supported"
+  },
+  {
+    "connection": "fake",
+    "features": [
+      "keymap",
+      "dpi",
+      "poll_rate",
+      "power"
+    ],
+    "hw_effect": null,
+    "id": "razer-deathadder-v3-pro",
+    "kind": "mouse",
+    "name": "Razer DeathAdder V3 Pro",
+    "product_id": 182,
+    "support": "experimental"
   }
 ]

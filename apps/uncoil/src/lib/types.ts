@@ -135,11 +135,27 @@ export interface Status {
 	memory_bytes: number;
 	cpu_percent: number;
 	exe_bytes: number;
+	/** Razer devices (vendor 0x1532) connected with no device definition. Missing from older engines. */
+	unknown_devices: UnknownDevice[];
+}
+
+export interface UnknownDevice {
+	product_id: number;
+	interfaces: number[];
 }
 
 // ---- control pipe (uncoil_core::ipc). Keep in sync with crates/uncoil-core/src/{ipc,features/*}.rs ----
 
-export type Feature = 'lighting' | 'hw_effects' | 'keymap' | 'profiles' | 'dial' | 'oled';
+export type Feature = 'lighting' | 'hw_effects' | 'keymap' | 'profiles' | 'dial' | 'oled' | 'dpi' | 'poll_rate' | 'power';
+/** `experimental`: set up from OpenRazer/OpenRGB data, not yet confirmed on real hardware. */
+export type Support = 'supported' | 'experimental';
+/** A read-only check that gates onboard writes on experimental devices. Supported devices: `not_needed`. */
+export type CheckState = 'passed' | 'failed' | 'untested' | 'not_needed';
+export interface FeatureCheck {
+	feature: Feature;
+	state: CheckState;
+	detail: string | null;
+}
 /** `hypershift` is the Fn layer. */
 export type Layer = 'normal' | 'hypershift';
 
@@ -152,6 +168,7 @@ export interface DeviceInfo {
 	features: Feature[];
 	/** Firmware effect spec showing instead of the software effect, e.g. `"wave left speed 40"`. */
 	hw_effect: string | null;
+	support: Support;
 }
 
 export interface KeyInfo {
@@ -171,6 +188,8 @@ export interface Capabilities {
 	keymap_layers: Layer[];
 	keys: KeyInfo[];
 	dial_modes: string[];
+	support: Support;
+	checks: FeatureCheck[];
 }
 
 export interface KeyMapping {
@@ -222,4 +241,33 @@ export interface OledState {
 export interface EffectState {
 	effect: string | null;
 	storage: 'session' | 'onboard';
+}
+
+export interface Dpi {
+	x: number;
+	y: number;
+}
+
+/** `performance.get`. Fields are null when the device doesn't support or couldn't read them. */
+export interface PerformanceState {
+	dpi: Dpi | null;
+	dpi_min: number | null;
+	dpi_max: number | null;
+	/** `active` is 1-based. */
+	stages: { active: number; list: Dpi[] } | null;
+	/** 0 when stages aren't supported. */
+	stages_max: number;
+	poll_hz: number | null;
+	/** [] when the polling rate can't be changed. */
+	poll_rates: number[];
+}
+
+/** `power.get`. */
+export interface PowerState {
+	battery_pct: number | null;
+	charging: boolean | null;
+	idle_s: number | null;
+	idle_range: [number, number] | null;
+	low_battery_pct: number | null;
+	low_battery_range: [number, number] | null;
 }

@@ -1,4 +1,36 @@
 {
+  "checks": [
+    {
+      "detail": null,
+      "feature": "lighting",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "hw_effects",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "keymap",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "profiles",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "dial",
+      "state": "not_needed"
+    },
+    {
+      "detail": null,
+      "feature": "oled",
+      "state": "not_needed"
+    }
+  ],
   "connected": true,
   "dial_modes": [
     "VOLUME",
@@ -433,5 +465,6 @@
   ],
   "kind": "keyboard",
   "name": "Razer BlackWidow V4 Pro 75%",
-  "probed": null
+  "probed": null,
+  "support": "supported"
 }

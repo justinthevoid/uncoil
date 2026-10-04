@@ -8,11 +8,15 @@
 	import PipeUnavailable from '#lib/components/PipeUnavailable.svelte';
 	import Keyboard, { legendFor, type Cap } from '#lib/components/Keyboard.svelte';
 	import MouseDiagram from '#lib/components/MouseDiagram.svelte';
+	import GenericMouse from '#lib/components/GenericMouse.svelte';
+	import CheckNotice from '#lib/components/CheckNotice.svelte';
 	import { daemon, getDesk } from '#lib/api.ts';
-	import { pipe, loadDevices, errorText } from '#lib/daemon.svelte.ts';
+	import { pipe, loadDevices, errorText, experimentalBadge } from '#lib/daemon.svelte.ts';
+	import { locked } from '#lib/checks.ts';
 	import { GEL_NAMES, KEY_GROUPS, actionName, MODIFIERS, MOUSE_BUTTONS, describeFunction, gelFor, keyTitle, parseSpec, shortLabel, toSpec, type Gel, type Mapping } from '#lib/keys.ts';
 	import { ms } from '#lib/motion.ts';
-	import type { Capabilities, Config, DeskDevice, KeyMapping, Layer, WriteResult } from '#lib/types.ts';
+	import type { Capabilities, Config, DeskDevice, FeatureCheck, KeyMapping, Layer, WriteResult } from '#lib/types.ts';
+	import type { Component } from 'svelte';
 
 	let { config, deviceId }: { config: Config; deviceId: string } = $props();
 
@@ -38,8 +42,14 @@
 		loading = true;
 		loadError = null;
 		try {
-			const [c, r, n] = await Promise.all([
-				daemon<Capabilities>('capabilities', id),
+			// Capabilities first: some devices (most mice without a Hypershift button) only have the normal layer.
+			const c = caps?.id === id ? caps : await daemon<Capabilities>('capabilities', id);
+			if (!c.keymap_layers.includes(l)) {
+				caps = c;
+				layer = c.keymap_layers[0] ?? 'normal';
+				return;
+			}
+			const [r, n] = await Promise.all([
 				daemon<KeyMapping[]>('keymap.dump', id, { layer: l }),
 				l === 'normal' ? Promise.resolve(null) : daemon<KeyMapping[]>('keymap.dump', id, { layer: 'normal' })
 			]);
@@ -62,7 +72,18 @@
 	const normalById = $derived(new Map(normal.map((k) => [k.key, k.function])));
 	/** Does this key do something other than its normal job on the layer shown? */
 	const changed = (k: KeyMapping) => (layer === 'normal' ? /^(razer|media|macro|off|power|profile|dpi|lighting|shortcut)\b/.test(k.function) : normalById.get(k.key) !== k.function);
-	const gelOf = (k: KeyMapping): Gel | null => gelFor(k.function, changed(k));
+	const gelOf = (k: KeyMapping): Gel | null => gelFor(k.function, changed(k), deviceId);
+	const action = (k: { function: string; description: string }) => actionName(k.function, k.description, deviceId);
+	const layers = $derived(caps?.keymap_layers ?? ['normal', 'hypershift']);
+
+	// Experimental devices: remapping stays off until the read-only keymap check passes.
+	const isLocked = $derived(locked(caps, 'keymap'));
+	const onchecks = (checks: FeatureCheck[]) => caps && (caps = { ...caps, checks });
+
+	/** Mice with their own drawing; every other mouse gets the plain one. */
+	type Diagram = Component<{ regions: Map<string, { name: string; label: string; gel: Gel | null; selected: boolean }>; onselect: (name: string) => void }>;
+	const DIAGRAMS: Record<string, Diagram> = { 'razer-basilisk-v3-pro': MouseDiagram };
+	const Mouse = $derived(DIAGRAMS[deviceId] ?? GenericMouse);
 	const changes = $derived(rows.filter((k) => gelOf(k)));
 
 	// Keycaps for the drawing, keyed by the layout's shape names (the keymap's LED names).
@@ -81,12 +102,12 @@
 				continue;
 			}
 			const gel = gelOf(k);
-			m.set(s.name, { sub: gel ? shortLabel(k.function) : undefined, gel: gel ?? undefined, label: `${legendFor(s.name) || 'Space'}: ${k.description}` });
+			m.set(s.name, { sub: gel ? shortLabel(k.function, deviceId) : undefined, gel: gel ?? undefined, label: `${legendFor(s.name) || 'Space'}: ${k.description}` });
 		}
 		return m;
 	});
 	// Mouse: every button as a region on the drawing.
-	const mouseRegions = $derived(new Map(rows.map((k) => [k.name, { name: k.name, label: `${keyTitle(k.name)}: ${actionName(k.function, k.description)}`, gel: gelOf(k), selected: k.key === selectedId }])));
+	const mouseRegions = $derived(new Map(rows.map((k) => [k.name, { name: k.name, label: `${keyTitle(k.name)}: ${action(k)}`, gel: gelOf(k), selected: k.key === selectedId }])));
 	const unit = $derived(isMouse ? ['button', 'buttons'] : ['key', 'keys']);
 
 	const keyName = (k: KeyMapping) => {
@@ -152,8 +173,8 @@
 			outcome = r.unchanged
 				? { ok: true, text: 'It was already set that way.' }
 				: r.verified
-					? { ok: true, text: `Saved. The ${word} reads back: ${actionName(r.after.function, r.after.description)}.` }
-					: { ok: false, text: `Saved, but the ${word} reads back: ${actionName(r.after.function, r.after.description)}.` };
+					? { ok: true, text: `Saved. The ${word} reads back: ${action(r.after)}.` }
+					: { ok: false, text: `Saved, but the ${word} reads back: ${action(r.after)}.` };
 		} catch (e) {
 			outcome = { ok: false, text: errorText(e) };
 		} finally {
@@ -161,10 +182,10 @@
 		}
 	}
 
-	const layerOptions = [
+	const layerOptions = $derived([
 		{ value: 'normal' as const, label: 'Normal' },
-		{ value: 'hypershift' as const, label: 'With Fn held' }
-	];
+		{ value: 'hypershift' as const, label: isMouse ? 'With Hypershift held' : 'With Fn held' }
+	]);
 </script>
 
 {#if !pipe.loaded}
@@ -172,9 +193,11 @@
 {:else if pipe.unreachable || !device}
 	<PipeUnavailable what={isMouse ? 'Button remapping' : 'Key remapping'} unreachable={pipe.unreachable} />
 {:else}
-	<Workspace title={isMouse ? 'Buttons' : 'Keys'} subtitle="Changes are saved in the {word} itself, so they keep working without uncoil." panelLabel="Selected key">
+	<Workspace title={isMouse ? 'Buttons' : 'Keys'} badge={experimentalBadge(deviceId)} subtitle="Changes are saved in the {word} itself, so they keep working without uncoil." panelLabel={isMouse ? 'Selected button' : 'Selected key'}>
 		{#snippet tools()}
-			<div class="layer"><Segmented label="Layer" options={layerOptions} value={layer} onchange={(v) => (layer = v)} /></div>
+			{#if layers.length > 1}
+				<div class="layer"><Segmented label="Layer" options={layerOptions} value={layer} onchange={(v) => (layer = v)} /></div>
+			{/if}
 		{/snippet}
 
 		<div class="map" aria-busy={loading}>
@@ -184,13 +207,13 @@
 				<Keyboard device={board} caps={capMap} selected={selectedId !== null ? (ledById.get(selectedId) ?? null) : null} onselect={(led) => keyByLed.has(led) && (selectedId = keyByLed.get(led)!)} />
 			{:else}
 				<div class="mouse-stage">
-				<MouseDiagram regions={mouseRegions} onselect={(name) => (selectedId = rows.find((k) => k.name === name)?.key ?? selectedId)} />
+				<Mouse regions={mouseRegions} onselect={(name) => (selectedId = rows.find((k) => k.name === name)?.key ?? selectedId)} />
 				<div class="buttons" role="listbox" aria-label="Mouse buttons">
 					{#each rows as k (k.key)}
 						{@const gel = gelOf(k)}
 						<button type="button" role="option" aria-selected={k.key === selectedId} onclick={() => (selectedId = k.key)}>
 							<span class="bname">{keyTitle(k.name)}</span>
-							<span class="bdesc">{actionName(k.function, k.description)}</span>
+							<span class="bdesc">{action(k)}</span>
 							{#if gel}<span class="gel" style:background="var(--color-gel-{gel})" title={GEL_NAMES[gel]}></span>{/if}
 						</button>
 					{/each}
@@ -201,7 +224,7 @@
 
 		<section class="changes" aria-labelledby="changes-title">
 			<h2 id="changes-title" class="section-title">
-				{layer === 'hypershift' ? 'What Fn changes' : 'Keys doing something special'}
+				{layer === 'hypershift' ? (isMouse ? 'What Hypershift changes' : 'What Fn changes') : isMouse ? 'Buttons doing something special' : 'Keys doing something special'}
 				<span class="count">{changes.length} {changes.length === 1 ? unit[0] : unit[1]}{board ? ' · Win and Fn can’t be changed' : ''}</span>
 			</h2>
 			{#if changes.length}
@@ -210,7 +233,7 @@
 						{@const gel = gelOf(k)!}
 						<button type="button" class="row" aria-pressed={k.key === selectedId} onclick={() => (selectedId = k.key)}>
 							<span class="mk">{keyName(k)}</span>
-							<span class="what">{actionName(k.function, k.description)}</span>
+							<span class="what">{action(k)}</span>
 							<span class="kind"><span class="gel" style:background="var(--color-gel-{gel})"></span>{GEL_NAMES[gel]}</span>
 						</button>
 					{/each}
@@ -224,9 +247,12 @@
 			{#if selected}
 				{#key `${selected.key}-${layer}`}
 					<div class="insp" in:fade={{ duration: ms(140) }}>
-						<h2 class="kname">{layer === 'hypershift' ? 'Fn + ' : ''}{keyName(selected)}</h2>
-						<p class="now"><span class="label">Does now</span>{actionName(selected.function, selected.description)}</p>
+						<h2 class="kname">{layer === 'hypershift' ? (isMouse ? 'Hypershift + ' : 'Fn + ') : ''}{keyName(selected)}</h2>
+						<p class="now"><span class="label">Does now</span>{action(selected)}</p>
 
+						<CheckNotice {deviceId} {caps} features={['keymap']} {onchecks} compact />
+
+						<fieldset class="edit" disabled={isLocked}>
 						<div class="search">
 							<Search size={14} />
 							<input class="input" type="search" placeholder="Search keys and actions" aria-label="Search keys and actions" autocomplete="off" bind:value={query} />
@@ -256,20 +282,21 @@
 						{:else if draft.type === 'other'}
 							<p class="note">This key uses a kind of action uncoil can't edit yet (macro, DPI, profile or a Synapse-only key). Pick something above to replace it.</p>
 						{/if}
+						</fieldset>
 
 						{#if dirty}
-							<p class="now" in:fade={{ duration: ms(140) }}><span class="label">Will do</span>{actionName(draftSpec, describeFunction(draftSpec))}</p>
+							<p class="now" in:fade={{ duration: ms(140) }}><span class="label">Will do</span>{actionName(draftSpec, describeFunction(draftSpec, deviceId), deviceId)}</p>
 						{/if}
 
 						<div class="actions">
 							<WriteButton
 								label="Save to {word}"
 								warning="This is saved in the {word}'s own memory, so it works even without uncoil. Restore original puts back what was there before."
-								disabled={!dirty}
+								disabled={!dirty || isLocked}
 								{busy}
 								onconfirm={() => write('keymap.set')}
 							/>
-							<WriteButton quiet label="Restore original" warning="Puts back what this key did before uncoil changed it (or the factory setting)." {busy} onconfirm={() => write('keymap.reset')} />
+							<WriteButton quiet label="Restore original" warning="Puts back what this {unit[0]} did before uncoil changed it (or the factory setting)." disabled={isLocked} {busy} onconfirm={() => write('keymap.reset')} />
 						</div>
 						{#if outcome}
 							<p class="outcome" class:bad={!outcome.ok} role="status" in:fade={{ duration: ms(160) }}>{outcome.text}</p>
@@ -277,7 +304,7 @@
 					</div>
 				{/key}
 			{:else}
-				<p class="note">Pick a key to change it.</p>
+				<p class="note">Pick a {unit[0]} to change it.</p>
 			{/if}
 		{/snippet}
 	</Workspace>
@@ -292,6 +319,7 @@
 		width: 250px;
 	}
 	.map {
+		container: map / inline-size;
 		display: grid;
 		justify-items: center;
 		transition: opacity var(--t-mid) var(--ease);
@@ -412,9 +440,20 @@
 		font-size: 12px;
 		line-height: 1.5;
 	}
-	.insp {
+	.insp,
+	.edit {
 		display: grid;
 		gap: 14px;
+	}
+	.edit {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		transition: opacity var(--t-mid) var(--ease);
+	}
+	.edit:disabled {
+		opacity: 0.45;
 	}
 	.kname {
 		margin: 0;
@@ -530,9 +569,13 @@
 	.actions :global(.write:has(.confirm)) {
 		flex-basis: 100%;
 	}
-	@container view (max-width: 640px) {
+	@container map (max-width: 600px) {
 		.mouse-stage {
 			grid-template-columns: minmax(0, 1fr);
+			justify-items: center;
+		}
+		.buttons {
+			max-width: 520px;
 		}
 	}
 </style>
