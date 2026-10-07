@@ -21,13 +21,13 @@ jobs:
   rust:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo fmt --all --check
       - run: cargo clippy -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openrgb --all-targets -- -D warnings
       - run: cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openrgb
@@ -35,7 +35,7 @@ jobs:
       - if: github.event_name == 'push'
         run: cargo build --release -p uncoild -p uncoil-cli
       - if: github.event_name == 'push'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: uncoild
           path: target/release/uncoild.exe
@@ -47,17 +47,17 @@ jobs:
       run:
         working-directory: apps/uncoil
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 12
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
           cache-dependency-path: apps/uncoil/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
@@ -74,15 +74,15 @@ jobs:
   site:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 12
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 26
       - working-directory: site
         run: pnpm install --frozen-lockfile
       # The site imports the app's effect maths; the app's tsconfig extends SvelteKit's generated one.
@@ -96,7 +96,7 @@ jobs:
   devices:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - run: python3 tools/devices/validate.py
