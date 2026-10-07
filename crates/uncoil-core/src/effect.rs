@@ -132,6 +132,10 @@ pub enum Mask {
         device: String,
         shapes: Vec<String>,
     },
+    /// Any lights on any devices, as `[device, shape]` pairs (the app's free selection across the desk).
+    Lights {
+        lights: Vec<(String, String)>,
+    },
 }
 
 impl Mask {
@@ -140,6 +144,7 @@ impl Mask {
             Mask::All => true,
             Mask::Devices { ids } => ids.iter().any(|i| i == device),
             Mask::Keys { device: d, shapes } => d == device && shapes.iter().any(|s| s == shape),
+            Mask::Lights { lights } => lights.iter().any(|(d, s)| d == device && s == shape),
         }
     }
 }
@@ -869,6 +874,24 @@ mod tests {
     }
 
     #[test]
+    fn a_lights_mask_picks_lights_across_devices() {
+        let lights = vec![("kb".to_string(), "W".to_string()), ("mouse".to_string(), "Logo".to_string())];
+        let e = Effect::Studio {
+            layers: vec![
+                layer(Effect::Static { color: BLUE }, Mask::All),
+                layer(Effect::Static { color: RED }, Mask::Lights { lights }),
+            ],
+        };
+        let f = e.at(0.0, 1.0, 1.0);
+        assert_eq!(f.color_led("kb", "W", 1.0, 1.0), RED);
+        assert_eq!(f.color_led("mouse", "Logo", 1.0, 1.0), RED);
+        assert_eq!(f.color_led("mouse", "W", 1.0, 1.0), BLUE, "a light is a device and a shape");
+        assert_eq!(f.color_led("kb", "Logo", 1.0, 1.0), BLUE);
+        let json = serde_json::to_string(&Mask::Lights { lights: vec![("kb".into(), "W".into())] }).unwrap();
+        assert_eq!(json, r#"{"kind":"lights","lights":[["kb","W"]]}"#);
+    }
+
+    #[test]
     fn studio_off_layer_is_opaque_and_reactive_over_a_base() {
         let e = Effect::Studio {
             layers: vec![
@@ -991,6 +1014,7 @@ mod tests {
             {"name":"mouse","enabled":true,"opacity":0.6,"effect":{"kind":"static","color":[255,40,0]},"mask":{"kind":"devices","ids":["razer-basilisk-v3-pro"]}},
             {"name":"off","enabled":false,"opacity":1,"effect":{"kind":"static","color":[0,255,0]},"mask":{"kind":"all"}},
             {"name":"keys","enabled":true,"opacity":0.75,"effect":{"kind":"reactive","color":null,"fade_s":1.5},"mask":{"kind":"keys","device":"razer-blackwidow-v4-pro-75","shapes":["W","Escape"]}},
+            {"name":"picked","enabled":true,"opacity":1,"effect":{"kind":"static","color":[60,90,255]},"mask":{"kind":"lights","lights":[["razer-blackwidow-v4-pro-75","Q"],["razer-basilisk-v3-pro","Logo"],["razer-goliathus-chroma-extended","Edge"]]}},
             {"name":"stars","enabled":true,"opacity":0.5,"effect":{"kind":"starlight","colors":[],"density":0.4,"twinkle_s":1.1},"mask":{"kind":"all"}},
             {"name":"rings","enabled":true,"opacity":1,"effect":{"kind":"ripple","color":[0,120,255],"speed":9,"width":2,"fade_s":2},"mask":{"kind":"all"}}
         ]}"#;

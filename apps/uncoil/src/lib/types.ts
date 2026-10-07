@@ -50,7 +50,12 @@ export type Effect = LayerEffect | StudioEffect;
 export type EffectKind = Effect['kind'];
 
 /** Which LEDs a layer covers. Shape names are the desk layout's (e.g. "W", "Left Shift", "Logo", "Edge"). */
-export type Mask = { kind: 'all' } | { kind: 'devices'; ids: string[] } | { kind: 'keys'; device: string; shapes: string[] };
+export type Mask =
+	| { kind: 'all' }
+	| { kind: 'devices'; ids: string[] }
+	| { kind: 'keys'; device: string; shapes: string[] }
+	/** Any lights on any devices, as [device id, shape name] pairs. */
+	| { kind: 'lights'; lights: [string, string][] };
 
 export interface StudioLayer {
 	name: string;

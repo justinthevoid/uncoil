@@ -288,6 +288,8 @@ function covers(m: Mask, device: string, shape: string): boolean {
 			return m.ids.includes(device);
 		case 'keys':
 			return m.device === device && m.shapes.includes(shape);
+		case 'lights':
+			return m.lights.some(([d, s]) => d === device && s === shape);
 	}
 }
 
