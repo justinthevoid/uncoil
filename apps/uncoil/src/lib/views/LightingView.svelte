@@ -15,6 +15,7 @@
 	import { createPreview } from '#lib/preview.svelte.ts';
 	import { shortName } from '#lib/daemon.svelte.ts';
 	import { app } from '#lib/state.svelte.ts';
+	import { moveOnDesk, resetDesk } from '#lib/desk.ts';
 	import { baseOf, dropZone, editFor, effectOn, tidy, zonable, zoneFor, type Target } from '#lib/zones.svelte.ts';
 	import type { Config, LayerEffect, Mask } from '#lib/types.ts';
 
@@ -102,7 +103,7 @@
 	const liveIds = $derived(new Set(app.status?.devices.map((d) => d.id) ?? []));
 	const away = $derived(new Set(app.status ? preview.state.desk.filter((d) => !liveIds.has(d.id) && !d.id.startsWith(PC)).map((d) => d.id) : []));
 	const info = $derived(current ? effectInfo(current.kind) : null);
-	const needsKeys = $derived(preview.uses(['reactive', 'ripple']));
+	const needsKeys = $derived(preview.needs('keys'));
 	const where = $derived(
 		target.kind === 'desk'
 			? 'On the whole desk'
@@ -135,6 +136,8 @@
 			onpick={target.kind === 'lights' ? pick : undefined}
 			ondevice={zoned && target.kind !== 'lights' ? clickDevice : undefined}
 			pickLabel={target.kind === 'lights' ? 'Your desk. Click or drag to pick lights.' : 'Your desk. Click a device to give it its own effect; Ctrl-click to add another.'}
+			onmove={(ids, dx, dy) => moveOnDesk(config, preview.state.desk, ids, dx, dy)}
+			onreset={() => resetDesk(config)}
 		/>
 	</div>
 

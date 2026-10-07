@@ -125,6 +125,8 @@ export interface DeskDevice {
 	id: string;
 	name: string;
 	kind: DeviceKind;
+	/** Where it sits: its origin, as config.desk places it (dragging it on the desk writes a new one). */
+	at: { x: number; y: number };
 	x: number;
 	y: number;
 	w: number;

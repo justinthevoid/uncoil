@@ -142,16 +142,18 @@ pub fn is_external(id: &str) -> bool {
 /// Space between devices stacked in the PC column.
 const COLUMN_GAP: f32 = 0.5;
 
-/// "The PC": a column left of the first keyboard, top-aligned with it; external devices stack top to bottom
-/// in desk order (the daemon lists motherboards, then RAM, GPUs and the rest).
+/// "The PC": a column left of everything else on the desk (the keyboard and a mat wider than it), top-aligned
+/// with the keyboard; external devices stack top to bottom in desk order (the daemon lists motherboards, then
+/// RAM, GPUs and the rest).
 fn column_place(def: &DeviceDef, placed: &[(Kind, &PlacedDevice)], column_y: &mut Option<f32>) -> Placement {
     let Some(body) = place(def, Placement { x: 0.0, y: 0.0 }) else { return default_placement(def) };
     // the keyboard's body; the default keyboard's when the desk has none
     let (kx, ky) = placed.iter().find(|(k, _)| *k == Kind::Keyboard).map_or((-0.3, -0.3), |(_, p)| (p.x, p.y));
+    let left = placed.iter().filter(|(_, p)| !is_external(&p.id)).map(|(_, p)| p.x).fold(kx, f32::min);
     let top = column_y.unwrap_or(ky);
     *column_y = Some(top + body.h + COLUMN_GAP);
-    // body top-left at (kx - GAP - w, top); for a points layout `at` is the body's centre
-    Placement { x: kx - GAP - body.w - body.x, y: top - body.y }
+    // body top-left at (left - GAP - w, top); for a points layout `at` is the body's centre
+    Placement { x: left - GAP - body.w - body.x, y: top - body.y }
 }
 
 /// How a zone's LEDs are laid out (OpenRGB zone types: single, linear, matrix).
@@ -205,16 +207,18 @@ pub fn slug(name: &str) -> String {
 /// zone's name and a number from 1; a name used twice gets " (2)", " (3)", ...
 pub fn external_led_names(zones: &[ExternalZone]) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
+    let mut used = std::collections::HashSet::new();
     for z in zones {
         let zone = if z.name.is_empty() { "LED" } else { z.name.as_str() };
         for i in 0..z.leds {
             let base = if z.leds == 1 { zone.to_string() } else { format!("{zone} {}", i + 1) };
             let mut name = base.clone();
             let mut n = 2;
-            while names.contains(&name) {
+            while used.contains(&name) {
                 name = format!("{base} ({n})");
                 n += 1;
             }
+            used.insert(name.clone());
             names.push(name);
         }
     }
@@ -442,6 +446,11 @@ impl Desk {
     /// Where a device sits on the desk; its kind's default spot when the desk does not show it.
     pub fn placement(&self, def: &DeviceDef) -> Placement {
         self.placements.get(&def.id).copied().unwrap_or_else(|| default_placement(def))
+    }
+
+    /// Where a desk device sits (its origin, as `config.desk` would place it), by id.
+    pub fn placement_of(&self, id: &str) -> Option<Placement> {
+        self.placements.get(id).copied()
     }
 
     /// Whether every device sits where it sits on `other`.
@@ -729,9 +738,11 @@ mod tests {
             let now = get(&d.id);
             assert_eq!((now.x, now.y), (d.x, d.y), "{} moved", d.id);
         }
-        // a column left of the keyboard: right edges one gap left of it, the board on top, RAM below
+        // a column left of the keyboard and the mat: right edges one gap left of the leftmost, the board on
+        // top, RAM below
+        let left = plain.devices.iter().map(|(_, d)| d.x).fold(kb.x, f32::min);
         for d in [mb, ram] {
-            assert!((d.x + d.w - (kb.x - GAP)).abs() < 1e-4, "{d:?}");
+            assert!((d.x + d.w - (left - GAP)).abs() < 1e-4, "{d:?}");
         }
         assert!((mb.y - kb.y).abs() < 1e-4);
         assert!((ram.y - (mb.y + mb.h + COLUMN_GAP)).abs() < 1e-4);

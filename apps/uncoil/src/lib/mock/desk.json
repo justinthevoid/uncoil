@@ -1,6 +1,10 @@
 [
   {
     "kind": "keyboard",
+    "at": {
+      "x": 0.0,
+      "y": 0.0
+    },
     "id": "razer-blackwidow-v4-pro-75",
     "name": "Razer BlackWidow V4 Pro 75%",
     "x": -0.3,
@@ -1002,6 +1006,10 @@
   },
   {
     "kind": "mouse",
+    "at": {
+      "x": 20.75,
+      "y": 3.1
+    },
     "id": "razer-basilisk-v3-pro",
     "name": "Razer Basilisk V3 Pro",
     "x": 19.35,
@@ -1143,6 +1151,10 @@
   },
   {
     "kind": "mousemat",
+    "at": {
+      "x": 11.125,
+      "y": 3.375
+    },
     "id": "razer-goliathus-chroma-extended",
     "name": "Razer Goliathus Chroma Extended",
     "x": -2.0,

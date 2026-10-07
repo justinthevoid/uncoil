@@ -19,7 +19,7 @@ use uncoil_core::config::{Config, Status};
 use uncoil_core::device::{self, DeviceDef, Kind};
 use uncoil_core::effect::Press;
 use uncoil_core::ipc::{self, Client, Command, OpenRgbDeviceStatus};
-use uncoil_core::layout::{self, Desk, PlacedDevice};
+use uncoil_core::layout::{self, Desk, PlacedDevice, Placement};
 
 /// The daemon rewrites status.json continuously; older than this means it is not running.
 const STATUS_STALE_S: u64 = 10;
@@ -38,10 +38,12 @@ fn desk(config: &Config, connected: &[String], external: &[OpenRgbDeviceStatus])
     Desk::new(defs().iter().chain(&external), &config.desk, |id| connected.iter().any(|c| c == id))
 }
 
-/// A placed device plus its kind, so the preview can draw a mat differently from a mouse.
+/// A placed device plus its kind, so the preview can draw a mat differently from a mouse, and where it sits
+/// (`at`: its origin as `config.desk` places it), so dragging it on the desk can write its new place.
 #[derive(Serialize)]
 struct DeskDevice {
     kind: Kind,
+    at: Placement,
     #[serde(flatten)]
     placed: PlacedDevice,
 }
@@ -132,10 +134,11 @@ fn get_desk(
     connected: Option<Vec<String>>,
     external: Option<Vec<OpenRgbDeviceStatus>>,
 ) -> Vec<DeskDevice> {
-    desk(&config, &connected.unwrap_or_default(), &external.unwrap_or_default())
-        .devices
-        .into_iter()
-        .map(|(kind, placed)| DeskDevice { kind, placed })
+    let desk = desk(&config, &connected.unwrap_or_default(), &external.unwrap_or_default());
+    let at = |id: &str| desk.placement_of(id).unwrap_or(Placement { x: 0.0, y: 0.0 });
+    desk.devices
+        .iter()
+        .map(|(kind, placed)| DeskDevice { kind: *kind, at: at(&placed.id), placed: placed.clone() })
         .collect()
 }
 

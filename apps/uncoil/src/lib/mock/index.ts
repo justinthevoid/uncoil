@@ -6,7 +6,7 @@
 // The colour maths is the shared port in ../effect.ts (uncoil_core::{color::rainbow, effect}), studio masks,
 // simulated key presses and audio level included.
 import desk from './desk.json';
-import type { AppSettings, Config, Conflict, DeskDevice, OpenRgbStatus, PreviewPress, Status } from '../types';
+import type { AppSettings, Config, Conflict, DeskDevice, OpenRgbDevice, OpenRgbStatus, PreviewPress, Shape, Status } from '../types';
 import { deskInputs, frameWith, hex } from '../effect';
 import { defaultConfig } from './config';
 
@@ -27,9 +27,9 @@ function conflicts(): Conflict[] {
 }
 
 /** Live OpenRGB follows the stored config: connected with a board, two sticks of RAM, a GPU and a fan hub
- * (four fans and an AIO pump) when the mode is live. */
+ * (four fans and an AIO pump) when the mode is live, or with `?openrgb=live` in the dev URL. */
 function openrgb(): OpenRgbStatus {
-	if ((stored ?? defaultConfig()).openrgb?.mode !== 'live') return { state: 'off', detail: null, devices: [], ours: false };
+	if (param('openrgb') !== 'live' && (stored ?? defaultConfig()).openrgb?.mode !== 'live') return { state: 'off', detail: null, devices: [], ours: false };
 	return {
 		state: 'connected',
 		detail: null,
@@ -76,6 +76,40 @@ function status(): Status {
 	};
 }
 
+/** The default desk moved as the config places it, plus OpenRGB's devices as the PC column left of the
+ * keyboard (a rough port of uncoil_core::layout::{external_def, column_place}). */
+function mockDesk(config: Config | undefined, external: OpenRgbDevice[] = []): DeskDevice[] {
+	const placed = config?.desk ?? {};
+	const shift = (d: DeskDevice, dx: number, dy: number): DeskDevice =>
+		!dx && !dy ? d : { ...d, at: { x: d.at.x + dx, y: d.at.y + dy }, x: d.x + dx, y: d.y + dy, shapes: d.shapes.map((s) => ({ ...s, x: s.x + dx, y: s.y + dy })) };
+	const out = (desk as unknown as DeskDevice[]).map((d) => {
+		const p = placed[d.id];
+		return p ? shift(d, p.x - d.at.x, p.y - d.at.y) : d;
+	});
+	const kb = out.find((d) => d.kind === 'keyboard');
+	const base = [...out];
+	let top = kb?.y ?? -0.3;
+	for (const e of external.filter((e) => e.id.startsWith('openrgb:'))) {
+		const zones = (e.zones?.length ? e.zones : [{ name: e.name, kind: 'linear' as const, leds: e.leds }]).filter((z) => z.leds > 0);
+		const inner = Math.min(3, Math.max(0.6, ...zones.map((z) => z.leds * Math.min(0.3, 3 / z.leds))));
+		const w = zones.length * 0.6 + 0.6, h = inner + 0.6;
+		const x = Math.min(kb?.x ?? -0.3, ...base.map((d) => d.x)) - 1 - w, y = top;
+		top += h + 0.5;
+		const shapes: Shape[] = [];
+		zones.forEach((z, c) => {
+			const step = z.leds > 1 ? Math.min(0.3, 3 / z.leds) : 0.3;
+			for (let i = 0; i < z.leds; i++) {
+				const name = z.leds === 1 ? z.name : `${z.name} ${i + 1}`;
+				shapes.push({ name: shapes.some((s) => s.name === name) ? `${name} (${c + 1})` : name, row: 0, col: shapes.length, x: x + 0.3 + c * 0.6 + 0.3, y: y + 0.3 + step * (i + 0.5), w: 0.3, h: 0.3, is_key: false });
+			}
+		});
+		const d: DeskDevice = { id: e.id, name: e.name, kind: 'other', at: { x: x + w / 2, y: y + h / 2 }, x, y, w, h, shapes };
+		const p = placed[e.id];
+		out.push(p ? shift(d, p.x - d.at.x, p.y - d.at.y) : d);
+	}
+	return out;
+}
+
 export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
 	const config = args.config as Config | undefined;
 	switch (cmd) {
@@ -85,10 +119,10 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
 			stored = structuredClone(config!);
 			return undefined as T;
 		case 'get_desk':
-			return desk as unknown as T;
+			return mockDesk(config, args.external as OpenRgbDevice[] | undefined) as T;
 		case 'preview_frame': {
 			const c = config!;
-			const devices = desk as DeskDevice[];
+			const devices = mockDesk(c, args.external as OpenRgbDevice[] | undefined);
 			const inputs = deskInputs(devices, (args.presses as PreviewPress[] | undefined) ?? [], (args.audio as number | undefined) ?? 0);
 			const at = frameWith(c.effect, args.t as number, c.saturation, c.brightness, inputs);
 			return devices.map((d) => d.shapes.map((s) => hex(at(d.id, s.name, s.x, s.y)))) as T;

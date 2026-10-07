@@ -139,6 +139,10 @@ Everything so far. Nothing has been released yet.
 - **Reverse-engineering tools** in `tools/reference` (log miners, read-only probes, capture and analysis).
 - `uncoild --fake` (cargo feature `fake`) serves fake devices on `\\.\pipe\uncoil-fake`, for trying the CLI
   and the app without hardware.
+- **The desk is a canvas.** The wheel zooms, dragging empty space pans, double-click fits. **Arrange** moves
+  devices (drag, or arrow keys; Alt for finer steps, Shift for whole keys) to where they really sit, written to
+  `desk` in `config.json`, so effects like the wave cross the desk as it is; Reset puts them back. The PC's
+  OpenRGB devices are drawn as one PC, its parts inside, and move together.
 - Project scaffolding: CI, release workflow, issue and pull request templates, contributing guide, security
   policy, code of conduct, and the website and docs in `site/`.
 
@@ -159,6 +163,8 @@ For anyone running an earlier build from source:
 - **The app installs for all users** into `%ProgramFiles%\uncoil`, beside `uncoild.exe`, instead of
   `%LOCALAPPDATA%\uncoil` (where the daemon keeps its log and status). The installer names its publisher,
   licence and homepage. About shows the app's own version and says when the engine's differs.
+- The PC column of OpenRGB devices starts left of everything on the desk (a wide mat included), not just
+  the keyboard.
 - The browser mock now matches the real daemon's check states, and tests keep it and the TypeScript
   effect code in step with the engine.
 - **The daemon runs unelevated by default.** `scripts/install-task.ps1` registers the `uncoil` task with run
