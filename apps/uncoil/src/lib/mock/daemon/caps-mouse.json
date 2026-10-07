@@ -23,12 +23,12 @@
     {
       "detail": null,
       "feature": "dpi",
-      "state": "untested"
+      "state": "not_needed"
     },
     {
       "detail": null,
       "feature": "poll_rate",
-      "state": "untested"
+      "state": "not_needed"
     },
     {
       "detail": null,
@@ -138,8 +138,6 @@
   "probed": null,
   "support": "supported",
   "unverified": [
-    "dpi",
-    "poll_rate",
     "power",
     "scroll"
   ]

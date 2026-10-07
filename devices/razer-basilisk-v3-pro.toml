@@ -5,9 +5,10 @@ name = "Razer Basilisk V3 Pro"
 kind = "mouse"
 vendor_id = 0x1532
 features = ["lighting", "hw_effects", "keymap", "profiles", "dpi", "poll_rate", "power", "scroll"]
-# dpi, poll_rate, power and scroll come from OpenRazer and have not been read on this mouse yet: their writes
-# wait for uncoil's read-only checks (`uncoil check mouse`) like an experimental device's.
-unverified = ["dpi", "poll_rate", "power", "scroll"]
+# dpi, poll_rate, power and scroll come from OpenRazer. DPI stages and the poll rate were written and read back
+# on this mouse (2026-10-07); power (its low-battery byte reads 0x4C, unexplained) and scroll (acceleration not
+# yet written) still wait for uncoil's read-only checks (`uncoil check mouse`) like an experimental device's.
+unverified = ["power", "scroll"]
 
 [[usb]]
 product_id = 0x00AA
@@ -87,9 +88,10 @@ keys = [
   { id = 106, name = "SCROLL_MODE", default = "shortcut 1" },   # DKM_M_106: free-spin / notched toggle
 ]
 
-# ---- from OpenRazer, not yet read on this mouse ----------------------------------------------------------
-# Shared mouse commands (razerchromacommon.c, razermouse_driver.c at a84cd0ae). Listed in `unverified`
-# above, so uncoil reads each value back (check) before it changes anything.
+# ---- from OpenRazer ----------------------------------------------------------------------------------------
+# Shared mouse commands (razerchromacommon.c, razermouse_driver.c at a84cd0ae). DPI and poll rate are confirmed
+# on this mouse; power and scroll are still listed in `unverified` above, so uncoil reads those back (check)
+# before it changes them.
 
 [dpi]
 # 04/05 set, 04/85 get; NOSTORE like almost every modern Razer mouse (lasts until the DPI button changes it).

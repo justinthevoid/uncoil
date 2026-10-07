@@ -831,11 +831,11 @@ mod tests {
         let p = m.poll_rate.as_ref().unwrap();
         assert_eq!((p.kind, p.rates.as_slice(), p.set_twice), (PollKind::Classic, &[125, 500, 1000][..], false));
         assert_eq!(m.power, Some(PowerDef { battery: true, idle: true, low_battery: true }));
-        // supported device, but its new features wait for a read-only check
-        assert_eq!(m.unverified, vec![Feature::Dpi, Feature::PollRate, Feature::Power, Feature::Scroll]);
+        // supported device; DPI and poll rate are confirmed on it, power and scroll still wait for a check
+        assert_eq!(m.unverified, vec![Feature::Power, Feature::Scroll]);
         assert_eq!(m.scroll, Some(ScrollDef { mode: true, acceleration: true, smart_reel: true }));
-        assert!(m.needs_check(Feature::Scroll));
-        assert!(m.needs_check(Feature::Dpi) && m.needs_check(Feature::Power));
+        assert!(m.needs_check(Feature::Scroll) && m.needs_check(Feature::Power));
+        assert!(!m.needs_check(Feature::Dpi) && !m.needs_check(Feature::PollRate));
         assert!(!m.needs_check(Feature::Keymap));
         // OpenRazer sends only the low-battery pair with 0xFF on this mouse, on both endpoints
         for e in &m.usb {

@@ -293,13 +293,22 @@ mod tests {
         let mouse = defs.iter().find(|d| d.id == "razer-basilisk-v3-pro").unwrap();
         let states: BTreeMap<Feature, CheckState> = initial(mouse).into_iter().map(|c| (c.feature, c.state)).collect();
         assert_eq!(states[&Feature::Keymap], CheckState::NotNeeded);
-        assert_eq!(states[&Feature::Dpi], CheckState::Untested);
+        assert_eq!(states[&Feature::Dpi], CheckState::NotNeeded, "confirmed on hardware");
         assert_eq!(states[&Feature::Power], CheckState::Untested);
+        assert_eq!(states[&Feature::Scroll], CheckState::Untested);
+    }
+
+    /// The Basilisk V3 Pro as its file was before DPI and the poll rate were confirmed: every mouse setting
+    /// waits for a check, so the DPI and poll checks themselves are exercised.
+    fn unconfirmed_basilisk() -> uncoil_core::device::DeviceDef {
+        let mut def = builtin().into_iter().find(|d| d.id == "razer-basilisk-v3-pro").unwrap();
+        def.unverified = vec![Feature::Dpi, Feature::PollRate, Feature::Power, Feature::Scroll];
+        def
     }
 
     #[test]
     fn checks_run_read_only_and_cache() {
-        let def = builtin().into_iter().find(|d| d.id == "razer-basilisk-v3-pro").unwrap();
+        let def = unconfirmed_basilisk();
         let mut dev = FakeDevice::for_def(&def);
         let mut c = Checks::new(&def);
         let list = c.run_all(&mut dev, &def, 0x1F);
@@ -322,7 +331,7 @@ mod tests {
 
     #[test]
     fn failed_check_refuses_with_code() {
-        let def = builtin().into_iter().find(|d| d.id == "razer-basilisk-v3-pro").unwrap();
+        let def = unconfirmed_basilisk();
         let mut dev = FakeDevice::for_def(&def);
         dev.set_dpi(0, 0);
         let mut c = Checks::new(&def);
@@ -352,7 +361,7 @@ mod tests {
 
     #[test]
     fn a_busy_device_lock_leaves_the_check_untested_not_failed() {
-        let def = builtin().into_iter().find(|d| d.id == "razer-basilisk-v3-pro").unwrap();
+        let def = unconfirmed_basilisk();
         let mut t = Contended { dev: FakeDevice::for_def(&def), busy: true };
         let mut c = Checks::new(&def);
         let e = c.require(&mut t, &def, 0x1F, Feature::Dpi).unwrap_err();

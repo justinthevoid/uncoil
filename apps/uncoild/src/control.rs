@@ -417,9 +417,10 @@ mod tests {
         assert!(!all.iter().find(|c| c.id == "razer-goliathus-chroma-extended").unwrap().connected);
         // the Basilisk's unverified features and the experimental mouse start untested
         let b: Capabilities = c.handle(req("capabilities", Some("basilisk"), Value::Null)).into_result().unwrap();
-        assert_eq!(b.unverified, vec![Feature::Dpi, Feature::PollRate, Feature::Power, Feature::Scroll]);
+        assert_eq!(b.unverified, vec![Feature::Power, Feature::Scroll]);
         let state = |caps: &Capabilities, f: Feature| caps.checks.iter().find(|c| c.feature == f).unwrap().state;
-        assert_eq!(state(&b, Feature::Dpi), ipc::CheckState::Untested);
+        assert_eq!(state(&b, Feature::Scroll), ipc::CheckState::Untested);
+        assert_eq!(state(&b, Feature::Dpi), ipc::CheckState::NotNeeded);
         assert_eq!(state(&b, Feature::Keymap), ipc::CheckState::NotNeeded);
         let da: Capabilities =
             c.handle(req("capabilities", Some("deathadder v3 pro"), Value::Null)).into_result().unwrap();

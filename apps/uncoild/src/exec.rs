@@ -990,7 +990,9 @@ mod tests {
 
     #[test]
     fn live_dpi_needs_no_write_flag_but_passes_the_check() {
-        let def = mouse();
+        // as on a mouse whose DPI is not confirmed yet
+        let mut def = mouse();
+        def.unverified.push(Feature::Dpi);
         let mut dev = FakeDevice::for_def(&def);
         let j = Journal { path: None };
         let mut checks = Checks::new(&def);
