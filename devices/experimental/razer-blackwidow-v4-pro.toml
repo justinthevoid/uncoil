@@ -66,10 +66,12 @@ names = [
 [layout]
 type = "keyboard"
 width = 24.0
-depth = 7.75
+depth = 12.85
 # Physical rows (full ANSI), left to right from x = 0, in key units (1u = 19.05 mm).
-# Command dial and M1-M5 drawn as a column left of the main block; the wrist-rest strip is drawn as a row of
-# thin segments in front of the keyboard. Positions approximate.
+# Command dial and M1-M5 drawn as a column left of the main block, as in Razer's top-down store photo (checked
+# 2026-10-07 with tools/art/keyboard.py's overlay). The wrist rest reaches 11.7 key units forward and its strip
+# runs along its front edge, across its width: 20 segments of 1.185 from x 0.3 (x0 is after the macro column's
+# 1.5 shift) at y 11.85. The strip's direction is not known.
 
 [[layout.rows]]
 y = 0.0
@@ -96,8 +98,8 @@ y = 5.25
 keys = ["M1:1.0", "gap:0.5", "Left Control:1.25", "Left Windows:1.25", "Left Alt:1.25", "Space:6.25", "Right Alt:1.25", "Right Fn:1.25", "Menu:1.25", "Right Control:1.25", "gap:0.25", "Left Arrow:1.0", "Down Arrow:1.0", "Right Arrow:1.0", "gap:0.25", "Numpad 0:2.0", "Numpad .:1.0"]
 
 [[layout.rows]]
-y = 6.75
-keys = ["gap:1.5", "WR0:1.05", "WR1:1.05", "WR2:1.05", "WR3:1.05", "WR4:1.05", "WR5:1.05", "WR6:1.05", "WR7:1.05", "WR8:1.05", "WR9:1.05", "WR10:1.05", "WR11:1.05", "WR12:1.05", "WR13:1.05", "WR14:1.05", "WR15:1.05", "WR16:1.05", "WR17:1.05", "WR18:1.05", "WR19:1.05"]
+y = 11.85
+keys = ["gap:0.3", "WR0:1.185", "WR1:1.185", "WR2:1.185", "WR3:1.185", "WR4:1.185", "WR5:1.185", "WR6:1.185", "WR7:1.185", "WR8:1.185", "WR9:1.185", "WR10:1.185", "WR11:1.185", "WR12:1.185", "WR13:1.185", "WR14:1.185", "WR15:1.185", "WR16:1.185", "WR17:1.185", "WR18:1.185", "WR19:1.185"]
 
 # Underglow strips just outside the case, drawn back to front (real direction not known).
 [layout.underglow]

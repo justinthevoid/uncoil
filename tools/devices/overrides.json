@@ -137,10 +137,10 @@
       "layout": {"form": "full", "macro_col": true,
                  "extras": {"Media Previous": [0, 18.5, 1.0], "Media Play/Pause": [0, 19.5, 1.0], "Media Next": [0, 20.5, 1.0], "Media Mute": [0, 21.5, 1.0]},
                  "underglow": true,
-                 "wrist_rest": {"prefix": "WR", "count": 20, "y": 6.75, "x0": 0.0, "w": 1.05}},
+                 "wrist_rest": {"prefix": "WR", "count": 20, "y": 11.85, "x0": -1.2, "w": 1.185}},
       "extra_matrix_rows": [[["LU", 9], ["RU", 9]], [["WR", 20]]],
       "matrix_why": "8x23 in both sources. OpenRGB appends zones 'Underglow Left' (9), 'Underglow Right' (9), 'Void' (5 placeholder slots, no LEDs) and 'Underglow Wrist Rest' (20) after the 6x23 keyboard zone, so row 6 = left 0-8, right 9-17, nothing in 18-22; row 7 = wrist rest 0-19. Strip directions are not known.",
-      "layout_why": "Command dial and M1-M5 drawn as a column left of the main block; the wrist-rest strip is drawn as a row of thin segments in front of the keyboard. Positions approximate.",
+      "layout_why": "Command dial and M1-M5 drawn as a column left of the main block, as in Razer's top-down store photo (checked 2026-10-07 with tools/art/keyboard.py's overlay). The wrist rest reaches 11.7 key units forward and its strip runs along its front edge, across its width: 20 segments of 1.185 from x 0.3 (x0 is after the macro column's 1.5 shift) at y 11.85. The strip's direction is not known.",
       "quirks": {"ack_every_report": true, "why": "The BlackWidow V4 Pro 75% stops applying frames unless every reply is read; assumed for the rest of the V4 family. Reading replies only costs time."}
     },
     "razer-blackwidow-v4-x": {
