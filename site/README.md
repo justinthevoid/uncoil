@@ -3,13 +3,20 @@
 The website and documentation for uncoil: a landing page at `/` and Starlight docs at `/docs/`, built as one
 static Astro project.
 
-- Astro 7, Tailwind CSS 4 (preflight for the landing page), Starlight (docs). No client framework: the one
-  script on the landing page is a few KB of plain TypeScript.
-- Design: the app's Swatch Book (`DESIGN.md`). Tokens live once in `src/styles/tokens.css` (same names and
-  values as `apps/uncoil/src/app.css`), imported by `src/styles/site.css` (landing page) and
+- Astro 7, Tailwind CSS 4 (preflight for the 404 page), Starlight (docs). No client framework: the landing
+  page's one script is the film (`src/film/film.ts`, about 24 KB gzipped with the desk data and effect maths).
+- Landing page: "Uncoiling", its own small world. Always dark; the only light is the desk's 113 LEDs and a
+  brass lamp; one canvas behind sticky scenes, where the same 113 points start as the uncoil spiral, unwind
+  onto their measured positions and morph from scene to scene, moved by scroll through a spring. Its world
+  rules are at the top of `src/pages/index.astro`. Type: Fraunces (self-hosted from `@fontsource-variable`)
+  with the system mono for data.
+- Docs and the 404 page: the app's Swatch Book (`DESIGN.md`). Tokens live once in `src/styles/tokens.css`
+  (same names and values as `apps/uncoil/src/app.css`), imported by `src/styles/site.css` (404) and
   `src/styles/starlight.css` (docs). Light and dark follow the OS; the docs mirror it into `data-theme`
-  (`src/components/docs/ThemeProvider.astro`), so there is no theme picker.
-- Type is the system UI face (Segoe UI Variable on Windows). No web fonts, no third-party requests.
+  (`src/components/docs/ThemeProvider.astro`), so there is no theme picker. System UI face there.
+- No third-party requests anywhere.
+- Reduced motion: every scene shows a still frame (rendered at build time from the same geometry, so it also
+  works without JavaScript) and the light waits for Play.
 
 ## Develop
 
@@ -32,12 +39,14 @@ The build must finish without warnings.
 
 | On the site | Source |
 |---|---|
-| Lit desk (landing hero) | `src/components/DeskHero.astro`: the still frame is rendered at build time from `apps/uncoil/src/lib/mock/desk.json` and the app's own `apps/uncoil/src/lib/effect.ts` (through the `$uncoil` alias in `astro.config.mjs`); a small script animates it with the same `frame()` while on screen, and not under reduced motion unless the visitor presses Play |
-| Fn layer with gel tabs (landing, "What it does") | `src/components/FnKeys.astro`: the keyboard's real layout from desk.json; the Fn actions come from `docs/PROTOCOL.md` |
-| App screenshots | `src/assets/app-lighting-light.png` / `-dark.png`, the app on its demo data; the page shows the one matching the OS theme |
-| Device tables (landing, `/docs/devices/`) | `devices/*.toml`, parsed at build time by `src/lib/devices.ts` |
+| The desk and its light (every landing scene) | `src/lib/desk.ts` flattens the app's desk snapshot (`apps/uncoil/src/lib/mock/desk.json`) into 113 LEDs; colours come from the app's own `apps/uncoil/src/lib/effect.ts` (through the `$uncoil` alias in `astro.config.mjs`) |
+| Device drawings | `src/art/`: the app's traced device art (`apps/uncoil/src/lib/art/`: keyboard cases, the Basilisk V3 Pro's traced outline and seams, the mat's edge) built into desk geometry once (`geometry.ts`), drawn on canvas per frame (`renderer.ts`) and as build-time SVG stills (`svg.ts`). Change the art in the app, not here |
+| The film | `src/film/film.ts` (scenes, camera, springs; the `MOTION` table holds every easing and timing); `src/film/still.ts` renders each scene's no-JavaScript / reduced-motion still. Debug: `?y=<px>&t=<s>&debug`, documented at the top of film.ts |
+| Fn layer with gel tabs ("Keeps its own brain") | the keyboard's real layout from desk.json; the Fn actions come from `docs/PROTOCOL.md` |
+| App screenshot | `src/assets/app-lighting-dark.png`, the app on its demo data |
+| Device lists (landing: tested and experimental, `/docs/devices/`) | `devices/*.toml` and `devices/experimental/*.toml`, parsed at build time by `src/lib/devices.ts`; the counts on the page are computed, never typed |
 | `/docs/protocol/` | a copy of `docs/PROTOCOL.md` with links rewritten; **update it by hand** when PROTOCOL.md changes |
-| Measured numbers | typed in `src/pages/index.astro` and `src/content/docs/docs/faq.md`, from README.md / PRODUCT.md. Only measured numbers belong there. |
+| Measured numbers | `MEASURED` in `src/lib/desk.ts` and the copy in `src/pages/index.astro`, plus `src/content/docs/docs/faq.md`, from README.md / PRODUCT.md. Only measured numbers belong there. |
 
 Docs pages live in `src/content/docs/docs/*.md`, except `/docs/devices/`, which is
 `src/pages/docs/devices.astro` (a `StarlightPage`, so it can render the generated table) with its prose in
@@ -62,7 +71,7 @@ served by GitHub Pages with that custom domain.
 
 ## Open items
 
-- [x] `src/assets/app-lighting-{light,dark}.png` recaptured on 2026-10-07 (the app on its demo data, headless
+- [x] `src/assets/app-lighting-dark.png` recaptured on 2026-10-07 (the app on its demo data, headless
       Chrome, nothing else in frame). A capture against the live engine would show real devices.
 - [ ] The phone video of the desk wave, once it is in the repo (a short muted loop would suit "The app").
 - [x] Install steps: download from `/releases` (the release ships `uncoild.exe`, `uncoil.exe`,

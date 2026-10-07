@@ -1,59 +1,62 @@
-// The maintainer's real desk (the app's snapshot, apps/uncoil/src/lib/mock/desk.json) and the geometry helpers
-// the build-time renders share. Build time only; the browser gets positions from data attributes.
+// The maintainer's real desk as flat LED records, usable at build time and in the browser. The landing page draws
+// from this and from the app's own effect maths, so whatever lights up on the page is what uncoild would send.
 import desk from '$uncoil/mock/desk.json';
-import type { DeskDevice } from '$uncoil/types';
+import { frameWith, hex } from '$uncoil/effect';
+import type { DeskDevice, Effect, Rgb } from '$uncoil/types';
+
+export { frameWith, hex };
+export type { Effect, Rgb };
 
 export const devices = desk as unknown as DeskDevice[];
 
-export const ledCount = devices.reduce((n, d) => n + d.shapes.length, 0);
+/** One LED: which device, its layout name, its measured centre and size in key units (1u = 19.05 mm). */
+export interface Led {
+	device: string;
+	kind: DeskDevice['kind'];
+	name: string;
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	key: boolean;
+}
 
-/** Every device's outline, plus a little air around it (as the app's desk preview frames it). */
-export const deskBounds = (() => {
+export const leds: Led[] = devices.flatMap((d) =>
+	d.shapes.map((s) => ({ device: d.id, kind: d.kind, name: s.name, x: s.x, y: s.y, w: s.w, h: s.h, key: s.is_key })),
+);
+
+/** Union of the device bodies, in key units. */
+export const bounds = (() => {
 	const xs = devices.flatMap((d) => [d.x, d.x + d.w]);
 	const ys = devices.flatMap((d) => [d.y, d.y + d.h]);
-	const x0 = Math.min(...xs) - 0.4;
-	const y0 = Math.min(...ys) - 0.4;
-	return { x0, y0, w: Math.max(...xs) + 0.4 - x0, h: Math.max(...ys) + 0.4 - y0 };
+	const x0 = Math.min(...xs);
+	const y0 = Math.min(...ys);
+	return { x0, y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0 };
 })();
 
-const pct = (n: number) => `${+(n * 100).toFixed(3)}%`;
+/** uncoil's shipped default: an angled rainbow wave. */
+export const WAVE: Effect = { kind: 'wave', angle_deg: 35, period_s: 14, wavelength: 26, reverse: false };
 
-/** CSS box (left/top/width/height in %) of a desk-unit rectangle inside the desk bounds. */
-export function deskBox(r: { x: number; y: number; w: number; h: number }) {
-	const b = deskBounds;
-	return `left:${pct((r.x - b.x0) / b.w)};top:${pct((r.y - b.y0) / b.h)};width:${pct(r.w / b.w)};height:${pct(r.h / b.h)}`;
+/** Colour every LED for one moment of an effect. Returns [r,g,b] per LED, in `leds` order. */
+export function paint(effect: Effect, t: number, sat = 1, val = 1): Rgb[] {
+	const f = frameWith(effect, t, sat, val);
+	return leds.map((l) => f(l.device, l.name, l.x, l.y));
 }
 
-/** Keyboard case padding around the key field, in key units (as the app draws it). */
-export const CASE_PAD = 0.35;
-
-/** CSS box of a key or LED (centre x/y, size w/h) inside a keyboard's case. */
-export function capBox(kb: DeskDevice, x: number, y: number, w: number, h: number) {
-	const W = kb.w + CASE_PAD * 2;
-	const H = kb.h + CASE_PAD * 2;
-	return `left:${pct((x - w / 2 - kb.x + CASE_PAD) / W)};top:${pct((y - h / 2 - kb.y + CASE_PAD) / H)};width:${pct(w / W)};height:${pct(h / H)}`;
-}
-
-/** Keycap legends for the layout's key names (the app's Keyboard.svelte uses the same words). */
-const LEGEND: Record<string, string> = {
-	Escape: 'Esc',
-	Delete: 'Del',
-	Insert: 'Ins',
-	'Page Up': 'PgUp',
-	'Page Down': 'PgDn',
-	'Caps Lock': 'Caps',
-	'Left Shift': 'Shift',
-	'Right Shift': 'Shift',
-	'Left Control': 'Ctrl',
-	'Right Control': 'Ctrl',
-	'Left Windows': 'Win',
-	'Left Alt': 'Alt',
-	'Right Alt': 'Alt',
-	'Right Fn': 'Fn',
-	'Up Arrow': '↑︎',
-	'Down Arrow': '↓︎',
-	'Left Arrow': '←︎',
-	'Right Arrow': '→︎',
-	Space: '',
+/** Measured on the maintainer's PC (README.md, PRODUCT.md). The only numbers the site may show. */
+export const MEASURED = {
+	binaryBytes: 1_402_880,
+	binary: '1.4 MB',
+	ram: '~3 MB',
+	cpu: 'under 1% of one core',
+	processes: 1,
+	synapseProcesses: 17,
+	synapseRam: '~1.4 GB at start, leaking to several GB over days',
+	synapseCpu: '~7% of one core',
+	synapseInstall: '~500 MB',
+	logsMined: '130 MB of Synapse logs',
+	commands: 30,
+	inputEvents: 116,
+	reportBytes: 90,
+	note: 'Measured on the maintainer’s PC. Memory and CPU on an earlier build. One machine; yours will differ.',
 };
-export const legendFor = (name: string) => LEGEND[name] ?? name;

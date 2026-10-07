@@ -6,6 +6,18 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "apps/uncoil", "dev", "--port", "1420", "--strictPort"],
       "port": 1420
+    },
+    {
+      "name": "uncoil-site",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "site", "dev", "--port", "4331", "--strictPort"],
+      "port": 4331
+    },
+    {
+      "name": "uncoil-site-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "site", "preview", "--port", "4332", "--host", "127.0.0.1", "--allowed-hosts"],
+      "port": 4332
     }
   ]
 }
