@@ -102,6 +102,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -112,8 +114,12 @@ jobs:
         working-directory: dist
         run: sha256sum --check --strict SHA256SUMS.txt
 
-      # Build provenance (actions/attest-build-provenance) needs a public repository on this plan;
-      # add it when the repository goes public.
+      # Signed build provenance for every file: `gh attestation verify <file> --repo justinthevoid/uncoil`
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
       - name: Create draft release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
