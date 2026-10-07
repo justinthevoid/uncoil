@@ -123,9 +123,10 @@ if you can help test.
 ## Install
 
 > [!IMPORTANT]
-> uncoil is pre-release (0.x). Each release on [GitHub Releases](https://github.com/justinthevoid/uncoil/releases)
-> carries `uncoild.exe`, the `uncoil` CLI, the install scripts, an installer for the app and `SHA256SUMS.txt`;
-> or build from source below. The binaries are not code-signed yet, so SmartScreen may warn.
+> uncoil is pre-release (0.x). Releases, from v0.1.0 on, are on
+> [GitHub Releases](https://github.com/justinthevoid/uncoil/releases): `uncoild.exe`, the `uncoil` CLI, the
+> install scripts, an installer for the app and `SHA256SUMS.txt`. Before the first one, build from source
+> below. The binaries are not code-signed yet, so SmartScreen may warn.
 
 **Close Synapse first.** Two programs driving the same keyboard is a race neither wins. Quit Synapse and
 disable its startup entry (or uninstall it). If Synapse left a device in driver mode, uncoil puts it back
@@ -282,12 +283,14 @@ Everyone taking part agrees to the [Code of Conduct](CODE_OF_CONDUCT.md). Securi
 
 uncoil is free and stays free. Starring the repository, filing a careful bug report or contributing a
 device file all help more than you'd think.
-<!-- Add a sponsor link here once GitHub Sponsors / Ko-fi is set up and .github/FUNDING.yml is filled in. -->
 
 ## License and trademarks
 
+Copyright (C) 2026 Justin Hogan and the uncoil contributors.
+
 uncoil is free software under the [GNU General Public License v3.0 or later](LICENSE). Protocol facts and
-some device data derive from OpenRazer and OpenRGB (both GPL-2.0-or-later); the keyboard key-mapping
+some device data derive from OpenRazer and OpenRGB (both GPL-2.0-or-later; used as facts, credited by file
+and commit in each device file); the keyboard key-mapping
 commands were cross-checked against [OpenSynapse](https://github.com/A1mAssist/OpenSynapse) (MIT).
 The binaries also carry other people's code under their own licences (Rust crates, the app's front end,
 FastLED's rainbow hue map); [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists them, and ships with

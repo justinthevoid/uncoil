@@ -34,8 +34,8 @@ pub struct Candidate {
 }
 
 /// The USB interface a HID collection path belongs to. Windows gives each top-level collection of one
-/// interface its own path: `\\?\hid#vid_1532&pid_00aa&mi_00&col01#8&1e3b5c3a&0&0000#{guid}` and
-/// `…&col02#8&1e3b5c3a&0&0001#{guid}`. Dropping `&colNN` and the last part of the instance id leaves
+/// interface its own path: `\\?\hid#vid_1532&pid_00aa&mi_00&col01#8&11111111&0&0000#{guid}` and
+/// `…&col02#8&11111111&0&0001#{guid}`. Dropping `&colNN` and the last part of the instance id leaves
 /// what they share. Paths in another shape are their own key.
 fn interface_key(path: &CStr) -> String {
     let p = path.to_string_lossy().to_ascii_lowercase();
@@ -272,11 +272,11 @@ mod tests {
 
     #[test]
     fn collections_of_one_interface_share_a_key() {
-        let col1 = CString::new(r"\\?\HID#VID_1532&PID_00AA&MI_00&Col01#8&1e3b5c3a&0&0000#{4d1e55b2-f16f}").unwrap();
-        let col2 = CString::new(r"\\?\hid#vid_1532&pid_00aa&mi_00&col02#8&1e3b5c3a&0&0001#{4d1e55b2-f16f}").unwrap();
+        let col1 = CString::new(r"\\?\HID#VID_1532&PID_00AA&MI_00&Col01#8&11111111&0&0000#{4d1e55b2-f16f}").unwrap();
+        let col2 = CString::new(r"\\?\hid#vid_1532&pid_00aa&mi_00&col02#8&11111111&0&0001#{4d1e55b2-f16f}").unwrap();
         let other = CString::new(r"\\?\hid#vid_1532&pid_00aa&mi_01#8&22222222&0&0000#{4d1e55b2-f16f}").unwrap();
         assert_eq!(interface_key(&col1), interface_key(&col2));
-        assert_eq!(interface_key(&col1), "vid_1532&pid_00aa&mi_00#8&1e3b5c3a&0");
+        assert_eq!(interface_key(&col1), "vid_1532&pid_00aa&mi_00#8&11111111&0");
         assert_ne!(interface_key(&col1), interface_key(&other));
         let odd = CString::new("some-other-path").unwrap();
         assert_eq!(interface_key(&odd), "some-other-path");

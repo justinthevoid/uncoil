@@ -29,7 +29,7 @@ updates:
       npm-minor-and-patch:
         update-types: [minor, patch]
 
-  # Marketing site. Dependabot reports an error for this entry until site/ exists; that's harmless.
+  # The website.
   - package-ecosystem: npm
     directory: /site
     schedule:

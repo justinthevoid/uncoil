@@ -41,8 +41,9 @@ right; left rail with the selected tab's features; centre stage with the device 
 lit desk and the effect chosen from swatch cards; Keys: keycaps with gel tabs and a compact "What Fn
 changes" list); right panel for the selected thing and its Save action.
 
-FORM: lighting-gel swatch book (Rosco/Lee), fourth on the ordered list of seven; assigned by the roll,
-seed key 3f404d4d. Raised by the Japanese high-density challenger (compact Fn list) and the ticket wallet
-(saves stamp the device's read-back).
+FORM: a lighting-gel swatch book (Rosco/Lee style), chosen from seven candidate directions. Two ideas from
+the others stayed: a compact, dense "What Fn changes" list, and saves that show the device's read-back,
+like a stamped ticket.
 
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+FINISH: a change isn't finished until it has been reviewed and documented: a design review, its verdict,
+DESIGN.md kept current, and every shipped image traceable to where it came from.

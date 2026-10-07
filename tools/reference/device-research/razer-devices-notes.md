@@ -115,4 +115,6 @@ VARSTORE; custom frames with NOSTORE.
 
 Only identifiers, sizes, numbers and names were transcribed (PIDs, class/id bytes, argument layouts, matrix sizes,
 table names, line references). No code or comments were copied. The parsing helpers used to extract them
-(`parse_or.py`, `parse_rgb.py`, `parse_drv.py`, `build_devices.py`, `finalize.py`) are in the same scratchpad.
+(`parse_or.py`, `parse_rgb.py`, `parse_drv.py`, `build_devices.py`, `finalize.py`) are in this folder. They read
+the upstream files from a `src/` folder next to them, which is not committed: to rerun them, copy the files
+listed at the top of this page, at the commits named there, into `src/` (the scripts name the files they open).

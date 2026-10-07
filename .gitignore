@@ -54,8 +54,7 @@ desktop.ini
 
 # ── Impeccable ────────────────────────────────────────────────────────
 # Tracked on purpose: PRODUCT.md, DESIGN.md, .impeccable/config.json,
-# .impeccable/design.json, surface briefs, .impeccable/live/config.json,
-# .impeccable/critique/ignore.md.
+# .impeccable/design.json and the surface briefs (.impeccable/surfaces/).
 .impeccable/config.local.json
 .impeccable/history/
 .impeccable/critique/*

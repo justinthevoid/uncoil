@@ -8,7 +8,7 @@ Crates under the Mozilla Public License 2.0 are used unmodified; their source is
 
 ## Code adapted into uncoil
 
-### FastLED (MIT): the rainbow hue map in `crates/uncoil-core/src/color.rs`
+### FastLED (MIT): the rainbow hue map in `crates/uncoil-core/src/color.rs` and its port in `apps/uncoil/src/lib/effect.ts`
 
 ```text
 The MIT License (MIT)

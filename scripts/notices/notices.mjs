@@ -7,7 +7,8 @@
 //   dependencies are left out, they don't ship).
 // - The app's front end: exactly the npm packages whose code is in the bundle, read from the source maps of a
 //   one-off build (then rebuilt without maps), plus Tailwind, whose base styles are in the CSS.
-// - Code adapted into uncoil itself: FastLED's rainbow hue map (crates/uncoil-core/src/color.rs).
+// - Code adapted into uncoil itself: FastLED's rainbow hue map (crates/uncoil-core/src/color.rs, and its port in
+//   apps/uncoil/src/lib/effect.ts).
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -74,7 +75,7 @@ Crates under the Mozilla Public License 2.0 are used unmodified; their source is
 
 ## Code adapted into uncoil
 
-### FastLED (MIT): the rainbow hue map in \`crates/uncoil-core/src/color.rs\`
+### FastLED (MIT): the rainbow hue map in \`crates/uncoil-core/src/color.rs\` and its port in \`apps/uncoil/src/lib/effect.ts\`
 
 \`\`\`text
 ${lf(readFileSync(join(here, 'FastLED-LICENSE.txt'), 'utf8'))}

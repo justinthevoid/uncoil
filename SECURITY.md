@@ -2,13 +2,13 @@
 
 ## Supported versions
 
-uncoil is pre-release. Security fixes go into `main` and the most recent release once releases exist.
+uncoil is pre-release (0.x). Security fixes go into `main` and the most recent release.
 Older builds are not patched; update instead.
 
 | Version | Supported |
 |---|---|
 | `main` | yes |
-| latest release (none yet) | yes, once published |
+| the latest release | yes |
 | anything older | no |
 
 ## Reporting a vulnerability
