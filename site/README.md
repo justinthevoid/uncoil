@@ -46,19 +46,19 @@ rehype plugin in `astro.config.mjs` adds the base path.
 
 ## Deploy
 
-Static output, GitHub Pages friendly. By default the site is built for
-`https://justinthevoid.github.io/uncoil/` (`site` + `base` in `astro.config.mjs`).
+Static output, built for `https://uncoil.justinthevoid.com/` (`site` + `base` in `astro.config.mjs`) and
+served by GitHub Pages with that custom domain.
 
-- **GitHub Pages:** `.github/workflows/deploy-site.yml` builds and deploys. It is manual-only while the repo
-  is private; when it goes public, set Settings > Pages > Source to "GitHub Actions" and restore its push trigger.
-- **Custom domain or another host:** build with `SITE` and `BASE` set, for example
+- **GitHub Pages:** `.github/workflows/deploy-site.yml` builds and deploys on pushes that change the site. Its
+  jobs skip themselves while the repository is private. Settings > Pages: Source "GitHub Actions", custom
+  domain `uncoil.justinthevoid.com`, Enforce HTTPS. DNS: a `CNAME` record `uncoil` pointing at
+  `justinthevoid.github.io` (verify the domain under the account's Pages settings, so no one else can claim
+  it). With an Actions deployment the domain lives in the settings, not in a `CNAME` file.
+- **Another host or address:** build with `SITE` and `BASE` set, for example
 
   ```sh
-  SITE=https://uncoil.example BASE=/ pnpm build
+  SITE=https://justinthevoid.github.io BASE=/uncoil pnpm build
   ```
-
-  or change the two defaults at the top of `astro.config.mjs`. For a GitHub Pages custom domain also add a
-  `public/CNAME` file containing the domain.
 
 ## Open items
 

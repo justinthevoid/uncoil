@@ -1,22 +1,22 @@
 # GitHub Pages deployment for the uncoil website + docs (site/).
 #
-# Manual-only for now: Pages can't publish from a private repository on a free plan. When the repo goes
-# public, set Settings > Pages > Source to "GitHub Actions" and restore the push trigger below.
+# Runs on pushes that change the site (and by hand). Pages can't publish from a private repository on a free
+# plan, so the jobs skip themselves while the repository is private. Settings > Pages: Source "GitHub
+# Actions", custom domain uncoil.justinthevoid.com, Enforce HTTPS; DNS: a CNAME record `uncoil` pointing at
+# justinthevoid.github.io.
 #
 # The site build reads files outside site/ (devices/*.toml for the device tables, and the desktop app's
 # effect maths and desk snapshot in apps/uncoil/src/lib), so it needs the whole repository checked out.
 #
-# Served at https://justinthevoid.github.io/uncoil/ by default. For a custom domain, set the SITE and BASE
-# env vars on the build step (e.g. SITE: https://uncoil.example, BASE: /) and add the domain in
-# Settings > Pages; see site/README.md.
+# Served at https://uncoil.justinthevoid.com/ (the defaults in site/astro.config.mjs); see site/README.md.
 
 name: Deploy site
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main]
-  #   paths: ['site/**', 'devices/**', 'apps/uncoil/src/lib/effect.ts', 'apps/uncoil/src/lib/types.ts', 'apps/uncoil/src/lib/mock/desk.json']
+  push:
+    branches: [main]
+    paths: ['site/**', 'devices/**', 'apps/uncoil/src/lib/effect.ts', 'apps/uncoil/src/lib/types.ts', 'apps/uncoil/src/lib/mock/desk.json', '.github/workflows/deploy-site.yml']
 
 permissions:
   contents: read
@@ -27,6 +27,8 @@ concurrency:
 
 jobs:
   build:
+    # Pages needs a public repository on this plan
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -53,9 +55,6 @@ jobs:
         run: pnpm install --frozen-lockfile && pnpm exec svelte-kit sync
 
       - run: pnpm build
-        # env:
-        #   SITE: https://uncoil.example
-        #   BASE: /
 
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:

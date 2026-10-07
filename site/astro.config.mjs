@@ -5,11 +5,11 @@ import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import tailwindcss from '@tailwindcss/vite';
 
-// Where the site is served from. Defaults to the GitHub Pages project site
-// https://justinthevoid.github.io/uncoil/. For a custom domain, build with
-// SITE=https://example.org BASE=/ (or edit the two defaults below). See README.md.
-const site = process.env.SITE ?? 'https://justinthevoid.github.io';
-const base = process.env.BASE ?? '/uncoil';
+// Where the site is served from: https://uncoil.justinthevoid.com/ (GitHub Pages with a custom domain). To
+// build it for somewhere else, set SITE and BASE, e.g. SITE=https://justinthevoid.github.io BASE=/uncoil for
+// the plain project-site address. See README.md.
+const site = process.env.SITE ?? 'https://uncoil.justinthevoid.com';
+const base = process.env.BASE ?? '/';
 const repo = 'https://github.com/justinthevoid/uncoil';
 
 /** Markdown links written root-relative (`/docs/devices/`) get the base prefix, so docs stay portable. */

@@ -3,6 +3,8 @@
 **A small, open-source lighting daemon for Razer peripherals on Windows. It does the part of Synapse you
 actually use, in one 1.4 MB process.**
 
+Website and docs: [uncoil.justinthevoid.com](https://uncoil.justinthevoid.com)
+
 [![CI](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml/badge.svg)](https://github.com/justinthevoid/uncoil/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-f2f2f2?style=flat-square&labelColor=0b0b0b)](LICENSE)
 [![Platform: Windows 10 | 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-f2f2f2?style=flat-square&labelColor=0b0b0b)](#install)
