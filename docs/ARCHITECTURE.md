@@ -134,7 +134,7 @@ experimental unless they set `support`).
 `support = "supported"` (the default) means confirmed on real hardware; `support = "experimental"` means the
 file was built from OpenRazer / OpenRGB data and nobody has confirmed it yet (those files live in
 `devices/experimental/`). A supported device can also list features nobody has confirmed on it yet:
-`unverified = ["dpi", "poll_rate", "power", "scroll"]` on the Basilisk V3 Pro.
+`unverified = ["power", "scroll"]` on the Basilisk V3 Pro.
 
 Before uncoil changes anything stored in an experimental device (or an unverified feature), it runs that
 feature's **read-only check**: it reads the current value with the matching "get" command and checks the
@@ -299,9 +299,13 @@ is still there. Any config change (or `effect.software`) brings back the softwar
 **The device lock.** OpenRGB takes a named mutex, `Global\RazerLinkReadWriteGuardMutex`, around every report
 it sends to or reads from a Razer device (`RazerDeviceGuard.cpp`), and Razer's own software appears to share
 it. uncoil takes the same lock (`uncoil_hid::guard`) around each request and its reply, so two programs
-never interleave reports on one device. It waits at most 25 ms and never holds the lock across frames:
+never interleave reports on one device. A Windows mutex belongs to the thread that took it, so one lock
+thread takes it for the whole daemon, in turns of 20 ms (`guard::TURN`); device threads count themselves
+in and out of the current turn around each report and its reply, and send in parallel. At the end of a turn
+the lock thread lets the reports in flight finish and releases the mutex, so a program waiting on it gets
+it before the next turn. Waits are at most 25 ms:
 
-- a frame whose lock is busy is skipped (the next one comes a frame later);
+- a frame report whose lock is busy skips the rest of that frame (the next one comes a frame later);
 - a command (`ask`, `query`) tries twice and then fails with plain words: "another program is talking to
   Razer Basilisk V3 Pro right now (Razer's software and OpenRGB use the same device lock); try again in a
   moment". A renderer's "still there?" ping that fails this way does not count as the device going away, and
@@ -348,8 +352,8 @@ Effects live in `crates/uncoil-core/src/effect.rs` and are pure functions of (de
 `Effect::at_with(t, sat, val, &Inputs)` freezes the effect into a `Frame`, and
 `Frame::color_led(device_id, shape_name, x, y)` colours one LED (`color_at(x, y)` remains for callers that
 don't know the LED). Every effect yields a colour and an alpha. A plain effect is composited over black.
-`studio` stacks layers bottom (index 0) to top; each enabled layer whose mask (`all`, `devices`, or `keys` by
-desk shape name) covers the LED blends over the result: `out = mix(out, rgb, alpha * opacity)`. Alpha is 1
+`studio` stacks layers bottom (index 0) to top; each enabled layer whose mask (`all`, `devices`, `keys` by
+desk shape name on one device, or `lights`: any `[device, shape]` pairs across the desk) covers the LED blends over the result: `out = mix(out, rgb, alpha * opacity)`. Alpha is 1
 for the area effects, the intensity for reactive, ripple and starlight, and lit/unlit for the audio meter.
 
 `Inputs` carries what a pure function can't know: recent key presses as `(x, y, t)`, the audio peak level,

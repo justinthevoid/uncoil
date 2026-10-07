@@ -98,9 +98,11 @@ rate, power and the scroll wheel. Every request and its reply run under a lock o
 ## Shared mouse commands
 
 From OpenRazer (`razerchromacommon.c` and `razermouse_driver.c` at a84cd0ae; facts transcribed into
-`tools/reference/device-research/`). **From OpenRazer, unverified on uncoil's devices:** none of these has
-been sent to or read from the Basilisk V3 Pro yet, so its device file lists them as `unverified` and uncoil
-reads each value back (read-only check) before changing it.
+`tools/reference/device-research/`). **Verified on the Basilisk V3 Pro (2026-10-07):** DPI (`04/05`,
+`04/85`), DPI stages written as `[3000, 6000]` with either stage active (`04/06`, `04/86`) and the classic
+poll rate 1000 → 125 → 1000 Hz (`00/05`, `00/85`), each read back unchanged after the write. Battery,
+charging and the sleep timer read sensibly; the low-battery threshold does not (below), so `power` stays
+`unverified` in its device file and uncoil reads those values back (read-only check) before changing them.
 
 | class/id | name | args → reply | notes |
 |---|---|---|---|
@@ -113,7 +115,7 @@ reads each value back (read-only check) before changing it.
 | `07/80` | battery | size 2 → `[_, 0–255]` | shown as a percentage |
 | `07/84` | charging | size 2 → `[_, 0/1]` | |
 | `07/03` / `07/83` | sleep timer | `[secs_hi, secs_lo]` | 60–900 s, no storage byte |
-| `07/01` / `07/81` | low-battery threshold | `[raw]` (size 1) | `0x0C`–`0x3F` of 255 (about 5–25 %); transaction id `0xFF` on the Basilisk V3 Pro |
+| `07/01` / `07/81` | low-battery threshold | `[raw]` (size 1) | `0x0C`–`0x3F` of 255 (about 5–25 %); transaction id `0xFF` on the Basilisk V3 Pro, which **read `0x4C`** (30 %) on 2026-10-07, wired and fully charged, with no threshold ever set by its owner. Unexplained (a factory default, or not the threshold on this firmware), so the `power` check fails and power writes stay refused there |
 
 uncoil clamps DPI to the device file's `[dpi]` range, the sleep timer to 60–900 s and the threshold to
 `0x0C`–`0x3F` before sending.
@@ -121,9 +123,11 @@ uncoil clamps DPI to the device file's `[dpi]` range, the sleep timer to 60–90
 ### Scroll wheel
 
 Also from OpenRazer (`razerchromacommon.c` and `razermouse_driver.c` at a84cd0ae; meanings from its
-`mouse_scroll_wheel.py`), listed there for the Basilisk V3 family. **Not yet read on uncoil's devices:** the
-Basilisk V3 Pro lists `scroll` as `unverified`, and the Basilisk V3 and V3 35K files are experimental, so
-every write waits for the `scroll` read-only check.
+`mouse_scroll_wheel.py`), listed there for the Basilisk V3 family. **Verified on the Basilisk V3 Pro
+(2026-10-07):** scroll mode tactile ↔ free spin and Smart Reel off ↔ on, written and read back, and the
+wheel changed feel. Acceleration has been read but not yet written, so the Basilisk V3 Pro still lists
+`scroll` as `unverified`; the Basilisk V3 and V3 35K files are experimental. Writes wait for the `scroll`
+read-only check.
 
 | class/id | name | args → reply | notes |
 |---|---|---|---|
@@ -178,8 +182,13 @@ OpenRGB takes a named Windows mutex, `Global\RazerLinkReadWriteGuardMutex`, arou
 or reads from a Razer device (`RazerDeviceGuard.cpp`), and Razer's own software appears to share it (not confirmed).
 Since 2026-10-04 uncoil takes it around each request and its reply,
 so a request from one program can never be answered with another program's reply. uncoil waits at most
-25 ms: a frame is skipped, a command is tried once more and then fails with "another program is talking to
-… right now". The lock is never held across frames. How uncoil uses it:
+25 ms: the rest of a frame is skipped, a command is tried once more and then fails with "another program is
+talking to … right now". One lock thread holds the mutex for the whole daemon in turns of 20 ms: during a
+turn every device sends in parallel, and between turns it lets go, so a program waiting for the lock gets
+it. Each device thread taking the mutex itself had the BlackWidow's acknowledged rows (about 55 ms a frame)
+keep it busy almost all the time, and the mouse and mat dropped from 29.7 to about 12 fps (held per frame)
+or 22 fps (per report). With turns they run at 29.7 fps beside the keyboard's 18 (measured on the
+maintainer's PC, 2026-10-07, with live OpenRGB running). How uncoil uses it:
 [`ARCHITECTURE.md`](https://github.com/justinthevoid/uncoil/blob/main/docs/ARCHITECTURE.md#sharing-devices-with-other-programs).
 
 ## Firmware effects
@@ -209,9 +218,9 @@ What each device runs:
 | Basilisk V3 Pro | `0` (regions 1, 4, 10 = wheel, logo, 11-LED strip) | 0, 1, 2, 3, 5, 8 per region | off, static, breathing, spectrum, wave, reactive | OpenRazer adds wave; OpenRGB notes the list is not exhaustive |
 | Goliathus Chroma Extended | `0` (region 4, 1×1) | 0, 1, 2, 3, 5, 8 | off, static, breathing, spectrum | reactive needs input the mat lacks |
 
-Firmware effects are not yet verified on hardware by uncoil (the custom-frame and wave paths are). The
-first `uncoil effect hw` on each device is the test; it is session-only and `uncoil effect software`
-(or any config change) undoes it.
+Verified on hardware (2026-10-07), session-only: static red on the Goliathus, spectrum on the BlackWidow and
+green breathing on the Basilisk V3 Pro each showed as expected, and `uncoil effect software` brought the
+streamed effect back. The other effects and onboard storage (`--onboard --write`) are not yet verified.
 
 ## Input reports (keyboard, vendor collection)
 

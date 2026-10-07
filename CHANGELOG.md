@@ -68,13 +68,29 @@ Everything so far. Nothing has been released yet.
   `config.desk`, usable in Studio masks); `openrgb.live.port` and `openrgb.live.exclude` adjust it. Razer
   devices, and RAM while iCUE runs, are left out. `status.openrgb` reports the connection and the devices.
 - **Razer device lock.** Every request to a Razer device runs under `Global\RazerLinkReadWriteGuardMutex`,
-  the lock OpenRGB (and apparently Razer's software) takes, waiting at most 25 ms: a busy lock skips a frame,
-  or retries a command once and then fails with plain words. A check that can't get the lock stays untested
+  the lock OpenRGB (and apparently Razer's software) takes. One lock thread holds it for the daemon in 20 ms
+  turns, so uncoil's devices still send in parallel and other programs get it between turns. Waiting at most
+  25 ms, a busy lock skips the rest of a frame, or retries a command once and then fails with plain words. A check that can't get the lock stays untested
   rather than failing.
 - **Scroll wheel settings** (`scroll.get`, `scroll.set`, `uncoil scroll`): tactile or free spin, scroll
   acceleration and Smart Reel (`02/14`, `02/16`, `02/17`, from OpenRazer), stored in the mouse and gated by a
-  read-only check. Unconfirmed on the Basilisk V3 Pro (`unverified`), experimental on the Basilisk V3 and V3
-  35K. Device files gain `[scroll]` and a `scroll` transaction-id group.
+  read-only check. Scroll mode and Smart Reel confirmed on the Basilisk V3 Pro, acceleration not yet (so
+  `scroll` stays `unverified` there); experimental on the Basilisk V3 and V3 35K. DPI, DPI stages and the poll
+  rate are confirmed on the Basilisk V3 Pro. Device files gain `[scroll]` and a `scroll` transaction-id group.
+- **Per-device lighting.** The Lighting page lights the whole desk, chosen devices (chips, or click a device
+  on the desk; Ctrl-click for several) or lights picked across devices, each with its own effect. It is
+  stored as a simple Studio (a whole-desk layer plus opaque zones) and collapses back to one effect when no
+  zone differs. Studio masks gain `lights`: any `[device, shape]` pairs, on any devices.
+- **Device drawings.** The Basilisk V3 Pro is drawn from a silhouette traced from its top-down product
+  photo, with its panel seams, grips and buttons redrawn as line art and uncoil's spiral at the logo LED
+  (`tools/art/basilisk.py`; the photo is not in the repository). Keyboards get keycaps with a top face and
+  skirt in their key-group frames, and side underglow as light bars; the BlackWidow V4 Pro 75%'s case,
+  front lip, OLED and side dial are measured from its top-down product photo, with uncoil's wordmark on the
+  lip. On the lit desk devices wear their real black finish; the mat has its cloth, lit edge and cable hub.
+- **BlackWidow V4 Pro 75% F-row positions.** Esc and F1-F12 run without gaps, as on the real keyboard (they
+  had three 0.25-key gaps), so effects sample them where they are.
+- **Animated effect cards.** Each effect card runs its effect on a small keyboard, from the same effect
+  code as the desk preview (20 fps at most, still with reduced motion).
 - **Device info** (`info.get`, `uncoil info`): firmware version on every device, and a keyboard's layout and
   colour (`00/81`, `00/86`), read once per connection; never the serial number.
 - **Conflict notice.** The daemon looks for Razer Synapse, the Razer Chroma SDK services, OpenRGB and

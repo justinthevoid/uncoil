@@ -125,6 +125,8 @@ There is no brand primary. Selection uses the ink colour itself: outlines, the c
 ### Neutral
 Ground, raised (top bar, rail, details panel), surface (cards, keycaps), surface-2 and surface-3 (hover, selected, segment track), four ink steps, and two seam greys for hairlines. Every neutral is warm-tinted. Dark-mode values are the `-dark` tokens.
 
+Device drawings have their own small set: case, case edge, cap (a keycap's top face) and cap skirt, shell top (a mouse's panels), seam line (hairline seams), LED off, and cloth (the mat). On the lit desk the devices wear their real black finish in both themes (`.device-finish`), because LED colour only reads true on it; on edit screens they follow the theme.
+
 ### Named Rules
 **The Gel Rule.** A colour in the interface is either a gel with its name next to it somewhere on the screen, or a device's real LED colour. Never decoration, never a brand accent.
 
@@ -149,7 +151,7 @@ The shell is a grid: a 52px top bar (brand, Desk and device tabs with connection
 
 ## Elevation & Depth
 
-Flat. Regions are separated by hairlines and slightly different warm fills. Keycaps get a 1px edge and a small inset bottom edge so they read as keys. The segmented control's pill has a hairline and a faint shadow. There is no glow anywhere.
+Flat. Regions are separated by hairlines and slightly different warm fills. Keycaps are seen from above: a top face set back from the front edge on a darker skirt, with a 1px edge. The segmented control's pill has a hairline and a faint shadow. There is no glow anywhere.
 
 ## Shapes
 
@@ -172,20 +174,26 @@ Flat. Regions are separated by hairlines and slightly different warm fills. Keyc
 ### Navigation
 Top tabs pick the Desk or a device; each device tab shows a connection dot, and "Not connected" when away. The rail lists the selected tab's features. Ctrl+1-9 switch tabs and Ctrl+, opens settings.
 
+### Device drawings
+Each device is drawn from above as flat line art of the real product: a silhouette traced from the product's own top-down photo (alpha mask, smoothed and fitted to Béziers), panel seams redrawn over it as clean hairlines, and LEDs exactly where the device file puts them. The photo stays out of the repository; the generator (`tools/art/`) and its source URL are the provenance. Vendor logos are never traced: uncoil's spiral sits where a logo LED is, lit in its colour.
+
 ### Keyboard (signature)
-Flat keycaps from the device's real geometry. Keys that do something different on the shown layer carry a gel tab across the top and their action in small ink-3 text under the legend. Win and Fn are dimmed. Under the board, a compact "What Fn changes" list repeats each change with its key, its action and its named gel.
+Keycaps from the device's real geometry, each key group in its recessed frame, inside the case as measured from the product photo (`lib/art/keyboards.ts`): its front lip carries uncoil's wordmark where the vendor's would be, the BlackWidow's OLED sits right of F12 and its command dial on the right side of the case. The underglow is a light bar along each side where its LEDs run. Keys that do something different on the shown layer carry a gel tab across the top and their action in small ink-3 text under the legend. Win and Fn are dimmed. Under the board, a compact "What Fn changes" list repeats each change with its key, its action and its named gel.
 
 ### Mouse
-The mouse seen from above, with every remappable button as a clickable region (main buttons, wheel and tilt, scroll mode, side buttons, clutch), plus the two underside buttons as chips. Changed buttons get a gel outline.
+The traced mouse, large, with every remappable button as a clickable region (main buttons, wheel and tilt, the two buttons behind the wheel, side buttons, clutch) and callouts naming the small ones; the profile button underneath is a chip. Changed buttons get a gel fill and outline; the selected one fills with surface-3.
 
 ### Desk preview
-The desk to scale, lit with the live effect: the mat's edge ring takes its LED colour, keycaps and underglow light up, and the mouse's LEDs show. Devices that aren't connected are dimmed. Where an effect needs input, the preview is also the input: click a key to preview a press (reactive, ripple), or click and drag to pick lights for a Studio layer, with picked lights outlined in ink.
+The desk to scale, lit with the live effect: the mat's cloth with its lit edge ring and cable hub, keycaps and side underglow, the mouse's wheel, logo and strip, and OpenRGB's PC devices as plain panels. Devices that aren't connected are dimmed. On Lighting, clicking a device chooses it (Ctrl-click adds more) and chosen devices get a two-tone dashed outline; "Pick lights" turns the desk into a brush across devices, with picked lights outlined in ink. In Studio, click a key to preview a press (reactive, ripple).
+
+### Lighting targets
+A row of chips above the effects: Whole desk, one per device (OpenRGB's devices together as "PC"), and Pick lights. Each chip's gel swatch shows the effect that device has; it is faded when the device just follows the desk. The panel names what is being edited ("On Basilisk V3 Pro") and offers "Use the desk's effect" to give a device back. Under the hood it is a Studio: a whole-desk layer plus opaque zones, tidied back to a plain effect when no zone differs.
 
 ### Effect swatch cards
-Every effect (Wave, Spectrum, Breathing, Static, Starlight, Fire, Wheel, Reactive, Ripple, Audio meter, Off) as a card with a swatch painted from its current settings, plus a Studio card. Colours are offered as named gel chips (Warm white, Straw, Amber, Primary red, Steel blue and others) plus a custom picker; effects that can cycle the rainbow offer Rainbow first. Effects that listen to keys or audio say in plain words what they read and what they never read.
+Every effect (Wave, Spectrum, Breathing, Static, Starlight, Fire, Wheel, Reactive, Ripple, Audio meter, Off) as a card whose swatch is the effect itself, running on a small 15 × 5 keyboard from the same effect code as the desk (at most 20 frames a second, one shared clock, still with reduced motion), plus a Studio card. Colours are offered as named gel chips (Warm white, Straw, Amber, Primary red, Steel blue and others) plus a custom picker; effects that can cycle the rainbow offer Rainbow first. Effects that listen to keys or audio say in plain words what they read and what they never read.
 
 ### Studio layers
-A plain list of layers, top first, each row showing its swatch, name, what it covers (Whole desk, device names, or "N lights on …"), and show/hide, move up/down and delete. The selected layer's settings sit in the right panel: name, Covers (Desk / Devices / Lights), opacity, effect and that effect's settings. "Paint keys" adds a static layer already set to pick lights.
+A plain list of layers, top first, each row showing its swatch, name, what it covers (Whole desk, device names, or "N lights on …"), and show/hide, move up/down and delete. The selected layer's settings sit in the right panel: name, Covers (Desk / Devices / Lights, any lights across devices), opacity, effect and that effect's settings. "Paint lights" adds a static layer already set to pick lights.
 
 ## Do's and Don'ts
 
@@ -201,4 +209,3 @@ A plain list of layers, top first, each row showing its swatch, name, what it co
 - **Don't** add catalog numbers, section numbers or kicker labels.
 - **Don't** show raw protocol codes to users.
 - **Don't** animate width, height, padding or margin.
-- **Don't** imitate Razer's branding, green or product imagery.

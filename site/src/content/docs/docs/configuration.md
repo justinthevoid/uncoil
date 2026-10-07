@@ -173,7 +173,7 @@ on top of another effect.
 | `enabled` | `true` | A disabled layer is skipped. |
 | `opacity` | `1` | 0–1. |
 | `effect` | required | Any effect above except `studio`. |
-| `mask` | `{ "kind": "all" }` | `all`, `devices` with `ids`, or `keys` with a `device` id and `shapes` (key and LED names from the device file). |
+| `mask` | `{ "kind": "all" }` | `all`, `devices` with `ids`, `keys` with a `device` id and `shapes` (key and LED names from the device file), or `lights` with `[device, shape]` pairs on any devices, e.g. `{ "kind": "lights", "lights": [["razer-blackwidow-v4-pro-75", "W"], ["razer-basilisk-v3-pro", "Logo"]] }`. The app's Lighting page writes a whole-desk layer plus `devices` and `lights` layers when you give devices their own effect. |
 
 Colours for `wave`, `spectrum` and the other rainbow effects come from FastLED's "rainbow" hue map rather
 than a plain HSV wheel. It is tuned for real LEDs, so no band of the rainbow looks wider or brighter than the
