@@ -1,0 +1,23 @@
+name: dependabot auto-merge
+
+# Dependabot's pull requests merge on their own once CI passes: this turns on auto-merge (squash), and the
+# ruleset on main ("main: CI must pass") holds the merge until the ci jobs rust, gui, site and devices are
+# green. A failing update stays open for a person to look at.
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - run: gh pr merge --auto --squash "$PR"
+        env:
+          PR: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
