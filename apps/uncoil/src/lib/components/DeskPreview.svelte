@@ -13,6 +13,8 @@
 	// wheel, logo and strip, and OpenRGB's PC devices as panels. Away devices are dimmed.
 	import Keyboard from './Keyboard.svelte';
 	import MouseArt from './MouseArt.svelte';
+	import MatArt from './MatArt.svelte';
+	import DockArt from './DockArt.svelte';
 	import { mouseArt } from '#lib/art/mice.ts';
 	import { boardExtent } from '#lib/art/keyboards.ts';
 	import type { DeskDevice } from '#lib/types.ts';
@@ -127,6 +129,7 @@
 		const cy = a.body_box.y + a.body_box.h / 2;
 		return box({ x: d.x + d.w / 2 - (cx - a.view.x) * u, y: d.y + d.h / 2 - (cy - a.view.y) * u, w: a.view.w * u, h: a.view.h * u });
 	};
+	const dock = (d: DeskDevice) => /mouse-dock|base-station/.test(d.id);
 	const traced = (d: DeskDevice) => d.kind === 'mouse' && !!mouseArt(d.id);
 	const pc = (d: DeskDevice) => d.id.startsWith('openrgb:');
 	// Draw the mat first, then everything sitting on it.
@@ -159,13 +162,17 @@
 	>
 		{#each order as { d, i } (d.id)}
 			{#if d.kind === 'mousemat'}
-				<div class="mat" class:away={away.has(d.id)} style={box(d)} style:--c={colors[i]?.[0] ?? 'var(--led-off)'}>
-					<span class="hub"></span>
+				<div class="dev" class:away={away.has(d.id)} style={box(d)}>
+					<MatArt device={d} colors={colors[i] ?? []} />
 				</div>
 			{:else if d.kind === 'keyboard'}
 				{@const e = boardExtent(d)}
 				<div class="dev" class:away={away.has(d.id)} style={box({ x: e.x0, y: e.y0, w: e.x1 - e.x0, h: e.y1 - e.y0 })}>
 					<Keyboard device={d} colors={colors[i] ?? []} />
+				</div>
+			{:else if dock(d)}
+				<div class="dev" class:away={away.has(d.id)} style={box(d)}>
+					<DockArt device={d} colors={colors[i] ?? []} />
 				</div>
 			{:else if traced(d)}
 				<div class="dev" class:away={away.has(d.id)} style={artBox(d)}>
@@ -239,34 +246,12 @@
 		box-shadow: 0 0 0 2px rgb(15 14 13 / 0.85);
 		pointer-events: none;
 	}
-	.mat,
 	.dev {
 		position: absolute;
 		transition: opacity var(--t-slow) var(--ease);
 	}
 	.away {
 		opacity: 0.3;
-	}
-	/* The cloth, with its lit edge ring and the cable hub at the back left. */
-	.mat {
-		border-radius: calc(var(--u) * 0.5);
-		background: var(--cloth);
-		box-shadow:
-			inset 0 0 0 calc(var(--u) * 0.16) var(--c),
-			inset 0 0 0 calc(var(--u) * 0.16 + 1px) rgb(0 0 0 / 0.35);
-		transition:
-			box-shadow 120ms linear,
-			opacity var(--t-slow) var(--ease);
-	}
-	.hub {
-		position: absolute;
-		top: calc(var(--u) * -0.22);
-		left: calc(var(--u) * 1.1);
-		width: calc(var(--u) * 1.5);
-		height: calc(var(--u) * 0.4);
-		border-radius: calc(var(--u) * 0.16);
-		background: var(--shell-top);
-		box-shadow: 0 0 0 1px var(--case-edge);
 	}
 	.mouse {
 		border-radius: 48% 48% 44% 44% / 30% 30% 22% 22%;

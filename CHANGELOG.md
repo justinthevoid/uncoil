@@ -91,7 +91,9 @@ Everything so far. Nothing has been released yet.
   had three 0.25-key gaps), so effects sample them where they are.
 - **More device drawings.** Ten more mice get outlines traced from their store photos
   (`tools/art/mouse.py`), with buttons placed by proportion, on the Buttons page and the desk; seven more
-  keyboards get their case measured from their photos (`tools/art/keyboard.py`).
+  keyboards get their case measured from their photos (`tools/art/keyboard.py`). Mats are drawn with their
+  surface, cable hub and edge light in LED order (the whole ring on one-LED mats); the Mouse Dock Pro and Base
+  Station V2 Chroma with their lit rings, pad, upright and arm.
 - **BlackWidow V4 Pro wrist rest.** Its 20-LED strip runs along the rest's front edge, as in Razer's photo,
   not just in front of the keys; the rest is drawn with the keyboard.
 - **Inside the PC.** A PC page on the Desk tab draws the PC's own lighting (motherboard, memory, graphics
