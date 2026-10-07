@@ -3,7 +3,6 @@ import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
-import tailwindcss from '@tailwindcss/vite';
 
 // Where the site is served from: https://uncoil.justinthevoid.com/ (GitHub Pages with a custom domain). To
 // build it for somewhere else, set SITE and BASE, e.g. SITE=https://justinthevoid.github.io BASE=/uncoil for
@@ -50,16 +49,17 @@ export default defineConfig({
 				ThemeProvider: './src/components/docs/ThemeProvider.astro',
 				ThemeSelect: './src/components/docs/ThemeSelect.astro',
 			},
-			// Starlight's own light and dark code themes, which read the --sl-color-* values (mapped to the Swatch Book
-			// tokens in starlight.css), so code blocks follow the OS theme with the rest of the page.
+			// Starlight's own code themes read the --sl-color-* values (mapped to the world's tokens in starlight.css);
+			// the docs are always dark, so the dark one is the one that shows.
 			expressiveCode: {
 				// Plain frames: no faux window chrome on shell snippets.
 				defaultProps: { frame: 'code' },
 				styleOverrides: {
-					borderRadius: '8px',
-					borderColor: 'var(--color-seam)',
-					codeFontFamily: "'Cascadia Mono', ui-monospace, 'SF Mono', Consolas, monospace",
-					uiFontFamily: "'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif",
+					borderRadius: '10px',
+					borderColor: 'var(--hair)',
+					codeFontFamily: "ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace",
+					uiFontFamily: "ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace",
+					codeBackground: 'var(--raise)',
 				},
 			},
 			sidebar: [
@@ -79,7 +79,6 @@ export default defineConfig({
 		}),
 	],
 	vite: {
-		plugins: [tailwindcss()],
 		resolve: {
 			// The landing page's desk runs the desktop app's own effect maths on its desk snapshot.
 			alias: { $uncoil: fileURLToPath(new URL('../apps/uncoil/src/lib', import.meta.url)) },

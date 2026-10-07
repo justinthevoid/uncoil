@@ -1,0 +1,78 @@
+/*
+ * The uncoil world: the landing page, the docs and the 404 share these. It is dark; the only light is the
+ * desk's LEDs and one brass lamp. Fraunces for words, the system mono for data. No third-party requests: the
+ * font is self-hosted from @fontsource-variable.
+ */
+@import '@fontsource-variable/fraunces/opsz.css';
+
+:root {
+	--bg: #0e0d0c;
+	/* panels a step up from the dark: sidebars, code, tables, asides */
+	--raise: #151311;
+	--raise-2: #1c1916;
+	--ink: #ece6da;
+	--ink-2: #c2b9aa;
+	--ink-3: #968d80;
+	--brass: #c9a46a;
+	--brass-hi: #e3c48e;
+	--warn: #e0a33e;
+	--hair: rgb(236 230 218 / 0.14);
+	--hair-2: rgb(236 230 218 / 0.28);
+	--plate: rgb(14 13 12 / 0.78);
+	--serif: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+	--mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+	--gut: max(16px, 5vw);
+	/* motion tokens: the same rhythm as the film (src/film/film.ts MOTION) */
+	--t-reveal: 760ms;
+	--t-quick: 160ms;
+	--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--stagger: 70ms;
+	color-scheme: dark;
+}
+
+/* The wordmark: the brass spiral and the name. */
+.brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+	color: var(--ink);
+	text-decoration: none;
+	font-family: var(--serif);
+	font-size: 19px;
+	letter-spacing: -0.01em;
+}
+.brand svg {
+	fill: none;
+	stroke: var(--brass);
+	stroke-width: 1.8;
+	stroke-linecap: round;
+}
+
+/* Buttons: brass for the one main action, a hairline for the rest. */
+.btn,
+.btn-q {
+	display: inline-flex;
+	align-items: center;
+	min-height: 42px;
+	padding: 0 18px;
+	border-radius: 999px;
+	font-family: var(--mono);
+	font-size: 13.5px;
+	text-decoration: none;
+}
+.btn {
+	background: var(--brass);
+	color: #17140f;
+}
+.btn:hover {
+	background: var(--brass-hi);
+	color: #17140f;
+}
+.btn-q {
+	border: 1px solid var(--hair-2);
+	color: var(--ink);
+}
+.btn-q:hover {
+	border-color: var(--brass-hi);
+	color: var(--ink);
+}

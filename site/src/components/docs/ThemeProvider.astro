@@ -1,15 +1,10 @@
 ---
-// The docs follow the OS theme, like the app and the landing page: data-theme mirrors prefers-color-scheme and
-// tracks it live. There is no picker (see ThemeSelect.astro); Starlight's global scripts still call
-// updatePickers, so it stays as a no-op.
+// The docs live in the landing page's world, which is always dark: data-theme is pinned so Starlight and
+// Expressive Code pick their dark styles. There is no picker (see ThemeSelect.astro); Starlight's global scripts
+// still call updatePickers, so it stays as a no-op.
 ---
 
 <script is:inline>
-	(() => {
-		const light = matchMedia('(prefers-color-scheme: light)');
-		const apply = () => (document.documentElement.dataset.theme = light.matches ? 'light' : 'dark');
-		apply();
-		light.addEventListener('change', apply);
-		window.StarlightThemeProvider = { updatePickers() {} };
-	})();
+	document.documentElement.dataset.theme = 'dark';
+	window.StarlightThemeProvider = { updatePickers() {} };
 </script>

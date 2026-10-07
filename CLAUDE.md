@@ -104,6 +104,9 @@ These are hard rules. The maintainer's devices are real, and some mistakes persi
   `.impeccable/surfaces/apps-uncoil.md` (the direction contract). Earlier directions (Factory Records
   catalogue, "Dark Desk") were rejected in use; don't bring them back. `.impeccable/config.json`,
   `design.json` and the surface brief are tracked; runtime state, mocks and decisions are gitignored.
+- The website (`site/`) is the exception: its own dark world, "Uncoiling" (brass, Fraunces, the desk's real
+  LEDs as the only other light), with rules at the top of `site/src/pages/index.astro` and tokens in
+  `site/src/styles/world.css`; see `site/README.md`. Don't apply the Swatch Book there, or the world to the app.
 - Every state must read without colour; respect `prefers-reduced-motion`; keyboard-operable with visible
   focus.
 - Principles that decide arguments: earn every byte (the daemon runs all day), the hardware should keep

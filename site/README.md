@@ -3,17 +3,19 @@
 The website and documentation for uncoil: a landing page at `/` and Starlight docs at `/docs/`, built as one
 static Astro project.
 
-- Astro 7, Tailwind CSS 4 (preflight for the 404 page), Starlight (docs). No client framework: the landing
-  page's one script is the film (`src/film/film.ts`, about 24 KB gzipped with the desk data and effect maths).
+- Astro 7 and Starlight (docs). No client framework and no CSS framework: the landing page's one script is the
+  film (`src/film/film.ts`, about 24 KB gzipped with the desk data and effect maths).
 - Landing page: "Uncoiling", its own small world. Always dark; the only light is the desk's 113 LEDs and a
   brass lamp; one canvas behind sticky scenes, where the same 113 points start as the uncoil spiral, unwind
   onto their measured positions and morph from scene to scene, moved by scroll through a spring. Its world
   rules are at the top of `src/pages/index.astro`. Type: Fraunces (self-hosted from `@fontsource-variable`)
   with the system mono for data.
-- Docs and the 404 page: the app's Swatch Book (`DESIGN.md`). Tokens live once in `src/styles/tokens.css`
-  (same names and values as `apps/uncoil/src/app.css`), imported by `src/styles/site.css` (404) and
-  `src/styles/starlight.css` (docs). Light and dark follow the OS; the docs mirror it into `data-theme`
-  (`src/components/docs/ThemeProvider.astro`), so there is no theme picker. System UI face there.
+- One world for every page: `src/styles/world.css` holds the tokens (dark, bone ink, brass), the font and
+  the shared wordmark and buttons, imported by the landing page, the 404 page and `src/styles/starlight.css`,
+  which maps Starlight's colours onto it. The docs are always dark (`ThemeProvider.astro` pins `data-theme`;
+  there is no picker); the current page in the sidebar is the one lit LED. The 404 page is the coil again,
+  one light short.
+- The desktop app keeps its own design system, the Swatch Book (`DESIGN.md`); the site no longer mirrors it.
 - No third-party requests anywhere.
 - Reduced motion: every scene shows a still frame (rendered at build time from the same geometry, so it also
   works without JavaScript) and the light waits for Play.

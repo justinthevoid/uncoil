@@ -13,7 +13,8 @@ may change config and device-file formats; such changes are called out under **C
   unwind onto their measured positions as you scroll, and the app's own traced device drawings draw themselves
   in before the wave switches on; the same points then carry the measured numbers, one field across the desk,
   Fn+P in the keyboard's memory, and the device list. It now shows the 29 experimental devices alongside the
-  3 tested ones. Reduced motion and no-JavaScript get a still frame per scene.
+  3 tested ones. Reduced motion and no-JavaScript get a still frame per scene. The docs and the 404 page
+  moved into the same dark world (Fraunces, brass, the current page lit like an LED).
 
 ## [0.1.0] - 2026-10-07
 

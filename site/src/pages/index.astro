@@ -11,7 +11,7 @@
 // The film: one fixed canvas behind sticky scenes (src/film/film.ts). Scroll moves the
 // points; the clock colours them. Everything the film shows is also here as text, and as still pictures when
 // there is no JavaScript.
-import '@fontsource-variable/fraunces/opsz.css';
+import '../styles/world.css';
 import { Picture } from 'astro:assets';
 import shotDark from '../assets/app-lighting-dark.png';
 import { leds, MEASURED, WAVE } from '../lib/desk';
@@ -87,6 +87,10 @@ const faq = [
 	},
 ];
 const markPath = 'M12 12a2 2 0 1 1 2-2 4 4 0 1 1-4-4 6 6 0 1 1-6 6 8 8 0 1 1 8 8';
+const title = 'uncoil: a 1.4 MB replacement for Razer Synapse';
+const description =
+	'uncoil runs the lighting on Razer keyboards, mice and mats from one small background process on Windows. Open source, GPL-3.0. Not affiliated with Razer.';
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -94,13 +98,17 @@ const markPath = 'M12 12a2 2 0 1 1 2-2 4 4 0 1 1-4-4 6 6 0 1 1-6 6 8 8 0 1 1 8 8
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="robots" content="noindex" />
 		<meta name="color-scheme" content="dark" />
-		<title>uncoil: a 1.4 MB replacement for Razer Synapse</title>
-		<meta
-			name="description"
-			content="uncoil runs the lighting on Razer keyboards, mice and mats from one small background process on Windows. Open source, GPL-3.0. Not affiliated with Razer."
-		/>
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" href={url('favicon.svg')} type="image/svg+xml" />
+		<meta name="theme-color" content="#0e0d0c" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta name="twitter:card" content="summary" />
 		<script is:inline>
 			document.documentElement.classList.replace('no-js', 'js');
 		</script>
@@ -540,24 +548,6 @@ const markPath = 'M12 12a2 2 0 1 1 2-2 4 4 0 1 1-4-4 6 6 0 1 1-6 6 8 8 0 1 1 8 8
 </html>
 
 <style is:global>
-	:root {
-		--bg: #0e0d0c;
-		--ink: #ece6da;
-		--ink-2: #c2b9aa;
-		--ink-3: #968d80;
-		--brass: #c9a46a;
-		--brass-hi: #e3c48e;
-		--hair: rgb(236 230 218 / 0.14);
-		--plate: rgb(14 13 12 / 0.78);
-		--serif: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
-		--mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
-		--gut: max(16px, 5vw);
-		/* motion tokens: the same rhythm as the film (film.ts MOTION) */
-		--t-reveal: 760ms;
-		--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-		--stagger: 70ms;
-		color-scheme: dark;
-	}
 	*,
 	*::before,
 	*::after {
@@ -695,16 +685,6 @@ const markPath = 'M12 12a2 2 0 1 1 2-2 4 4 0 1 1-4-4 6 6 0 1 1-6 6 8 8 0 1 1 8 8
 		font-family: var(--mono);
 		font-size: 13px;
 	}
-	.brand {
-		display: inline-flex;
-		align-items: center;
-		gap: 9px;
-		text-decoration: none;
-		font-family: var(--serif);
-		font-size: 19px;
-		letter-spacing: -0.01em;
-	}
-	.brand svg,
 	.foot svg {
 		fill: none;
 		stroke: var(--brass);
@@ -909,32 +889,6 @@ const markPath = 'M12 12a2 2 0 1 1 2-2 4 4 0 1 1-4-4 6 6 0 1 1-6 6 8 8 0 1 1 8 8
 		align-items: center;
 		gap: 10px 18px;
 		margin-top: 20px;
-	}
-	.btn,
-	.btn-q {
-		display: inline-flex;
-		align-items: center;
-		min-height: 42px;
-		padding: 0 18px;
-		border-radius: 999px;
-		font-family: var(--mono);
-		font-size: 13.5px;
-		text-decoration: none;
-	}
-	.btn {
-		background: var(--brass);
-		color: #17140f;
-	}
-	.btn:hover {
-		background: var(--brass-hi);
-		color: #17140f;
-	}
-	.btn-q {
-		border: 1px solid rgb(236 230 218 / 0.28);
-		color: var(--ink);
-	}
-	.btn-q:hover {
-		border-color: var(--brass-hi);
 	}
 	.hero-cap {
 		grid-column: 1 / -1;
