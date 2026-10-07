@@ -12,8 +12,8 @@
 	// its real black finish: the mat with its lit edge, the keyboard's caps and side underglow, the mouse's
 	// wheel, logo and strip, and OpenRGB's PC devices as panels. Away devices are dimmed.
 	import Keyboard from './Keyboard.svelte';
-	import BasiliskArt from './BasiliskArt.svelte';
-	import { BODY_BOX, VIEW } from '#lib/art/basilisk.ts';
+	import MouseArt from './MouseArt.svelte';
+	import { mouseArt } from '#lib/art/mice.ts';
 	import { boardExtent } from '#lib/art/keyboards.ts';
 	import type { DeskDevice } from '#lib/types.ts';
 
@@ -119,14 +119,15 @@
 		const b = bounds;
 		return `left:${((d.x - b.x0) / b.w) * 100}%;top:${((d.y - b.y0) / b.h) * 100}%;width:${(d.w / b.w) * 100}%;height:${(d.h / b.h) * 100}%`;
 	};
-	/** The Basilisk drawing over its desk box: the body's length is the box's depth, centred on the box. */
-	const basiliskBox = (d: DeskDevice) => {
-		const u = d.h / BODY_BOX.h; // key units per drawing pixel
-		const cx = BODY_BOX.x + BODY_BOX.w / 2;
-		const cy = BODY_BOX.y + BODY_BOX.h / 2;
-		return box({ x: d.x + d.w / 2 - (cx - VIEW.x) * u, y: d.y + d.h / 2 - (cy - VIEW.y) * u, w: VIEW.w * u, h: VIEW.h * u });
+	/** A traced mouse over its desk box: the body's length is the box's depth, centred on the box. */
+	const artBox = (d: DeskDevice) => {
+		const a = mouseArt(d.id)!;
+		const u = d.h / a.body_box.h; // key units per drawing pixel
+		const cx = a.body_box.x + a.body_box.w / 2;
+		const cy = a.body_box.y + a.body_box.h / 2;
+		return box({ x: d.x + d.w / 2 - (cx - a.view.x) * u, y: d.y + d.h / 2 - (cy - a.view.y) * u, w: a.view.w * u, h: a.view.h * u });
 	};
-	const isBasilisk = (d: DeskDevice) => d.id.startsWith('razer-basilisk-v3');
+	const traced = (d: DeskDevice) => d.kind === 'mouse' && !!mouseArt(d.id);
 	const pc = (d: DeskDevice) => d.id.startsWith('openrgb:');
 	// Draw the mat first, then everything sitting on it.
 	const order = $derived(desk.map((d, i) => ({ d, i })).sort((a, b) => Number(b.d.kind === 'mousemat') - Number(a.d.kind === 'mousemat')));
@@ -135,7 +136,7 @@
 		return k < 0 ? undefined : colors[i]?.[k];
 	};
 	/** The outline drawn round a chosen device. */
-	const chosenBox = (d: DeskDevice) => (isBasilisk(d) ? box({ x: d.x - 0.35, y: d.y - 0.25, w: d.w + 0.7, h: d.h + 0.5 }) : box({ x: d.x - 0.15, y: d.y - 0.15, w: d.w + 0.3, h: d.h + 0.3 }));
+	const chosenBox = (d: DeskDevice) => (traced(d) ? box({ x: d.x - 0.35, y: d.y - 0.25, w: d.w + 0.7, h: d.h + 0.5 }) : box({ x: d.x - 0.15, y: d.y - 0.15, w: d.w + 0.3, h: d.h + 0.3 }));
 </script>
 
 {#if desk.length}
@@ -166,9 +167,9 @@
 				<div class="dev" class:away={away.has(d.id)} style={box({ x: e.x0, y: e.y0, w: e.x1 - e.x0, h: e.y1 - e.y0 })}>
 					<Keyboard device={d} colors={colors[i] ?? []} />
 				</div>
-			{:else if isBasilisk(d)}
-				<div class="dev" class:away={away.has(d.id)} style={basiliskBox(d)}>
-					<BasiliskArt color={colorOf(i, d)} />
+			{:else if traced(d)}
+				<div class="dev" class:away={away.has(d.id)} style={artBox(d)}>
+					<MouseArt art={mouseArt(d.id)!} shapes={d.shapes.map((s) => s.name)} color={colorOf(i, d)} />
 				</div>
 			{:else}
 				<div class="dev" class:mouse={!pc(d)} class:pc={pc(d)} class:away={away.has(d.id)} style={box(d)}>

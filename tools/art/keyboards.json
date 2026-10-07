@@ -1,0 +1,24 @@
+{
+ "razer-blackwidow-v3": {
+  "photo": "https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/h37/h5c/9533910122526/blackwidow-v3-black-4-500x500.png"
+ },
+ "razer-blackwidow-v3-pro": {
+  "photo": "https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/h37/h5c/9533910122526/blackwidow-v3-black-4-500x500.png",
+  "note": "The BlackWidow V3's photo: the same case as the V3 Pro."
+ },
+ "razer-blackwidow-v4": {
+  "photo": "https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/h36/h5a/9640099184670/blackwidow-v4-2-500x500.png"
+ },
+ "razer-blackwidow-v4-75": {
+  "photo": "https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/hf7/h5a/9640099119134/blackwidow-v4-75-black-2-500x500.png"
+ },
+ "razer-blackwidow-v4-x": {
+  "photo": "https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/h8f/h57/9640099217438/blackwidow-v4-black-x-500x500.png"
+ },
+ "razer-huntsman-v3-pro": {
+  "photo": "https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/hb8/h66/9705254125598/huntsman-v3-pro-2-500x500.png"
+ },
+ "razer-huntsman-v3-pro-tkl": {
+  "photo": "https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/hf6/h65/9705254191134/huntsman-v3-pro-tkl-2-500x500.png"
+ }
+}

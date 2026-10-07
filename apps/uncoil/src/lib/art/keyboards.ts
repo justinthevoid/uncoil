@@ -18,8 +18,13 @@ export interface KeyboardArt {
 	frames?: string[][];
 }
 
-/** Razer's photo of the BlackWidow V4 Pro 75% (full-keyboard-unlit.jpg on its product page), 1u = 100.8 px. */
+// Cases measured by tools/art/keyboard.py from each keyboard's store photo (./keyboards/<id>.json).
+const generated = import.meta.glob<KeyboardArt>('./keyboards/*.json', { eager: true, import: 'default' });
+
+/** Razer's photo of the BlackWidow V4 Pro 75% (full-keyboard-unlit.jpg on its product page), 1u = 100.8 px,
+ * measured by hand for its screen and side dial; every other keyboard's case comes from keyboard.py. */
 export const KEYBOARD_ART: Record<string, KeyboardArt> = {
+	...Object.fromEntries(Object.entries(generated).map(([p, a]) => [p.replace(/^.*\/(.+)\.json$/, '$1'), { case: a.case, lip: a.lip }])),
 	'razer-blackwidow-v4-pro-75': {
 		case: [-0.42, -0.75, 16.77, 7.81],
 		lip: 6.78,

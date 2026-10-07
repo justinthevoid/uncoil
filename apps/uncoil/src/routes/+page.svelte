@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack, type Component } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { BatteryMedium, Bell, CircleDot, X, Gauge, Info, Layers, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
+	import { BatteryMedium, Bell, CircleDot, Cpu, X, Gauge, Info, Layers, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
 	import { app, deskSources, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
 	import { daemon, getDesk, onConfigChanged } from '#lib/api.ts';
 	import { pipe, loadDevices, shortName } from '#lib/daemon.svelte.ts';
@@ -9,6 +9,7 @@
 	import { ms } from '#lib/motion.ts';
 	import LightingView from '#lib/views/LightingView.svelte';
 	import StudioView from '#lib/views/StudioView.svelte';
+	import PcView from '#lib/views/PcView.svelte';
 	import DevicesView from '#lib/views/DevicesView.svelte';
 	import KeysView from '#lib/views/KeysView.svelte';
 	import DialScreenView from '#lib/views/DialScreenView.svelte';
@@ -36,7 +37,7 @@
 
 	const kindIcon: Record<DeviceKind, Icon> = { keyboard: KeyboardIcon, mouse: Mouse, mousemat: RectangleHorizontal, headset: Info, other: Info };
 	const entry = (id: RailPage, icon: Icon, name: PageId = id): Entry => ({ id, label: PAGES[name].label, icon });
-	const DESK: Entry[] = [entry('lighting', Lightbulb), entry('studio', Layers), entry('devices', LayoutGrid)];
+	const DESK: Entry[] = [entry('lighting', Lightbulb), entry('studio', Layers), entry('pc', Cpu), entry('devices', LayoutGrid)];
 	const SETTINGS: Entry[] = [entry('settings', Monitor), entry('app', Bell), entry('about', Info)];
 	/** What a device can do before the engine has said (or while it's unplugged): today's defaults per kind. */
 	const DEFAULT_FEATURES: Record<DeviceKind, Feature[]> = {
@@ -255,6 +256,8 @@
 						<LightingView config={app.config} onstudio={() => (feature = 'studio')} />
 					{:else if feature === 'studio'}
 						<StudioView config={app.config} />
+					{:else if feature === 'pc'}
+						<PcView config={app.config} />
 					{:else if feature === 'devices'}
 						<DevicesView config={app.config} onopen={openTab} />
 					{:else if feature === 'keys' && device}

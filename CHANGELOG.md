@@ -89,6 +89,11 @@ Everything so far. Nothing has been released yet.
   lip. On the lit desk devices wear their real black finish; the mat has its cloth, lit edge and cable hub.
 - **BlackWidow V4 Pro 75% F-row positions.** Esc and F1-F12 run without gaps, as on the real keyboard (they
   had three 0.25-key gaps), so effects sample them where they are.
+- **More device drawings.** Ten more mice get outlines traced from their store photos
+  (`tools/art/mouse.py`), with buttons placed by proportion, on the Buttons page and the desk; seven more
+  keyboards get their case measured from their photos (`tools/art/keyboard.py`).
+- **Inside the PC.** A PC page on the Desk tab draws the PC's own lighting (motherboard, memory, graphics
+  card, fans, AIO pump) where it sits, lit with the desk's effect, from what live OpenRGB reports.
 - **Animated effect cards.** Each effect card runs its effect on a small keyboard, from the same effect
   code as the desk preview (20 fps at most, still with reduced motion).
 - **Device info** (`info.get`, `uncoil info`): firmware version on every device, and a keyboard's layout and

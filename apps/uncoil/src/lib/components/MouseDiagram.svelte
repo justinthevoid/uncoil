@@ -1,11 +1,10 @@
 <script lang="ts">
-	// The Basilisk V3 Pro seen from above (silhouette traced from its product photo, lib/art/basilisk.ts), with
-	// each remappable button as a region you can click: main buttons, wheel (click, up, down, tilt), the two
-	// buttons behind the wheel, the side buttons and the clutch, and the profile button underneath as a chip.
-	// A gel fill marks buttons that do something changed.
+	// A traced mouse seen from above (lib/art/mice.ts), with each remappable button it has a region for as a
+	// region you can click: main buttons, wheel (click, up, down, tilt), buttons behind the wheel, side
+	// buttons and clutch, with callouts naming the small ones; the buttons underneath are chips. Buttons
+	// without a region are still in the list beside it. A gel fill marks buttons that do something changed.
 	import type { Gel } from '#lib/keys.ts';
-	import { BODY, GRIPS, LOGO, REGION, SEAMS, TREAD, VIEW, WELL } from '#lib/art/basilisk.ts';
-	import { SPIRAL } from './BasiliskArt.svelte';
+	import { SPIRAL, type MouseArt } from '#lib/art/mice.ts';
 
 	interface Region {
 		/** Keymap button name (e.g. LEFT_CLICK). */
@@ -15,10 +14,11 @@
 		selected: boolean;
 	}
 	interface Props {
+		art: MouseArt;
 		regions: Map<string, Region>;
 		onselect: (name: string) => void;
 	}
-	let { regions, onselect }: Props = $props();
+	let { art, regions, onselect }: Props = $props();
 	const uid = $props.id();
 
 	const r = (name: string) => regions.get(name);
@@ -33,23 +33,24 @@
 			onselect(name);
 		}
 	}
-	type Name = keyof typeof REGION;
-	const PAD = 104;
-	const L = VIEW.x - PAD + 4;
-	const R = VIEW.x + VIEW.w + PAD - 4;
-	const CALLOUTS: { name: Name; label: string; from: [number, number]; side: 'l' | 'r' }[] = [
-		{ name: 'WHEEL_CLICK', label: 'Wheel', from: [262, 238], side: 'r' },
-		{ name: 'SCROLL_MODE', label: 'Scroll mode', from: [255, 330], side: 'r' },
-		{ name: 'DPI_BUTTON', label: 'DPI', from: [255, 362], side: 'r' },
-		{ name: 'FORWARD', label: 'Forward', from: [108, 242], side: 'l' },
-		{ name: 'BACK', label: 'Back', from: [106, 284], side: 'l' },
-		{ name: 'CLUTCH', label: 'Clutch', from: [84, 342], side: 'l' }
-	];
-	const S = 1.7;
+	const LABELS: Record<string, string> = { WHEEL_CLICK: 'Wheel', SCROLL_MODE: 'Scroll mode', DPI_BUTTON: 'DPI', FORWARD: 'Forward', BACK: 'Back', CLUTCH: 'Clutch' };
+	// a margin each side for the callouts, and type sized to the photo
+	const U = $derived(art.body_box.h / 496);
+	const PAD = $derived(104 * U);
+	const L = $derived(art.view.x - PAD + 4 * U);
+	const R = $derived(art.view.x + art.view.w + PAD - 4 * U);
+	const callouts = $derived(
+		Object.entries(art.callouts)
+			.filter(([name]) => r(name) && LABELS[name])
+			.map(([name, from]) => ({ name, label: LABELS[name], from, side: from[0] > art.body_box.x + art.body_box.w / 2 ? 'r' : 'l' }))
+	);
+	const SMALL = ['WHEEL_CLICK', 'WHEEL_UP', 'WHEEL_DOWN', 'WHEEL_LEFT', 'WHEEL_RIGHT', 'SCROLL_MODE', 'DPI_BUTTON', 'FORWARD', 'BACK', 'CLUTCH'];
+	const under = $derived(['DPI_BUTTON', 'PROFILE_BUTTON'].filter((n) => r(n) && !art.region[n]));
+	const S = $derived(1.7 * U);
 </script>
 
-{#snippet hot(name: Name, clipped = false)}
-	{#if r(name)}
+{#snippet hot(name: string, clipped = false)}
+	{#if r(name) && art.region[name]}
 		<g
 			class={cls(name)}
 			role="button"
@@ -61,58 +62,49 @@
 			style:--gel={gelColor(name)}
 			clip-path={clipped ? `url(#${uid}-body)` : undefined}
 		>
-			<path d={REGION[name]} />
+			<path d={art.region[name]} />
 		</g>
 	{/if}
 {/snippet}
 
 <div class="mouse">
-	<svg viewBox="{VIEW.x - PAD} {VIEW.y} {VIEW.w + PAD * 2} {VIEW.h}" role="group" aria-label="Mouse buttons">
+	<svg viewBox="{art.view.x - PAD} {art.view.y} {art.view.w + PAD * 2} {art.view.h}" role="group" aria-label="Mouse buttons" style:--u={U}>
 		<defs>
-			<clipPath id="{uid}-body"><path d={BODY} /></clipPath>
-			<pattern id="{uid}-grip" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-				<circle cx="2" cy="2" r="0.8" class="dot" />
+			<clipPath id="{uid}-body"><path d={art.body} /></clipPath>
+			<pattern id="{uid}-grip" width={4 * U} height={4 * U} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+				<circle cx={2 * U} cy={2 * U} r={0.8 * U} class="dot" />
 			</pattern>
 		</defs>
-		<path class="body" d={BODY} />
+		<path class="body" d={art.body} />
 		{@render hot('LEFT_CLICK', true)}
 		{@render hot('RIGHT_CLICK', true)}
 		<g clip-path="url(#{uid}-body)" class="lines">
-			{#each GRIPS as g (g)}<path d={g} fill="url(#{uid}-grip)" stroke="none" />{/each}
-			{#each SEAMS as d (d)}<path {d} />{/each}
+			{#each art.grips ?? [] as g (g)}<path d={g} fill="url(#{uid}-grip)" stroke="none" />{/each}
+			{#each art.seams as d (d)}<path {d} />{/each}
 		</g>
-		<path class="well" d={WELL} />
-		<path class="logo" d={SPIRAL} transform="translate({LOGO[0] - 12 * S} {LOGO[1] - 12 * S}) scale({S})" />
-		<text class="lr" x="176" y="262" text-anchor="middle" dominant-baseline="central">L</text>
-		<text class="lr" x="306" y="236" text-anchor="middle" dominant-baseline="central">R</text>
-		{@render hot('FORWARD')}
-		{@render hot('BACK')}
-		{@render hot('CLUTCH')}
-		{@render hot('WHEEL_CLICK')}
-		<path class="tread" d={TREAD} />
-		{@render hot('WHEEL_UP')}
-		{@render hot('WHEEL_DOWN')}
-		{@render hot('WHEEL_LEFT')}
-		{@render hot('WHEEL_RIGHT')}
-		{@render hot('SCROLL_MODE')}
-		{@render hot('DPI_BUTTON')}
+		<path class="well" d={art.well} />
+		<path class="logo" d={SPIRAL} transform="translate({art.logo[0] - 12 * S} {art.logo[1] - 12 * S}) scale({S})" />
+		{#each SMALL as name (name)}
+			{@render hot(name)}
+			{#if name === 'WHEEL_CLICK'}<path class="tread" d={art.tread} />{/if}
+		{/each}
 
-		{#each CALLOUTS as c (c.name)}
-			{#if r(c.name)}
-				<g class="callout">
-					<line x1={c.from[0]} y1={c.from[1]} x2={c.side === 'r' ? R - 92 : L + 66} y2={c.from[1]} />
-					<text x={c.side === 'r' ? R - 88 : L} y={c.from[1]} dominant-baseline="central">{c.label}</text>
-				</g>
-			{/if}
+		{#each callouts as c (c.name)}
+			<g class="callout">
+				<line x1={c.from[0]} y1={c.from[1]} x2={c.side === 'r' ? R - 92 * U : L + 66 * U} y2={c.from[1]} />
+				<text x={c.side === 'r' ? R - 88 * U : L} y={c.from[1]} dominant-baseline="central">{c.label}</text>
+			</g>
 		{/each}
 	</svg>
-	{#if r('PROFILE_BUTTON')}
-		<div class="under" role="group" aria-label="Button underneath">
+	{#if under.length}
+		<div class="under" role="group" aria-label="Buttons underneath">
 			<span class="u-label">Underneath</span>
-			<button type="button" class="u" class:sel={r('PROFILE_BUTTON')!.selected} aria-pressed={r('PROFILE_BUTTON')!.selected} onclick={() => onselect('PROFILE_BUTTON')} style:--gel={gelColor('PROFILE_BUTTON')}>
-				{#if r('PROFILE_BUTTON')!.gel}<span class="tab"></span>{/if}
-				Profile
-			</button>
+			{#each under as name (name)}
+				<button type="button" class="u" class:sel={r(name)!.selected} aria-pressed={r(name)!.selected} onclick={() => onselect(name)} style:--gel={gelColor(name)}>
+					{#if r(name)!.gel}<span class="tab"></span>{/if}
+					{name === 'DPI_BUTTON' ? 'DPI' : 'Profile'}
+				</button>
+			{/each}
 		</div>
 	{/if}
 </div>
@@ -129,6 +121,10 @@
 		max-height: 66vh;
 		height: auto;
 		overflow: visible;
+	}
+	path,
+	line {
+		vector-effect: non-scaling-stroke;
 	}
 	.body {
 		fill: var(--case);
@@ -161,12 +157,6 @@
 		stroke: var(--color-ink-3);
 		stroke-width: 1.7;
 		stroke-linecap: round;
-	}
-	.lr {
-		fill: var(--color-ink-3);
-		font-size: 22px;
-		font-weight: 600;
-		pointer-events: none;
 	}
 	.hot path {
 		fill: var(--shell-top);
@@ -205,7 +195,7 @@
 	}
 	.callout text {
 		fill: var(--color-ink-3);
-		font-size: 15px;
+		font-size: calc(15px * var(--u));
 	}
 	.under {
 		display: flex;

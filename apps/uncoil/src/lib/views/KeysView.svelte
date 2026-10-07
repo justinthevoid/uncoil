@@ -10,6 +10,7 @@
 	import Keyboard, { legendFor, type Cap } from '#lib/components/Keyboard.svelte';
 	import MouseDiagram from '#lib/components/MouseDiagram.svelte';
 	import GenericMouse from '#lib/components/GenericMouse.svelte';
+	import { mouseArt } from '#lib/art/mice.ts';
 	import CheckNotice from '#lib/components/CheckNotice.svelte';
 	import { daemon, getDesk } from '#lib/api.ts';
 	import { pipe, loadDevices, errorText, experimentalBadge } from '#lib/daemon.svelte.ts';
@@ -17,7 +18,6 @@
 	import { GEL_NAMES, KEY_GROUPS, actionName, MODIFIERS, MOUSE_BUTTONS, describeFunction, gelFor, keyTitle, parseSpec, shortLabel, toSpec, type Gel, type Mapping } from '#lib/keys.ts';
 	import { ms } from '#lib/motion.ts';
 	import type { Capabilities, Config, DeskDevice, FeatureCheck, KeyMapping, Layer, WriteResult } from '#lib/types.ts';
-	import type { Component } from 'svelte';
 
 	let { config, deviceId }: { config: Config; deviceId: string } = $props();
 
@@ -81,10 +81,8 @@
 	const isLocked = $derived(locked(caps, 'keymap'));
 	const onchecks = (checks: FeatureCheck[]) => caps && (caps = { ...caps, checks });
 
-	/** Mice with their own drawing; every other mouse gets the plain one. */
-	type Diagram = Component<{ regions: Map<string, { name: string; label: string; gel: Gel | null; selected: boolean }>; onselect: (name: string) => void }>;
-	const DIAGRAMS: Record<string, Diagram> = { 'razer-basilisk-v3-pro': MouseDiagram };
-	const Mouse = $derived(DIAGRAMS[deviceId] ?? GenericMouse);
+	/** Mice traced from their product photo get their own drawing; every other mouse gets the plain one. */
+	const art = $derived(mouseArt(deviceId));
 	const changes = $derived(rows.filter((k) => gelOf(k)));
 
 	// Keycaps for the drawing, keyed by the layout's shape names (the keymap's LED names).
@@ -208,7 +206,11 @@
 				<Keyboard device={board} caps={capMap} selected={selectedId !== null ? (ledById.get(selectedId) ?? null) : null} onselect={(led) => keyByLed.has(led) && (selectedId = keyByLed.get(led)!)} />
 			{:else}
 				<div class="mouse-stage">
-				<Mouse regions={mouseRegions} onselect={(name) => (selectedId = rows.find((k) => k.name === name)?.key ?? selectedId)} />
+				{#if art}
+					<MouseDiagram {art} regions={mouseRegions} onselect={(name) => (selectedId = rows.find((k) => k.name === name)?.key ?? selectedId)} />
+				{:else}
+					<GenericMouse regions={mouseRegions} onselect={(name) => (selectedId = rows.find((k) => k.name === name)?.key ?? selectedId)} />
+				{/if}
 				<div class="buttons" role="listbox" aria-label="Mouse buttons">
 					{#each rows as k (k.key)}
 						{@const gel = gelOf(k)}
