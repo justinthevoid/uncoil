@@ -44,7 +44,7 @@
 	// groups sit in, each keycap as a top face on its skirt; the case, its front lip, screen and side dial as
 	// measured from its product photo (lib/art/keyboards.ts); and the underglow as light bars where its LEDs run.
 	// Edit mode: legends, optional second line, selection. Colour mode: each cap and LED in its live colour.
-	import { boardExtent, KEYBOARD_ART, keyFrames } from '#lib/art/keyboards.ts';
+	import { boardExtent, isStripLed, KEYBOARD_ART, keyFrames } from '#lib/art/keyboards.ts';
 	import type { DeskDevice, Shape } from '#lib/types.ts';
 
 	interface Props {
@@ -60,7 +60,7 @@
 	const ext = $derived(boardExtent(device));
 	const W = $derived(ext.x1 - ext.x0);
 	const H = $derived(ext.y1 - ext.y0);
-	const keys = $derived(device.shapes.map((s, i) => ({ s, i })).filter(({ s }) => s.is_key));
+	const keys = $derived(device.shapes.map((s, i) => ({ s, i })).filter(({ s }) => s.is_key && !isStripLed(s.name)));
 	/** A box centred on (x, y), as a style in % of the board. */
 	const pos = (x: number, y: number, w: number, h: number) =>
 		`left:${((x - w / 2 - ext.x0) / W) * 100}%;top:${((y - h / 2 - ext.y0) / H) * 100}%;width:${(w / W) * 100}%;height:${(h / H) * 100}%`;
@@ -80,7 +80,7 @@
 	type Led = { s: Shape; i: number };
 	/** LEDs that run in a line along one side become one light bar; anything else stays a point. */
 	const lit = $derived.by(() => {
-		const leds: Led[] = device.shapes.map((s, i) => ({ s, i })).filter(({ s }) => !s.is_key);
+		const leds: Led[] = device.shapes.map((s, i) => ({ s, i })).filter(({ s }) => !s.is_key || isStripLed(s.name));
 		const bars: { vertical: boolean; leds: Led[]; style: string }[] = [];
 		const used = new Set<number>();
 		for (const vertical of [true, false]) {
@@ -114,6 +114,10 @@
 			{#each b.leds as { i } (i)}<span style:--c={colors?.[i]}></span>{/each}
 		</span>
 	{/each}
+	{#if art?.rest}
+		{@const [l, t, r, b] = art.rest}
+		<span class="rest" style={at(l, t + 0.08, r - l, b - t - 0.08)} aria-hidden="true"></span>
+	{/if}
 	{#if art?.sideDial}
 		{@const [t, b] = art.sideDial}
 		<span class="side-dial" style={at(art.case[2] - 0.3, t, 0.48, b - t)} aria-hidden="true"></span>
@@ -190,6 +194,15 @@
 		font-size: clamp(8px, 1.15cqw, 14px);
 		font-weight: 600;
 		letter-spacing: 0.12em;
+	}
+	/* a wrist rest that is part of the device: its knit as a fine diagonal weave */
+	.rest {
+		position: absolute;
+		border-radius: 1.1cqw;
+		background:
+			repeating-linear-gradient(45deg, var(--seam-line) 0 1px, transparent 1px 4px),
+			var(--shell-top);
+		box-shadow: 0 0 0 1px var(--case-edge);
 	}
 	/* the recessed frames the key groups sit in */
 	.frame {

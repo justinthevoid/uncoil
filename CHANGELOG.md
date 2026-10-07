@@ -92,6 +92,8 @@ Everything so far. Nothing has been released yet.
 - **More device drawings.** Ten more mice get outlines traced from their store photos
   (`tools/art/mouse.py`), with buttons placed by proportion, on the Buttons page and the desk; seven more
   keyboards get their case measured from their photos (`tools/art/keyboard.py`).
+- **BlackWidow V4 Pro wrist rest.** Its 20-LED strip runs along the rest's front edge, as in Razer's photo,
+  not just in front of the keys; the rest is drawn with the keyboard.
 - **Inside the PC.** A PC page on the Desk tab draws the PC's own lighting (motherboard, memory, graphics
   card, fans, AIO pump) where it sits, lit with the desk's effect, from what live OpenRGB reports.
 - **Animated effect cards.** Each effect card runs its effect on a small keyboard, from the same effect

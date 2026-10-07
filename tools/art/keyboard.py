@@ -47,14 +47,15 @@ def layout(id_):
             arr = json.loads(re.search(r'^keys\s*=\s*(\[.*?\])\s*$', block, re.M | re.S).group(1))
             for k in arr:
                 name, wd = k.rsplit(':', 1)
-                if name != 'gap':
+                # LED strips laid out as rows (a wrist rest's) are not keys
+                if name != 'gap' and not re.match(r'^(WR|LU|RU)\d+$', name):
                     keys.append((x, y, float(wd), 1.0))
                 x += float(wd)
         return keys
     raise SystemExit(f'no device file for {id_}')
 
 
-def measure(path, keys):
+def measure(path, keys, rest=False):
     img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     h, w = img.shape[:2]
     alpha = img[..., 3]
@@ -68,9 +69,13 @@ def measure(path, keys):
     bright[:, : cols.min() + edge] = False
     bright[:, cols.max() - edge:] = False
     bright[: rows.min() + edge] = False
+    # the key block: across, the lit pixels' extent; down, the rows dense with lit keys (a dial's glow above
+    # the F-row is not one)
     ys, xs = np.nonzero(bright)
     kx0, kx1 = np.percentile(xs, [0.3, 99.7])
-    ky0, ky1 = np.percentile(ys, [0.3, 99.7])
+    rc = bright.sum(axis=1)
+    rr = np.nonzero(rc > 0.3 * rc.max())[0]
+    ky0, ky1 = float(rr.min()), float(rr.max())
     W = max(x + kw for x, _, kw, _ in keys)
     H = max(y + kh for _, y, _, kh in keys)
     # keys are square: the pitch comes from the key block's width (edge glow and dial LEDs blur its depth),
@@ -91,6 +96,16 @@ def measure(path, keys):
         d = gray[y + 1: y + 4].mean() - gray[max(0, y - 2): y + 1].mean()
         if d > step and bottom - y > 1.5 * py:
             best, step = y, d
+    rest_box = None
+    if rest:
+        # a wrist rest with its own light: the join is the darkest row just below the keys
+        end = bottom
+        lo, hi = int(keys_bottom), min(end - 3, int(keys_bottom + 1.5 * py))
+        best = lo + int(np.argmin(gray[lo:hi])) if hi > lo else None
+        if best is not None:
+            rows_r = (alpha >= 250)[best + 1: end + 1]
+            xs_r = np.nonzero(rows_r.mean(axis=0) > 0.5)[0]
+            rest_box = [(xs_r.min() - ox) / px, (best + 1 - oy) / py, (xs_r.max() + 1 - ox) / px, (end + 1 - oy) / py]
     if best is not None:
         bottom = best
     top = int(ky0)
@@ -101,6 +116,8 @@ def measure(path, keys):
     cx0, cx1 = xs_case.min(), xs_case.max() + 1
     case = [(cx0 - ox) / px, (top - oy) / py, (cx1 - ox) / px, (bottom + 1 - oy) / py]
     art = {'case': [r2(v) for v in case], 'pitch': [r2(px), r2(py)]}
+    if rest_box:
+        art['rest'] = [r2(v) for v in rest_box]
     if case[3] - H > 1.0:
         art['lip'] = r2(H + 0.3)
     return art, (ox, oy, px, py, top, bottom, cx0, cx1)
@@ -131,7 +148,7 @@ def main():
             continue
         keys = layout(id_)
         path = fetch(src['photo'], cache)
-        art, geom = measure(path, keys)
+        art, geom = measure(path, keys, src.get('rest', False))
         art = {'source': src['photo'], **({'note': src['note']} if 'note' in src else {}), **art}
         json.dump(art, open(os.path.join(OUT, f'{id_}.json'), 'w', newline='\n'), indent=1)
         if '--overlay' in sys.argv:

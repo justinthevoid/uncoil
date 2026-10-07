@@ -39,9 +39,10 @@ square), the case is the opaque board cut off where an attached wrist rest begin
 front lip. It writes `apps/uncoil/src/lib/art/keyboards/<id>.json`.
 
 The overlay draws the layout's keys on the photo, which makes it a check on the device file too. The
-BlackWidow V4 Pro 75%'s F-row turned out to have no gaps; the BlackWidow V4 Pro's experimental layout (extra
-row, macro column) does not match its photo yet, so it is left out until `tools/devices/overrides.json`
-corrects it. Screens, dials and side buttons are measured by hand (`KEYBOARD_ART` in `keyboards.ts`).
+BlackWidow V4 Pro 75%'s F-row turned out to have no gaps; on the BlackWidow V4 Pro the
+wrist rest's light strip sat just in front of the keys rather than along the rest's front edge, corrected in
+`tools/devices/overrides.json`. A keyboard whose wrist rest carries lights says `"rest": true` in
+`keyboards.json`, so the rest is measured and drawn instead of cut off. Screens, dials and side buttons are measured by hand (`KEYBOARD_ART` in `keyboards.ts`).
 
 ## Sources used
 

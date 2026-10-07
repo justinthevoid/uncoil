@@ -16,7 +16,12 @@ export interface KeyboardArt {
 	sideButtons?: [number, number][];
 	/** Key groups that sit in their own frame even where they touch other keys. */
 	frames?: string[][];
+	/** A wrist rest that is part of the device (it carries lights): left, top, right, bottom. */
+	rest?: [number, number, number, number];
 }
+
+/** LED strips a device file lays out as a row of keys (a wrist rest's): drawn as light, not keycaps. */
+export const isStripLed = (name: string) => /^WR\d+$/.test(name);
 
 // Cases measured by tools/art/keyboard.py from each keyboard's store photo (./keyboards/<id>.json).
 const generated = import.meta.glob<KeyboardArt>('./keyboards/*.json', { eager: true, import: 'default' });
@@ -24,7 +29,7 @@ const generated = import.meta.glob<KeyboardArt>('./keyboards/*.json', { eager: t
 /** Razer's photo of the BlackWidow V4 Pro 75% (full-keyboard-unlit.jpg on its product page), 1u = 100.8 px,
  * measured by hand for its screen and side dial; every other keyboard's case comes from keyboard.py. */
 export const KEYBOARD_ART: Record<string, KeyboardArt> = {
-	...Object.fromEntries(Object.entries(generated).map(([p, a]) => [p.replace(/^.*\/(.+)\.json$/, '$1'), { case: a.case, lip: a.lip }])),
+	...Object.fromEntries(Object.entries(generated).map(([p, a]) => [p.replace(/^.*\/(.+)\.json$/, '$1'), { case: a.case, lip: a.lip, rest: a.rest }])),
 	'razer-blackwidow-v4-pro-75': {
 		case: [-0.42, -0.75, 16.77, 7.81],
 		lip: 6.78,
@@ -64,7 +69,7 @@ export function keyFrames(keys: Shape[], own: string[][] = [], pad = 0.1, gap = 
 /** The board's drawn extent in desk units: the device box with a margin for the underglow, grown to take in
  * the case, its front lip and anything on its side. */
 export function boardExtent(device: { id: string; x: number; y: number; w: number; h: number; shapes: Shape[] }, pad = 0.35) {
-	const keys = device.shapes.filter((s) => s.is_key);
+	const keys = device.shapes.filter((s) => s.is_key && !isStripLed(s.name));
 	const ox = keys.length ? Math.min(...keys.map((s) => s.x - s.w / 2)) : device.x;
 	const oy = keys.length ? Math.min(...keys.map((s) => s.y - s.h / 2)) : device.y;
 	let [x0, y0, x1, y1] = [device.x - pad, device.y - pad, device.x + device.w + pad, device.y + device.h + pad];
@@ -75,6 +80,7 @@ export function boardExtent(device: { id: string; x: number; y: number; w: numbe
 		y0 = Math.min(y0, oy + t - 0.05);
 		x1 = Math.max(x1, ox + r + (art.sideDial ? 0.22 : 0.05));
 		y1 = Math.max(y1, oy + b + 0.05);
+		if (art.rest) y1 = Math.max(y1, oy + art.rest[3] + 0.4);
 	}
 	return { x0, y0, x1, y1, origin: [ox, oy] as [number, number] };
 }
