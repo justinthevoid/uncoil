@@ -44,6 +44,8 @@ use uncoil_hid::transport::{self, LiveDevice};
 const RESCAN: Duration = Duration::from_secs(5);
 const STATUS_EVERY: Duration = Duration::from_secs(2);
 const TICK: Duration = Duration::from_millis(33);
+/// Windows' default timer resolution, the granularity of a channel's `recv_timeout`.
+const TIMER_TICK: Duration = Duration::from_millis(16);
 
 /// State shared between the main loop and device threads.
 struct Shared {
@@ -460,14 +462,20 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                 } else {
                     Duration::from_secs_f32(1.0 / cfg.fps.clamp(5, 60) as f32)
                 };
-                // wait for the next frame, running any control commands for this device meanwhile
+                // wait for the next frame, running any control commands for this device meanwhile. Look at the
+                // queue at least once even when the frame took longer than its slot (the BlackWidow's
+                // acknowledged frames do), or commands for that device would never run. The channel's timeout
+                // only resolves to Windows' timer tick (about 15.6 ms), which turned a 33 ms slot into 47 ms
+                // (21 fps), so wait on it only while a tick is left and sleep the last stretch (std's sleep
+                // uses a high-resolution timer).
                 let deadline = start + target;
-                while let Some(rest) = deadline.checked_duration_since(Instant::now()) {
+                loop {
+                    let rest = deadline.saturating_duration_since(Instant::now());
                     if !jobs_open {
                         thread::sleep(rest);
                         break;
                     }
-                    match jobs.recv_timeout(rest) {
+                    match jobs.recv_timeout(rest.saturating_sub(TIMER_TICK)) {
                         Ok(job) => {
                             let (tid, def) = (dev.tid(), dev.def.clone());
                             match control::serve_job(job, &mut dev, &def, tid, &shared.journal, &mut checks) {
@@ -484,7 +492,10 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                                 exec::Lighting::Unchanged => {}
                             }
                         }
-                        Err(RecvTimeoutError::Timeout) => break,
+                        Err(RecvTimeoutError::Timeout) => {
+                            thread::sleep(deadline.saturating_duration_since(Instant::now()));
+                            break;
+                        }
                         // the registry dropped this endpoint's queue (does not happen while it is registered)
                         Err(RecvTimeoutError::Disconnected) => jobs_open = false,
                     }

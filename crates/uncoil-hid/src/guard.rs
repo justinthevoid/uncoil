@@ -3,12 +3,18 @@
 //! software appears to share. uncoil takes it around each request and its reply, so two programs never
 //! interleave reports on one device.
 //!
-//! Waits are short ([`WAIT`]): a frame whose lock is busy is skipped ([`RazerLock::for_frame`]); a command
-//! tries twice and then fails with plain words ([`RazerLock::for_command`]). The lock is never held across
-//! frames. Windows mutexes belong to the thread that took them and may be taken again by that thread, so
-//! nested calls on one device thread are fine, and the device threads of one uncoild take turns too.
+//! The lock keeps other programs out; it should not make uncoil's own devices wait for each other (they are
+//! separate USB devices). So one lock thread holds the mutex for the whole process, a turn ([`TURN`]) at a
+//! time: during a turn every device thread sends in parallel, and between turns the lock thread lets go, so
+//! a program waiting for the lock gets it. Taking the mutex per report on each device thread instead had the
+//! BlackWidow's acknowledged rows keep it busy and cut the mouse and mat from 30 to about 22 fps.
+//!
+//! Waits are short ([`WAIT`]): a frame report that can't get a turn skips the rest of that frame
+//! ([`RazerLock::for_frame`]); a command tries twice and then fails with plain words
+//! ([`RazerLock::for_command`]). A thread that already holds a turn may take it again (nested calls).
 
 use anyhow::Result;
+use std::marker::PhantomData;
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -16,6 +22,8 @@ use std::time::Duration;
 pub const NAME: &str = r"Global\RazerLinkReadWriteGuardMutex";
 /// Longest wait for the lock before a frame is skipped or a command tries again.
 pub const WAIT: Duration = Duration::from_millis(25);
+/// How long the process keeps the lock before letting another program have it (plus the report in flight).
+pub const TURN: Duration = Duration::from_millis(20);
 
 /// What happened when the lock was opened at start, for the log.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,24 +37,25 @@ pub enum Opened {
 /// The process's handle on the lock (or none).
 pub struct RazerLock {
     #[cfg(windows)]
-    handle: Option<win::Handle>,
+    turns: Option<std::sync::Arc<turns::Turns>>,
     opened: Opened,
 }
 
-/// Holding the lock; released when dropped, on the thread that took it (hence not `Send`).
+/// Holding the lock (a share of the process's turn); let go when dropped, on the thread that took it (hence
+/// not `Send`).
 pub struct Held<'a> {
     #[cfg(windows)]
-    lock: Option<&'a win::Handle>,
+    turns: Option<&'a turns::Turns>,
     #[cfg(not(windows))]
-    _lock: std::marker::PhantomData<&'a ()>,
-    _not_send: std::marker::PhantomData<*const ()>,
+    _lock: PhantomData<&'a ()>,
+    _not_send: PhantomData<*const ()>,
 }
 
 impl Drop for Held<'_> {
     fn drop(&mut self) {
         #[cfg(windows)]
-        if let Some(h) = self.lock {
-            h.release();
+        if let Some(t) = self.turns {
+            t.leave();
         }
     }
 }
@@ -64,7 +73,7 @@ impl RazerLock {
         #[cfg(windows)]
         {
             let (handle, opened) = win::open(name);
-            RazerLock { handle, opened }
+            RazerLock { turns: handle.map(turns::Turns::start), opened }
         }
         #[cfg(not(windows))]
         {
@@ -81,13 +90,8 @@ impl RazerLock {
     pub fn acquire(&self, wait: Duration) -> Option<Held<'_>> {
         #[cfg(windows)]
         {
-            let Some(h) = &self.handle else { return Some(self.unlocked()) };
-            match h.wait(wait) {
-                win::Wait::Held => Some(Held { lock: Some(h), _not_send: std::marker::PhantomData }),
-                win::Wait::TimedOut => None,
-                // the handle stopped working: carry on without the lock rather than stop the device
-                win::Wait::Failed => Some(self.unlocked()),
-            }
+            let Some(t) = &self.turns else { return Some(self.unlocked()) };
+            t.enter(wait).then_some(Held { turns: Some(t.as_ref()), _not_send: PhantomData })
         }
         #[cfg(not(windows))]
         {
@@ -99,15 +103,15 @@ impl RazerLock {
     fn unlocked(&self) -> Held<'_> {
         Held {
             #[cfg(windows)]
-            lock: None,
+            turns: None,
             #[cfg(not(windows))]
-            _lock: std::marker::PhantomData,
-            _not_send: std::marker::PhantomData,
+            _lock: PhantomData,
+            _not_send: PhantomData,
         }
     }
 
-    /// Run one frame upload under the lock. `Ok(None)`: another program held it for [`WAIT`], so the frame
-    /// was skipped (the next one comes soon).
+    /// Run one frame report under the lock. `Ok(None)`: another program held it for [`WAIT`], so the report
+    /// was not sent (the caller skips the rest of the frame; the next one comes soon).
     pub fn for_frame<T>(&self, f: impl FnOnce() -> Result<T>) -> Result<Option<T>> {
         match self.acquire(WAIT) {
             Some(_held) => f().map(Some),
@@ -124,6 +128,15 @@ impl RazerLock {
             }
         }
         Err(anyhow::Error::new(Busy(device.to_string())))
+    }
+}
+
+#[cfg(windows)]
+impl Drop for RazerLock {
+    fn drop(&mut self) {
+        if let Some(t) = &self.turns {
+            t.close();
+        }
     }
 }
 
@@ -149,6 +162,163 @@ pub fn is_busy(e: &anyhow::Error) -> bool {
     e.downcast_ref::<Busy>().is_some()
 }
 
+/// The lock thread and the turns it hands out. A Windows mutex belongs to the thread that took it, so one
+/// thread takes and releases it; device threads only count themselves in and out of its turn.
+#[cfg(windows)]
+mod turns {
+    use super::{win, TURN, WAIT};
+    use std::cell::RefCell;
+    use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+    use std::time::{Duration, Instant};
+
+    #[derive(Default)]
+    struct State {
+        /// The lock thread holds the mutex (or runs without it after the handle failed).
+        held: bool,
+        /// The turn is over: no new entries until the threads inside have left and the mutex is let go.
+        draining: bool,
+        /// Device threads inside the turn.
+        active: usize,
+        /// Device threads waiting for a turn.
+        wanted: usize,
+        closed: bool,
+    }
+
+    pub struct Turns {
+        state: Mutex<State>,
+        cv: Condvar,
+    }
+
+    thread_local! {
+        /// How deep this thread is in each lock's turn (nested calls), keyed by the `Turns` address.
+        static DEPTH: RefCell<Vec<(usize, usize)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    impl Turns {
+        pub fn start(handle: win::Handle) -> Arc<Turns> {
+            let t = Arc::new(Turns { state: Mutex::new(State::default()), cv: Condvar::new() });
+            let run = t.clone();
+            std::thread::Builder::new()
+                .name("razer-lock".into())
+                .spawn(move || run.run(handle))
+                .expect("spawn the Razer lock thread");
+            t
+        }
+
+        fn lock(&self) -> MutexGuard<'_, State> {
+            self.state.lock().unwrap_or_else(|e| e.into_inner())
+        }
+
+        fn key(&self) -> usize {
+            self as *const Turns as usize
+        }
+
+        /// Join the current turn, waiting up to `wait` for one. `false` on timeout.
+        pub fn enter(&self, wait: Duration) -> bool {
+            let key = self.key();
+            let nested = DEPTH.with(|d| match d.borrow_mut().iter_mut().find(|e| e.0 == key) {
+                Some(e) => {
+                    e.1 += 1;
+                    true
+                }
+                None => false,
+            });
+            if nested {
+                return true;
+            }
+            let deadline = Instant::now() + wait;
+            let mut st = self.lock();
+            st.wanted += 1;
+            self.cv.notify_all();
+            loop {
+                if st.held && !st.draining {
+                    st.wanted -= 1;
+                    st.active += 1;
+                    break;
+                }
+                let now = Instant::now();
+                if now >= deadline || st.closed {
+                    st.wanted -= 1;
+                    self.cv.notify_all();
+                    return false;
+                }
+                st = self.cv.wait_timeout(st, deadline - now).unwrap_or_else(|e| e.into_inner()).0;
+            }
+            drop(st);
+            DEPTH.with(|d| d.borrow_mut().push((key, 1)));
+            true
+        }
+
+        pub fn leave(&self) {
+            let key = self.key();
+            let last = DEPTH.with(|d| {
+                let mut d = d.borrow_mut();
+                let Some(i) = d.iter().position(|e| e.0 == key) else { return false };
+                d[i].1 -= 1;
+                if d[i].1 == 0 {
+                    d.swap_remove(i);
+                    true
+                } else {
+                    false
+                }
+            });
+            if last {
+                self.lock().active -= 1;
+                self.cv.notify_all();
+            }
+        }
+
+        pub fn close(&self) {
+            self.lock().closed = true;
+            self.cv.notify_all();
+        }
+
+        fn run(&self, handle: win::Handle) {
+            loop {
+                let mut st = self.lock();
+                while st.wanted == 0 && !st.closed {
+                    st = self.cv.wait(st).unwrap_or_else(|e| e.into_inner());
+                }
+                if st.closed {
+                    return;
+                }
+                drop(st);
+                let owned = match handle.wait(WAIT) {
+                    win::Wait::Held => true,
+                    // another program has it; the waiting device threads time out on their own
+                    win::Wait::TimedOut => continue,
+                    // the handle stopped working: carry on without the lock rather than stop the devices
+                    win::Wait::Failed => false,
+                };
+                let start = Instant::now();
+                let mut st = self.lock();
+                st.held = true;
+                self.cv.notify_all();
+                while !st.closed {
+                    let Some(rest) = TURN.checked_sub(start.elapsed()) else { break };
+                    st = self.cv.wait_timeout(st, rest).unwrap_or_else(|e| e.into_inner()).0;
+                }
+                // end of the turn: let the reports in flight finish, then let go
+                st.draining = true;
+                while st.active > 0 {
+                    st = self.cv.wait(st).unwrap_or_else(|e| e.into_inner());
+                }
+                st.held = false;
+                st.draining = false;
+                self.cv.notify_all();
+                drop(st);
+                if owned {
+                    // a program waiting on the mutex is given it here
+                    handle.release();
+                    std::thread::yield_now();
+                } else {
+                    std::thread::sleep(WAIT);
+                }
+            }
+        }
+    }
+}
+
 #[cfg(windows)]
 mod win {
     use super::Opened;
@@ -162,7 +332,7 @@ mod win {
     const MUTEX_MODIFY_STATE: u32 = 0x0001;
 
     pub struct Handle(HANDLE);
-    // a mutex handle may be used from any thread; ownership is per thread and handled by `Held`
+    // a mutex handle may be used from any thread; ownership is per thread (the lock thread)
     unsafe impl Send for Handle {}
     unsafe impl Sync for Handle {}
 
@@ -221,7 +391,8 @@ mod win {
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;
-    use std::sync::mpsc;
+    use std::sync::{mpsc, Arc};
+    use std::time::Instant;
 
     fn test_lock(tag: &str) -> String {
         format!(r"Local\uncoil-test-guard-{tag}-{}", std::process::id())
@@ -246,7 +417,7 @@ mod tests {
             })
         };
         take.recv().unwrap();
-        let t = std::time::Instant::now();
+        let t = Instant::now();
         let mut ran = false;
         let frame = lock.for_frame(|| {
             ran = true;
@@ -263,6 +434,7 @@ mod tests {
         assert!(t.elapsed() < Duration::from_millis(500), "{:?}", t.elapsed());
         done.send(()).unwrap();
         holder.join().unwrap();
+        assert_eq!(lock.acquire(Duration::from_secs(1)).map(|_| 7), Some(7), "free again once the other lets go");
         assert_eq!(lock.for_frame(|| Ok(7)).unwrap(), Some(7));
         assert_eq!(lock.for_command("x", || Ok(8)).unwrap(), 8);
     }
@@ -275,8 +447,52 @@ mod tests {
         assert!(lock.acquire(Duration::ZERO).is_some(), "the same thread nests");
         drop(outer);
         let name2 = name.clone();
-        // a thread that exits while holding it abandons it
-        std::thread::spawn(move || std::mem::forget(RazerLock::open(&name2).acquire(WAIT).unwrap())).join().unwrap();
-        assert!(lock.acquire(WAIT).is_some());
+        // another program's thread that exits while holding the mutex abandons it
+        std::thread::spawn(move || {
+            let (h, _) = win::open(&name2);
+            assert!(matches!(h.unwrap().wait(Duration::from_secs(1)), win::Wait::Held));
+        })
+        .join()
+        .unwrap();
+        assert!(lock.acquire(Duration::from_secs(1)).is_some());
+    }
+
+    #[test]
+    fn device_threads_of_one_process_share_a_turn() {
+        let lock = Arc::new(RazerLock::open(&test_lock("share")));
+        let held = lock.acquire(WAIT).unwrap();
+        let other = lock.clone();
+        // a second device thread gets in while the first is still inside, without waiting for it
+        let t = Instant::now();
+        assert!(std::thread::spawn(move || other.acquire(Duration::ZERO).is_some()).join().unwrap());
+        assert!(t.elapsed() < Duration::from_millis(100));
+        drop(held);
+    }
+
+    #[test]
+    fn a_busy_process_still_lets_another_program_in_between_turns() {
+        let name = test_lock("turns");
+        let lock = Arc::new(RazerLock::open(&name));
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        // a device thread sending reports back to back, like the BlackWidow's acknowledged rows
+        let busy = {
+            let (lock, stop) = (lock.clone(), stop.clone());
+            std::thread::spawn(move || {
+                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                    if let Some(_held) = lock.acquire(WAIT) {
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                }
+            })
+        };
+        std::thread::sleep(Duration::from_millis(30));
+        let (h, _) = win::open(&name);
+        let h = h.unwrap();
+        let t = Instant::now();
+        assert!(matches!(h.wait(Duration::from_millis(500)), win::Wait::Held), "OpenRGB gets its turn");
+        assert!(t.elapsed() < Duration::from_millis(200), "within about one turn: {:?}", t.elapsed());
+        h.release();
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        busy.join().unwrap();
     }
 }

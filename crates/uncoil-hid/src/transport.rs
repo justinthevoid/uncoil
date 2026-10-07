@@ -188,31 +188,32 @@ impl LiveDevice {
         Ok(())
     }
 
-    /// Upload one full frame under the Razer device lock. `color(row, col)` returns the colour for that
-    /// matrix slot. `Ok(false)`: nothing sent, because the device does not stream frames or another
-    /// program held the lock (the frame is skipped).
-    pub fn send_frame(&mut self, color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<bool> {
-        if !self.def.streams_frames() || self.def.matrix.is_none() {
-            return Ok(false);
-        }
-        Ok(guard::razer().for_frame(|| self.send_frame_unlocked(color))?.is_some())
-    }
-
-    fn send_frame_unlocked(&mut self, mut color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<()> {
-        let Some(m) = self.def.matrix.as_ref() else { return Ok(()) };
-        let (rows, cols) = (m.rows, m.cols);
+    /// Upload one full frame, taking the Razer device lock around each report (as OpenRGB does), so the other
+    /// devices' threads get their turn between this device's rows instead of waiting out a whole keyboard
+    /// frame. `color(row, col)` returns the colour for that matrix slot. `Ok(false)`: the frame was not
+    /// sent in full, because the device does not stream frames or another program held the lock (the rest
+    /// of the frame is skipped; the next one comes soon).
+    pub fn send_frame(&mut self, mut color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<bool> {
+        let (rows, cols) = match &self.def.matrix {
+            Some(m) if self.def.streams_frames() => (m.rows, m.cols),
+            _ => return Ok(false),
+        };
         let tid = self.tid();
         let mut row_buf = Vec::with_capacity(cols);
         for r in 0..rows {
             row_buf.clear();
             row_buf.extend((0..cols).map(|c| color(r, c)));
             let rep = proto::custom_frame_row(tid, r as u8, 0, &row_buf)?;
-            self.send(&rep)?;
+            if guard::razer().for_frame(|| self.send(&rep))?.is_none() {
+                return Ok(false);
+            }
         }
-        if !self.def.quirks.custom_mode_once {
-            self.send(&proto::effect_custom_frame(tid))?;
+        if !self.def.quirks.custom_mode_once
+            && guard::razer().for_frame(|| self.send(&proto::effect_custom_frame(tid)))?.is_none()
+        {
+            return Ok(false);
         }
-        Ok(())
+        Ok(true)
     }
 
     /// Send a command and return the device's matching reply (feature commands: key maps, OLED, …).
