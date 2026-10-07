@@ -134,7 +134,8 @@ Everything so far. Nothing has been released yet.
   keyboard's own memory), and, from a second pass over Synapse's logs and read-only hardware probes
   (`tools/reference/readonly_probe.py`), the firmware-effect layout and per-device support, the mouse button
   map, function-id data layouts, profiles, command-dial modes and OLED getters. OpenRazer's shared mouse
-  commands (DPI, poll rate, power) are documented as prior art, not yet verified.
+  commands (DPI, poll rate, power) are documented as prior art; DPI, stages and the poll rate were then
+  confirmed on the Basilisk V3 Pro (2026-10-07).
 - **Reverse-engineering tools** in `tools/reference` (log miners, read-only probes, capture and analysis).
 - `uncoild --fake` (cargo feature `fake`) serves fake devices on `\\.\pipe\uncoil-fake`, for trying the CLI
   and the app without hardware.

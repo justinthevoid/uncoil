@@ -170,7 +170,7 @@
 			<button type="button" class="card studio" role="radio" aria-checked={!zoned} onclick={onstudio}>
 				<span class="swatch studio-swatch"><Layers size={22} strokeWidth={1.6} /></span>
 				<span class="name">Studio</span>
-				<span class="note">Layer effects and paint keys yourself</span>
+				<span class="note">Layer effects and paint lights yourself</span>
 			</button>
 		</div>
 	</section>

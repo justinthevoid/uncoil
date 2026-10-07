@@ -39,10 +39,10 @@ Supporting points (secondary, in this order):
 ## Capabilities and Constraints
 
 - Supported devices today: Razer BlackWidow V4 Pro 75% (wired), Basilisk V3 Pro (wired/HyperSpeed), Goliathus Chroma Extended. More via data files.
-- Effects: angled rainbow wave, spectrum, static, off; brightness, saturation, speed, band width, angle.
+- Effects: wave, spectrum, breathing, static, starlight, fire, wheel, reactive, ripple, audio meter, off; brightness and saturation; a different effect per device; Studio layers.
 - Device firmware stays in normal mode so Fn/media/dial keep working even if uncoil isn't running.
 - Optional OpenRGB for non-Razer RGB (motherboard, GPU, RAM), off by default, from its own elevated logon task only if installed with `-OpenRgb`: either a one-shot hand-off to the devices' hardware modes, or live, where OpenRGB runs as a local server and those devices follow the desk effect.
-- Undecided: Fn-layer editor UI, dial/OLED control, per-app profiles, installer format, distribution channel.
+- Built: key and button remapping (normal and Fn / Hypershift layers), dial mode and OLED brightness, mouse DPI, poll rate, power and scroll settings, a PC page for OpenRGB lighting. Undecided: per-app profiles, a daemon installer (the app has an NSIS installer), distribution beyond GitHub Releases.
 - License GPL-3.0-or-later. Not affiliated with Razer; must not use Razer/Synapse/Chroma marks in the product name or logo.
 
 ## Brand Commitments

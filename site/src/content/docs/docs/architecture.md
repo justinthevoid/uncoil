@@ -19,7 +19,7 @@ full version, module by module.
 ## The daemon: `uncoild`
 
 One process, no window, no console, no service, no kernel driver. It runs as the logged-in user, unelevated.
-On the maintainer's PC it is a 1.4 MB executable (1,379,328 bytes) that used about 3 MB of private memory and
+On the maintainer's PC it is a 1.4 MB executable (1,387,520 bytes, 2026-10-07) that used about 3 MB of private memory and
 under 1% of one core while animating (memory and CPU measured on an earlier build).
 
 - **Main loop** (every 33 ms; every 250 ms while the lights are faded out): watches the config file's
@@ -79,7 +79,7 @@ keys and the dial. uncoil supplies colours, and writes to a device's own memory 
 | `apps/uncoil-cli` | The `uncoil` command line, a client of the pipe. |
 | `apps/uncoil` | The desktop app: Tauri 2, SvelteKit and Tailwind. |
 | `devices/*.toml`, `devices/experimental/*.toml` | One data file per device, all compiled into the daemon. |
-| `tools/reference`, `tools/devices` | The Python probes and log miners used for reverse engineering; the generator for the experimental device files. |
+| `tools/reference`, `tools/devices`, `tools/art` | The Python probes and log miners used for reverse engineering; the generator for the experimental device files; the device drawings, traced from product photos. |
 
 ## The desktop app
 
@@ -125,11 +125,11 @@ uncoil check mouse        # the read-only checks, nothing is written
   "level": 1.0,
   "devices": [
     { "id": "razer-blackwidow-v4-pro-75", "name": "Razer BlackWidow V4 Pro 75%", "product_id": 691,
-      "connection": "wired", "fps": 29.8, "busy_retries": 12, "errors": 0 }
+      "connection": "wired", "fps": 18.1, "busy_retries": 12, "errors": 0 }
   ],
   "memory_bytes": 3145728,
   "cpu_percent": 0.8,
-  "exe_bytes": 1379328,
+  "exe_bytes": 1387520,
   "unknown_devices": [],
   "conflicts": [],
   "openrgb": { "state": "off", "detail": null, "devices": [], "ours": false }
@@ -145,8 +145,9 @@ drives (`{id, name, leds, zones}`), and `ours` says whether the running OpenRGB 
 
 ## In progress
 
-- Confirming the [experimental devices](/docs/devices/#experimental), and the DPI, poll rate, power and scroll
-  wheel commands on the Basilisk V3 Pro.
+- Confirming the [experimental devices](/docs/devices/#experimental), and on the Basilisk V3 Pro the power
+  commands (its low-battery byte reads an unexplained `0x4C`) and scroll acceleration; DPI, stages, poll
+  rate, scroll mode and Smart Reel are confirmed (2026-10-07).
 - What each command-dial mode does, and OLED images for the BlackWidow, which need more capture first. See
   [Protocol](/docs/protocol/#still-to-map).
 - Named profiles, per-app profiles, and an installer for the daemon.

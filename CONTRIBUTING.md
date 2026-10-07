@@ -53,6 +53,7 @@ docs/ARCHITECTURE.md       how the daemon, the pipe and its clients are put toge
 site/                      the website and docs (Astro + Starlight); see site/README.md
 tools/devices/             generator and validator for devices/experimental/
 tools/reference/           Python probes and log miners used for reverse engineering
+tools/art/                 device drawings traced from product photos; see tools/art/README.md
 scripts/install-task.ps1   installs the daemon as an unelevated logon task (-OpenRgb: elevated OpenRGB task,
                            hand-off or live server; -Elevated: fallback); uninstall-task.ps1 removes both tasks
 ```

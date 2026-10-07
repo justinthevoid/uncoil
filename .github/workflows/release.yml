@@ -135,6 +135,6 @@ jobs:
 
             - Quit Razer Synapse first; two programs driving one device don't mix.
             - The binaries are not code-signed yet, so Windows SmartScreen may warn.
-            - The logon task runs elevated; see SECURITY.md for what that means.
+            - The daemon runs unelevated, as you; only the optional `-OpenRgb` task runs elevated (see SECURITY.md).
 
             Changes: see CHANGELOG.md and the generated notes below.

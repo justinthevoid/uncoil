@@ -16,13 +16,14 @@ actually use, in one 1.4 MB process.**
 |---|---|---|
 | Processes | 17 | **1** |
 | Memory | ~1.4 GB at start, leaking to multiple GB over days | **~3 MB** private |
-| CPU, idle after startup | ~7% of a core | **<1%** of one core |
+| CPU, wave running | ~7% of a core | **<1%** of one core |
 | Install size | ~500 MB | **1.4 MB**, single executable |
 | Kernel drivers | yes | **none**, plain user-mode HID |
 
 <sub>Measured on the maintainer's PC (Windows 11, BlackWidow V4 Pro 75%, Basilisk V3 Pro, Goliathus Chroma
-Extended, rainbow wave running); memory and CPU on an earlier build, size on the build of 2026-10-04
-(1,379,328 bytes). One machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
+Extended, rainbow wave running); memory and CPU on an earlier build, size on the build of 2026-10-07
+(1,387,520 bytes). With live OpenRGB streaming to 350 more LEDs it showed 5 to 6 MB (2026-10-07). One
+machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
 and size in `status.json`, so you can check yours.</sub>
 
 No services, no account, no telemetry; the daemon makes no network connections. The one exception is the
@@ -37,18 +38,27 @@ like). The daemon does the work.
   from the keyboard (including its side underglow) onto the mouse and the mat as one continuous field.
 - **The Razer quick effects:** wave, spectrum, breathing, static, starlight, fire, wheel, reactive, ripple and
   an audio meter, each with its own settings, plus brightness and saturation.
+- **A different effect per device.** On the Lighting page, pick devices (chips, or click them on the desk;
+  Ctrl-click for several) or paint lights across devices, and give them their own effect; the rest of the
+  desk keeps its own. Each effect card shows the effect itself, running.
 - **Studio.** Stack effects as layers with opacity, and limit each layer to the whole desk, chosen devices or
-  keys you paint. Reactive and ripple only ever learn where a key is, never which key it was.
+  lights you paint on any device. Reactive and ripple only ever learn where a key is, never which key it was.
+- **Your devices, drawn.** The app draws each device from above as line art traced from its product photo:
+  keyboards with their real case, screen and dial, mice with their buttons, mats and docks with their lights.
+  With live OpenRGB, a PC page shows the motherboard, memory, graphics card, fans and cooler where they sit
+  in the case, lit with the desk's effect.
 - **Keys and buttons.** Remap keys on the normal and Fn layers and the mouse's buttons, set the command dial
   mode and the screen's brightness, and save a device's own (firmware) effect. These write to the device's own
   memory, so they keep working without uncoil. Every such write needs an explicit confirmation (`--write` on
   the command line) and is logged; settings that can be read back are, and the result says so.
 - **Mouse settings:** DPI, DPI stages, polling rate, battery level, sleep timer and low-battery warning on
-  mice whose device file lists them, using OpenRazer's shared mouse commands. These are not yet confirmed on
-  the Basilisk V3 Pro, so uncoil reads each value first and only changes it if the read makes sense.
+  mice whose device file lists them, using OpenRazer's shared mouse commands. DPI, stages and the poll rate
+  are confirmed on the Basilisk V3 Pro (2026-10-07); the battery and sleep settings are not yet, so uncoil
+  reads them first and only changes them if the read makes sense.
 - **Scroll wheel settings:** tactile or free spin, scroll acceleration and Smart Reel, stored in the mouse.
-  Unconfirmed on the Basilisk V3 Pro (read first, like the mouse settings above) and experimental on the
-  Basilisk V3 and V3 35K. Each device's firmware version, and a keyboard's layout and colour, can be read too.
+  Scroll mode and Smart Reel are confirmed on the Basilisk V3 Pro (2026-10-07); acceleration still waits
+  for the same read-only check, and the Basilisk V3 and V3 35K are experimental. Each device's firmware
+  version, and a keyboard's layout and colour, can be read too.
 - **Colour tuned for LEDs.** Uses FastLED's rainbow hue map, so no colour band looks wider or brighter than
   the rest.
 - **Behaves like Synapse where it matters.** Lighting fades out when Windows turns the display off, dims with
@@ -130,7 +140,9 @@ services, OpenRGB and SignalRGB by process name every 5 seconds, logs each once 
 (and in `uncoil status`). OpenRGB started by uncoil's own live mode doesn't count.
 
 ```powershell
-# from a clone, after building (see below)
+# from a release: in the folder with uncoild.exe and install-task.ps1 (check them against SHA256SUMS.txt)
+powershell -ExecutionPolicy Bypass -File .\install-task.ps1
+# or from a clone, after building (see below)
 powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
 ```
 
@@ -222,6 +234,7 @@ devices/experimental  experimental device files, generated by tools/devices/ fro
 docs/PROTOCOL.md      how the protocol was learned, and the hardware quirks
 docs/ARCHITECTURE.md  how the daemon, the pipe and its clients fit together
 tools/reference       Python probes and log-mining scripts used for reverse engineering
+tools/art             the device drawings: traced from product photos (photos are never committed)
 ```
 
 ## How it works
@@ -232,7 +245,8 @@ and [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB); uncoil re-implements 
 Synapse's own logs, which record every command it sends with a name and the raw bytes.
 
 `uncoild` places each device on a virtual desk, samples the effect at every LED's physical position, and
-streams custom frames (30 fps by default), respecting per-device quirks (the BlackWidow wants every reply
+streams custom frames (30 fps by default; measured on the maintainer's PC on 2026-10-07: the mouse and mat
+at 29.7, the BlackWidow, which acknowledges every report, at about 18), respecting per-device quirks (the BlackWidow wants every reply
 read back, or it quietly stops listening). Other commands from the app or the CLI run on the same device
 thread between frames. The full write-up, with the expensive lessons, is in
 [docs/PROTOCOL.md](docs/PROTOCOL.md); how the code fits together is in

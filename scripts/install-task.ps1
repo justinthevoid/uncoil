@@ -2,6 +2,9 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1 [-Exe path] [-OpenRgb] [-Elevated]
 #
+# -Exe defaults to the uncoild.exe next to this script (a release download), else the repository's
+# target\release\uncoild.exe (a build from source).
+#
 # The daemon runs as you, UNELEVATED (task "uncoil", run level Limited). Installing still needs one UAC
 # prompt (the script asks for it), because the binary goes to %ProgramFiles%\uncoil, where only
 # administrators can write, so no program running as you can swap it.
@@ -19,7 +22,7 @@
 #              script did. Only for PCs where uncoild cannot open its devices unelevated (not seen yet). An
 #              elevated daemon runs the OpenRGB hand-off or server itself and refuses to write through junctions.
 param(
-    [string]$Exe = "$PSScriptRoot\..\target\release\uncoild.exe",
+    [string]$Exe = $(if (Test-Path -LiteralPath "$PSScriptRoot\uncoild.exe") { "$PSScriptRoot\uncoild.exe" } else { "$PSScriptRoot\..\target\release\uncoild.exe" }),
     [string]$User = "$env:USERDOMAIN\$env:USERNAME",
     [switch]$OpenRgb,
     [switch]$Elevated

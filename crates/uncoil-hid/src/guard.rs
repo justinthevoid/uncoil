@@ -148,8 +148,8 @@ impl std::fmt::Display for Busy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "another program is talking to {} right now (Razer's software and OpenRGB use the same device lock); \
-             try again in a moment",
+            "another program is talking to {} right now (OpenRGB, and apparently Razer's software, use the same \
+             device lock); try again in a moment",
             self.0
         )
     }

@@ -378,12 +378,14 @@ command, image format and chunking never appear in the logs.
 
 ## Still to map
 
-- Hardware verification of firmware effects (`0F/02`) on all three devices, and of `dial set` / `oled set`.
+- Firmware effects (`0F/02`) beyond the three verified session effects, onboard storage, and `dial set` /
+  `oled set` on hardware.
 - Profile switching and confirmation of `05/84`.
-- The shared mouse commands (DPI, stages, poll rate, battery, sleep timer, low-battery threshold, scroll
-  wheel) on the Basilisk V3 Pro: `uncoil check mouse` reads them all without writing anything.
-- `00/81` and `00/86` on uncoil's own devices (`uncoil info`), and the layout codes OpenRGB marks
-  unconfirmed.
+- The rest of the shared mouse commands on the Basilisk V3 Pro: the low-battery threshold (reads `0x4C`),
+  the sleep-timer write and scroll acceleration (DPI, stages, poll rate, scroll mode and Smart Reel were
+  confirmed on 2026-10-07).
+- The layout codes OpenRGB marks unconfirmed (`00/81` and `00/86` answered on uncoil's own devices on
+  2026-10-07: firmware 1.03 / 2.01 / 2.00, the keyboard US ANSI and black).
 - Every file in `devices/experimental/` (built from OpenRazer / OpenRGB data).
 - Media-key (`fn` 10), macro, lighting and Windows-shortcut data layouts on the keyboard.
 - The `02/8F` bulk-read paging, and the factory Hypershift defaults for keys Synapse never wrote.

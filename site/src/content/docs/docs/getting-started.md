@@ -3,8 +3,8 @@ title: Getting started
 description: Build uncoild, install it as a logon task, retire Synapse without leaving devices in driver mode, check it is running, and remove it again.
 ---
 
-uncoil has no installer yet. Installing it means putting one executable somewhere and asking Windows to
-start it at logon. This page does both, and covers the one step that can go wrong: retiring Synapse.
+The daemon has no installer (the desktop app does). Installing it means putting one executable somewhere and
+asking Windows to start it at logon. This page does both, and covers the one step that can go wrong: retiring Synapse.
 
 ## What you need
 
@@ -12,21 +12,30 @@ start it at logon. This page does both, and covers the one step that can go wron
 - At least one [supported or experimental device](/docs/devices/), on its cable or dongle.
 - PowerShell (part of Windows) and administrator rights once, to copy the executable to `%ProgramFiles%`.
   The daemon itself runs as you, unelevated.
-- Until there is a release: Git and [Rust](https://rustup.rs) with the Visual Studio C++ build tools.
+- To build from source instead of downloading: Git and [Rust](https://rustup.rs) with the Visual Studio C++
+  build tools.
 
 ## 1. Get uncoild
 
-uncoil is pre-release and nothing has been released yet, so for now you build it from source with a stable
-Rust toolchain (1.85 or newer, MSVC target):
+**From a release:** download `uncoild.exe` and `install-task.ps1` (and, if you want them, `uncoil.exe`, the
+command line, and `uncoil-app-<version>-x64-setup.exe`, the desktop app) from
+[GitHub Releases](https://github.com/justinthevoid/uncoil/releases) into one folder, and check them against
+`SHA256SUMS.txt`:
+
+```powershell
+Get-FileHash .\uncoild.exe -Algorithm SHA256   # compare with the line in SHA256SUMS.txt
+```
+
+The binaries are not code-signed yet, so Windows SmartScreen may warn. In step 3, run `.\install-task.ps1`
+from that folder: it installs the `uncoild.exe` next to it.
+
+**From source**, with a stable Rust toolchain (1.85 or newer, MSVC target):
 
 ```powershell
 git clone https://github.com/justinthevoid/uncoil
 cd uncoil
 cargo build --release -p uncoild -p uncoil-cli   # -> target\release\uncoild.exe and uncoil.exe
 ```
-
-Once there is a release, its GitHub release page will carry `uncoild.exe`, the `uncoil.exe` command line,
-`install-task.ps1`, `uninstall-task.ps1` and an installer for the desktop app.
 
 `uncoild --version` prints the version and exits; it is otherwise silent. It has no window and no console.
 `uncoil.exe` is the optional command line; it talks to the running daemon and needs no installing.

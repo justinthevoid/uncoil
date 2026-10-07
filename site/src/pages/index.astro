@@ -14,7 +14,7 @@ import { url, REPO, RELEASES, blob } from '../lib/url';
 const ledger = [
 	{ k: 'Processes', uncoil: '1', unit: '', synapse: '17' },
 	{ k: 'Memory', uncoil: '~3', unit: 'MB', synapse: '~1.4 GB at start, leaking' },
-	{ k: 'CPU while animating', uncoil: '<1%', unit: 'of one core', synapse: '~7% of one core' },
+	{ k: 'CPU, wave running', uncoil: '<1%', unit: 'of one core', synapse: '~7% of one core' },
 	{ k: 'Install size', uncoil: '1.4', unit: 'MB', synapse: '~500 MB' },
 ];
 
@@ -30,6 +30,14 @@ const features = [
 	{
 		title: 'Follows the display',
 		body: 'Lighting fades out when Windows turns the display off, dims when Windows dims it, and comes back on wake. Devices that were unplugged are picked up again within seconds.',
+	},
+	{
+		title: 'A different effect per device',
+		body: 'Pick a device, or paint lights across several, and give them their own effect while the rest of the desk keeps its own. Or stack effects as layers in Studio. Every effect card shows the effect itself, running.',
+	},
+	{
+		title: 'Your desk, drawn',
+		body: 'Each device is drawn from above as line art traced from its product photo, lit with the live effect. With live OpenRGB, a PC page puts the motherboard, memory, graphics card and fans where they sit in the case.',
 	},
 	{
 		title: 'Even colour',
@@ -52,7 +60,7 @@ const faq = [
 	},
 	{
 		q: 'What still needs Synapse?',
-		a: 'Anything uncoil does not do yet: macros, what each command-dial mode does, custom images on the BlackWidow’s dial screen, switching onboard profiles, firmware updates, and devices that are not on the list. Key and button remapping works from the app and the command line, though only one remap (Fn+P to Print Screen) has been checked on a real keyboard so far. DPI, polling rate, the sleep timer and the scroll wheel are there too, but not yet confirmed on real hardware, so uncoil reads each value before it changes anything. Settings already stored in a device’s own memory stay there after Synapse is gone.',
+		a: 'Anything uncoil does not do yet: macros, what each command-dial mode does, custom images on the BlackWidow’s dial screen, switching onboard profiles, firmware updates, and devices that are not on the list. Key and button remapping works from the app and the command line, though only one remap (Fn+P to Print Screen) has been checked on a real keyboard so far. DPI, polling rate, the sleep timer and the scroll wheel are there too; DPI, the poll rate, scroll mode and Smart Reel are confirmed on the Basilisk V3 Pro, and for the rest uncoil reads each value before it changes anything. Settings already stored in a device’s own memory stay there after Synapse is gone.',
 	},
 	{
 		q: 'Can Synapse stay installed?',
@@ -136,7 +144,7 @@ const shotAlt =
 			</dl>
 			<p class="fine">
 				A Ryzen desktop with a BlackWidow V4 Pro 75%, Basilisk V3 Pro and Goliathus Chroma Extended, where Synapse’s
-				memory grew to several GB over a few days. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-04 (1,379,328 bytes). One machine; yours will differ.
+				memory grew to several GB over a few days. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-07 (1,387,520 bytes). One machine; yours will differ.
 			</p>
 		</div>
 	</section>
@@ -296,7 +304,7 @@ const shotAlt =
 					<p>
 						<strong>Then the hardware.</strong> Small Python probes against the real devices, reading back status codes
 						and asking a human what the LEDs actually did. The expensive lessons: Synapse leaves devices in driver mode,
-						the BlackWidow freezes if the custom-frame command is sent twice, and it silently stops applying frames
+						the BlackWidow freezes if the custom-frame command is re-sent every frame, and it silently stops applying frames
 						unless every reply is read.
 					</p>
 				</div>
@@ -323,14 +331,15 @@ const shotAlt =
 
 	<section id="install" class="sec" aria-labelledby="install-title">
 		<div class="wrap">
-			<SectionHead id="install-title" title="Install" lede="Three steps. There is no installer yet; there is not much to install." />
+			<SectionHead id="install-title" title="Install" lede="Three steps. The daemon has no installer; there is not much to install." />
 			<ol class="steps">
 				<li>
-					<h3>Build</h3>
+					<h3>Download</h3>
 					<p class="prose-ink">
-						Nothing has been released yet, so build it: <code>cargo build --release -p uncoild</code> in a clone of the
-						<a href={REPO}>repository</a>. Once there is a release, <code>uncoild.exe</code> and <code>install-task.ps1</code> will be
-						on <a href={RELEASES}>GitHub Releases</a>.
+						From <a href={RELEASES}>GitHub Releases</a>: <code>uncoild.exe</code>, <code>install-task.ps1</code> and, if you want them,
+						the <code>uncoil.exe</code> command line and the desktop app's installer, into one folder. Check them against
+						<code>SHA256SUMS.txt</code> (<code>Get-FileHash file</code>). Or build from source:
+						<code>cargo build --release -p uncoild</code> in a clone of the <a href={REPO}>repository</a>.
 					</p>
 				</li>
 				<li>
@@ -343,9 +352,9 @@ const shotAlt =
 				</li>
 				<li>
 					<h3>Run it at logon</h3>
-					<pre><code>powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1</code></pre>
+					<pre><code>powershell -ExecutionPolicy Bypass -File .\install-task.ps1</code></pre>
 					<p class="prose-ink">
-						Copies the executable to <code>%ProgramFiles%\uncoil</code>, registers a scheduled task named{' '}
+						From the download folder (or <code>scripts\install-task.ps1</code> in a clone). Copies the executable to <code>%ProgramFiles%\uncoil</code>, registers a scheduled task named{' '}
 						<code>uncoil</code> that starts at logon, and starts it now. The lighting should change within a second.
 					</p>
 				</li>

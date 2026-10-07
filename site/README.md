@@ -62,11 +62,12 @@ Static output, GitHub Pages friendly. By default the site is built for
 
 ## Open items
 
-- [ ] Replace `src/assets/app-lighting-{light,dark}.png` (captures of the app on its demo data) with ones taken
-      against the live engine.
+- [x] `src/assets/app-lighting-{light,dark}.png` recaptured on 2026-10-07 (the app on its demo data, headless
+      Chrome, nothing else in frame). A capture against the live engine would show real devices.
 - [ ] The phone video of the desk wave, once it is in the repo (a short muted loop would suit "The app").
-- [ ] First GitHub release: the download button and install steps point at `/releases`; confirm the release
-      ships `uncoild.exe` and `install-task.ps1` under those names.
+- [x] Install steps: download from `/releases` (the release ships `uncoild.exe`, `uncoil.exe`,
+      `install-task.ps1`, `uninstall-task.ps1`, the app installer and `SHA256SUMS.txt`), and `install-task.ps1`
+      installs the `uncoild.exe` next to it. Check on the first release that the names still match.
 - [ ] Domain, if any (see Deploy).
 - [ ] Donation/sponsor links, if wanted (none on the site today).
 - [ ] Social preview image (`og:image`) once there is a real screenshot.

@@ -24,12 +24,12 @@ Chroma Extended):
 |---|---|---|
 | Processes | 17 | 1 |
 | Memory | ~1.4 GB at start, leaking to several GB over days | ~3 MB |
-| CPU, idle animation | ~7% of one core | under 1% of one core |
+| CPU, wave running | ~7% of one core | under 1% of one core |
 | On disk | ~500 MB | 1.4 MB, one executable |
 | Kernel drivers | yes | none |
 
-That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-04
-(1,379,328 bytes).
+That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-07
+(1,387,520 bytes). With live OpenRGB streaming to 350 more LEDs it showed 5 to 6 MB of memory.
 uncoild measures itself and writes the numbers to `%LOCALAPPDATA%\uncoil\status.json` (`uncoil status` prints
 them), so you can check yours.
 
@@ -48,8 +48,9 @@ Key and button remapping (normal and Fn layers) works from the app and the CLI. 
 Screen, has been checked on a real keyboard so far; see the
 [protocol](/docs/protocol/#onboard-key-mappings-the-fn-layer-lives-in-the-keyboard). DPI, DPI stages, poll
 rate, battery, the sleep timer and the scroll wheel (tactile or free spin, acceleration, Smart Reel) are there
-too, from OpenRazer's documented commands, but not yet confirmed on real hardware: uncoil reads each one first
-and won't change it unless the read makes sense.
+too, from OpenRazer's documented commands. DPI, stages, poll rate, scroll mode and Smart Reel are
+confirmed on the Basilisk V3 Pro (2026-10-07); for the rest uncoil reads each value first and won't change it unless the read
+makes sense.
 
 Anything already stored in a device's own memory stays there after Synapse is uninstalled. If you need one of
 the above occasionally, you can install Synapse, make the change, quit it properly, and uninstall it again.
