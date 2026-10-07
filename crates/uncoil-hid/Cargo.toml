@@ -4,6 +4,7 @@ description = "USB HID transport for uncoil (Razer devices) + Windows display po
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 
 [dependencies]
 uncoil-core.workspace = true

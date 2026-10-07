@@ -108,6 +108,9 @@ logs to `%LOCALAPPDATA%\uncoil\uncoild.log`.
   numeric (colour, layout, effects).
 - Device-specific behaviour belongs in a device file's `[quirks]` table, not in an `if pid == ...` branch.
 - The daemon runs all day. Allocation in the frame loop, new threads and new dependencies need a reason.
+- After changing dependencies (Cargo.lock, or the app's npm packages), regenerate `THIRD_PARTY_NOTICES.md`
+  with `node scripts/notices/notices.mjs` (needs `cargo install cargo-about --locked --features cli`); a
+  release fails while it's stale.
   Release builds are size-optimised; check `uncoild.exe` doesn't grow without cause.
 
 ## Commits and pull requests

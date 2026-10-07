@@ -4,6 +4,7 @@ description = "uncoil background daemon: drives device lighting with no UI"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 
 [dependencies]
 uncoil-core.workspace = true

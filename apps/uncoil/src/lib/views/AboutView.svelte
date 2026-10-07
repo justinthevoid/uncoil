@@ -17,6 +17,7 @@
 		<div class="actions">
 			<button type="button" class="btn" onclick={() => open(REPO)}>Source code<ExternalLink size={14} /></button>
 			<button type="button" class="btn-quiet" onclick={() => open(`${REPO}/blob/main/docs/PROTOCOL.md`)}>How it works<ExternalLink size={14} /></button>
+			<button type="button" class="btn-quiet" onclick={() => open(`${REPO}/blob/main/THIRD_PARTY_NOTICES.md`)}>Third-party licences<ExternalLink size={14} /></button>
 		</div>
 	</section>
 

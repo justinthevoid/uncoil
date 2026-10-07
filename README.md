@@ -289,6 +289,9 @@ device file all help more than you'd think.
 uncoil is free software under the [GNU General Public License v3.0 or later](LICENSE). Protocol facts and
 some device data derive from OpenRazer and OpenRGB (both GPL-2.0-or-later); the keyboard key-mapping
 commands were cross-checked against [OpenSynapse](https://github.com/A1mAssist/OpenSynapse) (MIT).
+The binaries also carry other people's code under their own licences (Rust crates, the app's front end,
+FastLED's rainbow hue map); [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists them, and ships with
+each release and the app.
 
 uncoil is an independent project. It is not affiliated with, endorsed by or sponsored by Razer Inc.
 "Razer", "Synapse", "Chroma", "HyperSpeed" and the device names used here ("BlackWidow", "Basilisk",

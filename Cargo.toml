@@ -6,6 +6,8 @@ members = ["crates/uncoil-core", "crates/uncoil-hid", "crates/uncoil-openrgb", "
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
+# not published to crates.io; this also keeps uncoil's own crates out of THIRD_PARTY_NOTICES.md
+publish = false
 repository = "https://github.com/justinthevoid/uncoil"
 rust-version = "1.85"
 

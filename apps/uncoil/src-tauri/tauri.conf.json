@@ -43,6 +43,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "../../../LICENSE": "LICENSE.txt",
+      "../../../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+    },
     "windows": {
       "nsis": {
         "installMode": "perMachine"

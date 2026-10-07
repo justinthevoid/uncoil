@@ -4,6 +4,7 @@ description = "uncoil command line: key maps, profiles, OLED dial and firmware e
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 
 [[bin]]
 name = "uncoil"
