@@ -207,5 +207,8 @@ For anyone running an earlier build from source:
   A command that has to wait for one of uncoil's own long commands says so, instead of blaming another
   program.
 - Log lines written from several threads at once are no longer lost when the log is trimmed.
+- `install-task.ps1` starts `uncoil-openrgb` again after a reinstall with `-OpenRgb`, shows install.log only
+  when this run wrote it, says plainly when the administrator prompt was declined or another Windows
+  user's uncoild is running the binary. `uninstall-task.ps1` says whether it uninstalled or what is left.
 
 [Unreleased]: https://github.com/justinthevoid/uncoil/commits/main

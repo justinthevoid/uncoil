@@ -9,8 +9,33 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) {
     $old = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'uncoil\bin\uncoild.exe'
     if (Test-Path -LiteralPath $old) { Write-Host "An old copy from before 0.1.0 is at $old; delete it yourself." }
-    $p = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    exit $p.ExitCode
+    try {
+        $p = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    } catch {
+        # declining the prompt is error 1223 (ERROR_CANCELLED), however PowerShell wraps it
+        $e = $_.Exception
+        while ($e -and -not ($e -is [ComponentModel.Win32Exception])) { $e = $e.InnerException }
+        if (($e -and $e.NativeErrorCode -eq 1223) -or "$_" -match 'cancel') {
+            Write-Host 'cancelled at the administrator prompt; nothing changed'
+        } else {
+            Write-Host "the administrator prompt did not open ($_); nothing changed"
+        }
+        exit 1
+    }
+    # The elevated copy runs hidden and writes nothing (a file it wrote where you can read it would be one you
+    # could also aim elsewhere with a link), so look from here, read-only, at what is left.
+    $left = @()
+    foreach ($name in 'uncoil', 'uncoil-openrgb') {
+        if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) { $left += "task '$name'" }
+    }
+    $exe = Join-Path (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'uncoil') 'uncoild.exe'
+    if (Test-Path -LiteralPath $exe) { $left += $exe }
+    if ($left.Count -eq 0) {
+        Write-Host 'uninstalled'
+        exit 0
+    }
+    Write-Host "not fully uninstalled (exit code $($p.ExitCode)); still there: $($left -join ', ')"
+    exit 1
 }
 
 # Refuse any path whose existing parts include a junction or symbolic link (this runs elevated).

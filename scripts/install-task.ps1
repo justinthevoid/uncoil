@@ -44,10 +44,29 @@ if (-not $isAdmin) {
     $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Exe `"$src`" -User `"$User`""
     if ($OpenRgb) { $argList += ' -OpenRgb' }
     if ($Elevated) { $argList += ' -Elevated' }
-    $p = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList $argList
-    # the elevated copy writes what it did to install.log (in the admin-only folder); show it here
-    if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
-    exit $p.ExitCode
+    $asked = Get-Date
+    try {
+        $p = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList $argList
+    } catch {
+        # declining the prompt is error 1223 (ERROR_CANCELLED), however PowerShell wraps it
+        $e = $_.Exception
+        while ($e -and -not ($e -is [ComponentModel.Win32Exception])) { $e = $e.InnerException }
+        if (($e -and $e.NativeErrorCode -eq 1223) -or "$_" -match 'cancel') {
+            Write-Host 'cancelled at the administrator prompt; nothing changed'
+        } else {
+            Write-Host "the administrator prompt did not open ($_); nothing changed"
+        }
+        exit 1
+    }
+    # the elevated copy writes what it did to install.log (in the admin-only folder); show it here, but only
+    # if this run wrote it: an older log would end in the last install's "started"
+    $written = Get-Item -LiteralPath $log -ErrorAction SilentlyContinue
+    if ($written -and $written.LastWriteTime -gt $asked) {
+        Get-Content -LiteralPath $log
+        exit $p.ExitCode
+    }
+    Write-Host "the install did not run or did not finish (exit code $($p.ExitCode)); install.log was not rewritten"
+    exit $(if ($p.ExitCode) { $p.ExitCode } else { 1 })
 }
 
 function Say([string]$Message) {
@@ -102,6 +121,14 @@ try {
     Get-Process uncoild -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $session } | Stop-Process -Force
     Start-Sleep 1
 
+    # another Windows user's daemon runs this same binary, which Windows will not let us replace
+    $running = Get-CimInstance Win32_Process -Filter "Name = 'uncoild.exe'" |
+        Where-Object { $_.ExecutablePath -and ($_.ExecutablePath -eq $dst) }
+    if ($running | Where-Object { $_.SessionId -ne $session }) {
+        throw "another user's uncoil is running from $dst; sign them out or stop it first"
+    }
+    if ($running) { throw "uncoild is still running from $dst; stop it and run this again" }
+
     # copy, then check the copy is byte for byte what was asked for
     $want = (Get-FileHash -LiteralPath $Exe -Algorithm SHA256).Hash
     Copy-Item -LiteralPath $Exe -Destination $dst -Force
@@ -151,6 +178,8 @@ try {
     }
 
     Start-ScheduledTask -TaskName $name
+    # stopping it above ended a live OpenRGB server, so start it again too (a hand-off just runs once more)
+    if ($OpenRgb) { Start-ScheduledTask -TaskName $openrgbTask }
     Say 'started'
 } catch {
     Say "install failed: $_"
