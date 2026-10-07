@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, type Component } from 'svelte';
+	import { onMount, untrack, type Component } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { BatteryMedium, Bell, CircleDot, X, Gauge, Info, Layers, Keyboard as KeyboardIcon, LayoutGrid, Lightbulb, Monitor, Mouse, Palette, RectangleHorizontal, Settings as SettingsIcon } from '@lucide/svelte';
 	import { app, deskSources, loadConfig, pollStatus, scheduleSave } from '#lib/state.svelte.ts';
@@ -76,6 +76,8 @@
 	};
 
 	const device = $derived(tabs.find((d) => d.id === tab) ?? null);
+	/** The open device's id alone: device pages reload when it changes, not when the tab list is rebuilt. */
+	const deviceId = $derived(device?.id ?? '');
 	const features = $derived(entriesFor(tab));
 	const experimental = $derived(device?.info?.support === 'experimental');
 	const railTitle = $derived(tab === 'desk' ? 'Whole desk' : tab === 'settings' ? 'Settings' : shortName(device?.name ?? ''));
@@ -110,7 +112,9 @@
 	$effect(() => {
 		deskKey;
 		const config = app.config;
-		const src = deskSources();
+		// Read the sources untracked: they read app.status, which the 2 s poll replaces, and re-running here
+		// rebuilds every tab's device object, so the open device page reloaded and lost unsaved edits.
+		const src = untrack(deskSources);
 		if (config) getDesk($state.snapshot(config) as Config, src.connected, src.external).then((d) => (desk = d));
 	});
 
@@ -254,15 +258,15 @@
 					{:else if feature === 'devices'}
 						<DevicesView config={app.config} onopen={openTab} />
 					{:else if feature === 'keys' && device}
-						<KeysView config={app.config} deviceId={device.id} />
+						<KeysView config={app.config} {deviceId} />
 					{:else if feature === 'performance' && device}
-						<PerformanceView deviceId={device.id} />
+						<PerformanceView {deviceId} />
 					{:else if feature === 'power' && device}
-						<PowerView deviceId={device.id} />
+						<PowerView {deviceId} />
 					{:else if feature === 'dial' && device}
-						<DialScreenView deviceId={device.id} />
+						<DialScreenView {deviceId} />
 					{:else if feature === 'effects' && device}
-						<OnboardEffectsView deviceId={device.id} />
+						<OnboardEffectsView {deviceId} />
 					{:else if feature === 'info' && device}
 						<DeviceInfoView device={{ id: device.id, name: device.name, kind: device.kind }} desk={device.desk} />
 					{:else if feature === 'settings'}

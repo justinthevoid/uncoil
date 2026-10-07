@@ -1,8 +1,11 @@
 <script lang="ts">
-	// The mouse seen from above, with each remappable button as a region you can click: main buttons,
-	// wheel (click, up, down, tilt), the button behind the wheel, side buttons, the clutch, and the two
-	// buttons underneath shown as a strip below. A gel tab marks buttons that do something changed.
+	// The Basilisk V3 Pro seen from above (silhouette traced from its product photo, lib/art/basilisk.ts), with
+	// each remappable button as a region you can click: main buttons, wheel (click, up, down, tilt), the two
+	// buttons behind the wheel, the side buttons and the clutch, and the profile button underneath as a chip.
+	// A gel fill marks buttons that do something changed.
 	import type { Gel } from '#lib/keys.ts';
+	import { BODY, GRIPS, LOGO, REGION, SEAMS, TREAD, VIEW, WELL } from '#lib/art/basilisk.ts';
+	import { SPIRAL } from './BasiliskArt.svelte';
 
 	interface Region {
 		/** Keymap button name (e.g. LEFT_CLICK). */
@@ -16,6 +19,7 @@
 		onselect: (name: string) => void;
 	}
 	let { regions, onselect }: Props = $props();
+	const uid = $props.id();
 
 	const r = (name: string) => regions.get(name);
 	const cls = (name: string) => {
@@ -29,74 +33,145 @@
 			onselect(name);
 		}
 	}
+	type Name = keyof typeof REGION;
+	const PAD = 104;
+	const L = VIEW.x - PAD + 4;
+	const R = VIEW.x + VIEW.w + PAD - 4;
+	const CALLOUTS: { name: Name; label: string; from: [number, number]; side: 'l' | 'r' }[] = [
+		{ name: 'WHEEL_CLICK', label: 'Wheel', from: [262, 238], side: 'r' },
+		{ name: 'SCROLL_MODE', label: 'Scroll mode', from: [255, 330], side: 'r' },
+		{ name: 'DPI_BUTTON', label: 'DPI', from: [255, 362], side: 'r' },
+		{ name: 'FORWARD', label: 'Forward', from: [108, 242], side: 'l' },
+		{ name: 'BACK', label: 'Back', from: [106, 284], side: 'l' },
+		{ name: 'CLUTCH', label: 'Clutch', from: [84, 342], side: 'l' }
+	];
+	const S = 1.7;
 </script>
 
-{#snippet hot(name: string, d: string, tx: number, ty: number, text: string)}
+{#snippet hot(name: Name, clipped = false)}
 	{#if r(name)}
-		<g class={cls(name)} role="button" tabindex="0" aria-label="{r(name)!.label}" aria-pressed={r(name)!.selected} onclick={() => onselect(name)} onkeydown={(e) => key(e, name)} style:--gel={gelColor(name)}>
-			<path {d} />
-			{#if text}<text x={tx} y={ty} text-anchor="middle" dominant-baseline="central">{text}</text>{/if}
+		<g
+			class={cls(name)}
+			role="button"
+			tabindex="0"
+			aria-label={r(name)!.label}
+			aria-pressed={r(name)!.selected}
+			onclick={() => onselect(name)}
+			onkeydown={(e) => key(e, name)}
+			style:--gel={gelColor(name)}
+			clip-path={clipped ? `url(#${uid}-body)` : undefined}
+		>
+			<path d={REGION[name]} />
 		</g>
 	{/if}
 {/snippet}
 
 <div class="mouse">
-	<svg viewBox="-40 0 320 420" role="group" aria-label="Mouse buttons">
-		<!-- body -->
-		<path class="body" d="M120 12 C 60 12 34 60 32 130 C 30 210 34 300 52 352 C 66 392 92 408 120 408 C 148 408 174 392 188 352 C 206 300 210 210 208 130 C 206 60 180 12 120 12 Z" />
-		{@render hot('LEFT_CLICK', 'M118 16 C 66 18 38 62 36 130 L 36 168 L 118 168 Z', 78, 120, 'L')}
-		{@render hot('RIGHT_CLICK', 'M122 16 C 174 18 202 62 204 130 L 204 168 L 122 168 Z', 162, 120, 'R')}
-		{@render hot('WHEEL_UP', 'M110 34 L 130 34 L 120 24 Z', 0, 0, '')}
-		{@render hot('WHEEL_CLICK', 'M108 46 Q 108 40 114 40 L 126 40 Q 132 40 132 46 L 132 104 Q 132 110 126 110 L 114 110 Q 108 110 108 104 Z', 120, 75, '')}
-		{@render hot('WHEEL_DOWN', 'M110 116 L 130 116 L 120 126 Z', 0, 0, '')}
-		{@render hot('WHEEL_LEFT', 'M100 66 L 100 84 L 90 75 Z', 0, 0, '')}
-		{@render hot('WHEEL_RIGHT', 'M140 66 L 140 84 L 150 75 Z', 0, 0, '')}
-		{@render hot('SCROLL_MODE', 'M110 136 Q 110 132 114 132 L 126 132 Q 130 132 130 136 L 130 150 Q 130 154 126 154 L 114 154 Q 110 154 110 150 Z', 120, 143, '')}
-		{@render hot('FORWARD', 'M22 176 Q 22 170 28 170 L 36 170 L 36 214 L 28 214 Q 22 214 22 208 Z', 0, 0, '')}
-		{@render hot('BACK', 'M22 226 Q 22 220 28 220 L 36 220 L 36 264 L 28 264 Q 22 264 22 258 Z', 0, 0, '')}
-		{@render hot('CLUTCH', 'M24 282 Q 24 276 30 276 L 38 276 L 38 306 L 30 306 Q 24 306 24 300 Z', 0, 0, '')}
+	<svg viewBox="{VIEW.x - PAD} {VIEW.y} {VIEW.w + PAD * 2} {VIEW.h}" role="group" aria-label="Mouse buttons">
+		<defs>
+			<clipPath id="{uid}-body"><path d={BODY} /></clipPath>
+			<pattern id="{uid}-grip" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+				<circle cx="2" cy="2" r="0.8" class="dot" />
+			</pattern>
+		</defs>
+		<path class="body" d={BODY} />
+		{@render hot('LEFT_CLICK', true)}
+		{@render hot('RIGHT_CLICK', true)}
+		<g clip-path="url(#{uid}-body)" class="lines">
+			{#each GRIPS as g (g)}<path d={g} fill="url(#{uid}-grip)" stroke="none" />{/each}
+			{#each SEAMS as d (d)}<path {d} />{/each}
+		</g>
+		<path class="well" d={WELL} />
+		<path class="logo" d={SPIRAL} transform="translate({LOGO[0] - 12 * S} {LOGO[1] - 12 * S}) scale({S})" />
+		<text class="lr" x="176" y="262" text-anchor="middle" dominant-baseline="central">L</text>
+		<text class="lr" x="306" y="236" text-anchor="middle" dominant-baseline="central">R</text>
+		{@render hot('FORWARD')}
+		{@render hot('BACK')}
+		{@render hot('CLUTCH')}
+		{@render hot('WHEEL_CLICK')}
+		<path class="tread" d={TREAD} />
+		{@render hot('WHEEL_UP')}
+		{@render hot('WHEEL_DOWN')}
+		{@render hot('WHEEL_LEFT')}
+		{@render hot('WHEEL_RIGHT')}
+		{@render hot('SCROLL_MODE')}
+		{@render hot('DPI_BUTTON')}
 
-		<!-- side labels -->
-		<g class="callout"><line x1="20" y1="192" x2="-2" y2="192" /><text x="-6" y="192" text-anchor="end" dominant-baseline="central">Forward</text></g>
-		<g class="callout"><line x1="20" y1="242" x2="-2" y2="242" /><text x="-6" y="242" text-anchor="end" dominant-baseline="central">Back</text></g>
-		<g class="callout"><line x1="22" y1="291" x2="-2" y2="291" /><text x="-6" y="291" text-anchor="end" dominant-baseline="central">Clutch</text></g>
-		<g class="callout"><line x1="134" y1="143" x2="222" y2="143" /><text x="226" y="143" dominant-baseline="central">Scroll mode</text></g>
-		<g class="callout"><line x1="152" y1="75" x2="222" y2="75" /><text x="226" y="75" dominant-baseline="central">Wheel</text></g>
-	</svg>
-	<div class="under" role="group" aria-label="Buttons underneath">
-		<span class="u-label">Underneath</span>
-		{#each ['DPI_BUTTON', 'PROFILE_BUTTON'] as name (name)}
-			{#if r(name)}
-				<button type="button" class="u" class:sel={r(name)!.selected} aria-pressed={r(name)!.selected} onclick={() => onselect(name)} style:--gel={gelColor(name)}>
-					{#if r(name)!.gel}<span class="tab"></span>{/if}
-					{name === 'DPI_BUTTON' ? 'DPI' : 'Profile'}
-				</button>
+		{#each CALLOUTS as c (c.name)}
+			{#if r(c.name)}
+				<g class="callout">
+					<line x1={c.from[0]} y1={c.from[1]} x2={c.side === 'r' ? R - 92 : L + 66} y2={c.from[1]} />
+					<text x={c.side === 'r' ? R - 88 : L} y={c.from[1]} dominant-baseline="central">{c.label}</text>
+				</g>
 			{/if}
 		{/each}
-	</div>
+	</svg>
+	{#if r('PROFILE_BUTTON')}
+		<div class="under" role="group" aria-label="Button underneath">
+			<span class="u-label">Underneath</span>
+			<button type="button" class="u" class:sel={r('PROFILE_BUTTON')!.selected} aria-pressed={r('PROFILE_BUTTON')!.selected} onclick={() => onselect('PROFILE_BUTTON')} style:--gel={gelColor('PROFILE_BUTTON')}>
+				{#if r('PROFILE_BUTTON')!.gel}<span class="tab"></span>{/if}
+				Profile
+			</button>
+		</div>
+	{/if}
 </div>
 
 <style>
 	.mouse {
 		display: grid;
 		justify-items: center;
-		gap: 10px;
+		gap: 12px;
 	}
 	svg {
 		width: 100%;
-		max-width: 300px;
+		max-width: 440px;
+		max-height: 66vh;
 		height: auto;
 		overflow: visible;
 	}
 	.body {
 		fill: var(--case);
-		stroke: var(--color-seam-2);
-		stroke-width: 1.5;
+		stroke: var(--seam-line);
+		stroke-width: 1.4;
+	}
+	.lines path {
+		fill: none;
+		stroke: var(--seam-line);
+		stroke-width: 1.2;
+		stroke-linecap: round;
+		pointer-events: none;
+	}
+	.dot {
+		fill: var(--seam-line);
+	}
+	.well {
+		fill: var(--case);
+		stroke: var(--seam-line);
+		stroke-width: 1.2;
+	}
+	.tread {
+		fill: none;
+		stroke: var(--seam-line);
+		stroke-width: 1.4;
+		pointer-events: none;
+	}
+	.logo {
+		fill: none;
+		stroke: var(--color-ink-3);
+		stroke-width: 1.7;
+		stroke-linecap: round;
+	}
+	.lr {
+		fill: var(--color-ink-3);
+		font-size: 22px;
+		font-weight: 600;
+		pointer-events: none;
 	}
 	.hot path {
-		fill: var(--cap);
-		stroke: var(--cap-edge);
-		stroke-width: 1.5;
+		fill: var(--shell-top);
+		stroke: var(--seam-line);
+		stroke-width: 1.2;
 		transition:
 			fill var(--t-mid) var(--ease),
 			stroke var(--t-mid) var(--ease);
@@ -108,11 +183,14 @@
 	.hot:hover path {
 		fill: var(--color-surface-2);
 	}
+	/* clipped regions lose half their stroke at the body's edge, so a change and the selection also fill */
 	.hot.gel path {
+		fill: color-mix(in srgb, var(--gel) 18%, var(--shell-top));
 		stroke: var(--gel);
 		stroke-width: 3;
 	}
 	.hot.sel path {
+		fill: var(--color-surface-3);
 		stroke: var(--color-select);
 		stroke-width: 3;
 	}
@@ -121,19 +199,13 @@
 		stroke-dasharray: 4 3;
 		stroke-width: 2;
 	}
-	.hot text {
-		fill: var(--color-ink-2);
-		font-size: 22px;
-		font-weight: 600;
-		pointer-events: none;
-	}
 	.callout line {
 		stroke: var(--color-seam-2);
 		stroke-width: 1;
 	}
 	.callout text {
 		fill: var(--color-ink-3);
-		font-size: 13px;
+		font-size: 15px;
 	}
 	.under {
 		display: flex;

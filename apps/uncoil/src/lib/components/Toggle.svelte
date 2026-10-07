@@ -16,7 +16,11 @@
 		role="switch"
 		aria-checked={checked}
 		aria-describedby={hint ? `${id}-hint` : undefined}
-		onclick={() => (checked = !checked)}
+		onclick={(e) => {
+			// A click on the inner spans still reaches Svelte's delegated handler when the button is disabled
+			// (by a disabled fieldset, say), so check before flipping.
+			if (!e.currentTarget.matches(':disabled')) checked = !checked;
+		}}
 	>
 		<span class="text">{label}</span>
 		<span class="track" class:on={checked} aria-hidden="true"><span class="knob"></span></span>

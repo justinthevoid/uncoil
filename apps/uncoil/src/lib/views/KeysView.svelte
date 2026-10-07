@@ -333,8 +333,8 @@
 	}
 	.mouse-stage {
 		display: grid;
-		grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
-		gap: 32px;
+		grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+		gap: 28px;
 		align-items: center;
 		width: 100%;
 	}

@@ -12,6 +12,7 @@
 	import Slider from '#lib/components/Slider.svelte';
 	import { EFFECTS, effectInfo, swatchFor, type LayerKind } from '#lib/effects.ts';
 	import { createPreview } from '#lib/preview.svelte.ts';
+	import { allLightsOf, coverage as coverageOf, hasLight, lightsOf, markedOf, paint } from '#lib/masks.ts';
 	import type { Config, LayerEffect, Mask, StudioEffect, StudioLayer } from '#lib/types.ts';
 
 	let { config }: { config: Config } = $props();
@@ -30,15 +31,14 @@
 	}
 
 	let adding = $state(false);
-	function addLayer(kind: LayerKind, paint = false) {
+	function addLayer(kind: LayerKind, painted = false) {
 		if (!studio) return;
-		const kb = preview.state.desk.find((d) => d.kind === 'keyboard');
 		const l: StudioLayer = {
-			name: paint ? 'Painted keys' : (effectInfo(kind)?.label ?? 'Layer'),
+			name: painted ? 'Painted lights' : (effectInfo(kind)?.label ?? 'Layer'),
 			enabled: true,
 			opacity: 1,
 			effect: effectInfo(kind)!.make(),
-			mask: paint && kb ? { kind: 'keys', device: kb.id, shapes: [] } : { kind: 'all' }
+			mask: painted ? { kind: 'lights', lights: [] } : { kind: 'all' }
 		};
 		studio.layers.push(l);
 		selected = studio.layers.length - 1;
@@ -60,38 +60,35 @@
 
 	// ---- masks -------------------------------------------------------------------------------------
 	const deviceName = (id: string) => { const n = preview.state.desk.find((d) => d.id === id)?.name; return n ? shortName(n) : id; };
-	function coverage(m: Mask): string {
-		if (m.kind === 'all') return 'Whole desk';
-		if (m.kind === 'devices') return m.ids.length ? m.ids.map(deviceName).join(', ') : 'No devices yet';
-		return m.shapes.length ? `${m.shapes.length} ${m.shapes.length === 1 ? 'light' : 'lights'} on ${deviceName(m.device)}` : `Pick lights on ${deviceName(m.device)}`;
-	}
-	function setMaskKind(k: Mask['kind']) {
-		if (!layer || layer.mask.kind === k) return;
+	const coverage = (m: Mask) => coverageOf(m, deviceName);
+	/** The Covers choice: older single-device key masks show as Lights. */
+	type Covers = 'all' | 'devices' | 'lights';
+	const picking = (m: Mask | undefined) => m?.kind === 'keys' || m?.kind === 'lights';
+	const coversOf = (m: Mask): Covers => (picking(m) ? 'lights' : (m.kind as Covers));
+	function setMaskKind(k: Covers) {
+		if (!layer || coversOf(layer.mask) === k) return;
 		const kb = preview.state.desk.find((d) => d.kind === 'keyboard') ?? preview.state.desk[0];
-		layer.mask = k === 'all' ? { kind: 'all' } : k === 'devices' ? { kind: 'devices', ids: kb ? [kb.id] : [] } : { kind: 'keys', device: kb?.id ?? '', shapes: [] };
+		layer.mask = k === 'all' ? { kind: 'all' } : k === 'devices' ? { kind: 'devices', ids: kb ? [kb.id] : [] } : { kind: 'lights', lights: [] };
 	}
 	function toggleDevice(id: string) {
 		if (layer?.mask.kind !== 'devices') return;
 		const ids = layer.mask.ids;
 		layer.mask.ids = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
 	}
-	// Click or drag on the desk: the first light decides whether the drag adds or removes.
+	// Click or drag on the desk, across devices: the first light decides whether the drag adds or removes.
 	let paintAdds = true;
 	function pick(h: Hit, phase: 'start' | 'move') {
-		const m = layer?.mask;
-		if (m?.kind !== 'keys') return;
-		if (phase === 'start' && m.shapes.length === 0) m.device = h.device;
-		if (h.device !== m.device) return;
-		const has = m.shapes.includes(h.shape);
-		if (phase === 'start') paintAdds = !has;
-		if (paintAdds && !has) m.shapes = [...m.shapes, h.shape];
-		if (!paintAdds && has) m.shapes = m.shapes.filter((s) => s !== h.shape);
+		if (!layer || !picking(layer.mask)) return;
+		if (phase === 'start') paintAdds = !hasLight(layer.mask, [h.device, h.shape]);
+		layer.mask = paint(layer.mask, [h.device, h.shape], paintAdds);
 	}
-	const marked = $derived(layer?.mask.kind === 'keys' ? new Set(layer.mask.shapes.map((s) => `${(layer!.mask as Extract<Mask, { kind: 'keys' }>).device}/${s}`)) : undefined);
-	function selectAll() {
-		if (layer?.mask.kind !== 'keys') return;
-		const dev = preview.state.desk.find((d) => d.id === (layer!.mask as Extract<Mask, { kind: 'keys' }>).device);
-		if (dev) layer.mask.shapes = dev.shapes.map((s) => s.name);
+	const marked = $derived(layer && picking(layer.mask) ? markedOf(layer.mask) : undefined);
+	/** Add every light of one device to the picked lights. */
+	function selectDevice(id: string) {
+		if (!layer || !picking(layer.mask)) return;
+		const have = lightsOf(layer.mask);
+		const add = allLightsOf(preview.state.desk, [id]).filter(([d, sh]) => !have.some(([d2, s2]) => d === d2 && sh === s2));
+		layer.mask = { kind: 'lights', lights: [...have, ...add] };
 	}
 
 	function setEffectKind(kind: LayerKind) {
@@ -105,7 +102,7 @@
 
 <Workspace title={pageTitle('studio')} subtitle="Stack effects in layers. Each layer can cover the whole desk, some devices, or lights you pick." panelLabel="Layer settings">
 	{#snippet tools()}
-		{#if layer?.mask.kind === 'keys'}<span class="hint">Click or drag on the desk to pick lights</span>{/if}
+		{#if picking(layer?.mask)}<span class="hint">Click or drag on the desk to pick lights</span>{/if}
 		<button class="btn-quiet" type="button" aria-pressed={preview.state.paused} onclick={() => (preview.state.paused = !preview.state.paused)}>
 			{#if preview.state.paused}<Play size={14} />Play preview{:else}<Pause size={14} />Pause preview{/if}
 		</button>
@@ -116,8 +113,8 @@
 			desk={preview.state.desk}
 			colors={preview.state.colors}
 			{marked}
-			onpick={layer?.mask.kind === 'keys' ? pick : preview.uses(['reactive', 'ripple']) ? (h, phase) => phase === 'start' && preview.press(h.x, h.y) : undefined}
-			pickLabel={layer?.mask.kind === 'keys' ? 'Your desk. Click or drag to pick lights for this layer.' : 'Your desk. Click a key to preview a key press.'}
+			onpick={picking(layer?.mask) ? pick : preview.uses(['reactive', 'ripple']) ? (h, phase) => phase === 'start' && preview.press(h.x, h.y) : undefined}
+			pickLabel={picking(layer?.mask) ? 'Your desk. Click or drag to pick lights for this layer.' : 'Your desk. Click a key to preview a key press.'}
 		/>
 	</div>
 
@@ -135,7 +132,7 @@
 			<div class="layers-head">
 				<h2 id="layers-title" class="section-title">Layers <span class="count">top to bottom</span></h2>
 				<div class="row">
-					<button type="button" class="btn-quiet" onclick={() => addLayer('static', true)}><Paintbrush size={14} />Paint keys</button>
+					<button type="button" class="btn-quiet" onclick={() => addLayer('static', true)}><Paintbrush size={14} />Paint lights</button>
 					<button type="button" class="btn-quiet" aria-expanded={adding} onclick={() => (adding = !adding)}><Plus size={14} />Add layer</button>
 				</div>
 			</div>
@@ -181,9 +178,9 @@
 							options={[
 								{ value: 'all' as const, label: 'Desk' },
 								{ value: 'devices' as const, label: 'Devices' },
-								{ value: 'keys' as const, label: 'Lights' }
+								{ value: 'lights' as const, label: 'Lights' }
 							]}
-							value={layer.mask.kind}
+							value={coversOf(layer.mask)}
 							onchange={setMaskKind}
 						/>
 						{#if layer.mask.kind === 'devices'}
@@ -193,11 +190,13 @@
 									<label class="dev"><input type="checkbox" checked={ids.includes(d.id)} onchange={() => toggleDevice(d.id)} />{deviceName(d.id)}</label>
 								{/each}
 							</div>
-						{:else if layer.mask.kind === 'keys'}
-							<p class="note">{coverage(layer.mask)}. Click or drag on the desk to add lights; drag from a picked light to remove.</p>
+						{:else}
+							<p class="note">{coverage(layer.mask)}. Click or drag on the desk to add lights on any device; drag from a picked light to remove.</p>
 							<div class="row">
-								<button type="button" class="btn-quiet" onclick={selectAll}>Pick all on {deviceName(layer.mask.device)}</button>
-								<button type="button" class="btn-quiet" disabled={!layer.mask.shapes.length} onclick={() => layer.mask.kind === 'keys' && (layer.mask.shapes = [])}>Clear</button>
+								{#each preview.state.desk as d (d.id)}
+									<button type="button" class="btn-quiet" onclick={() => selectDevice(d.id)}>All of {deviceName(d.id)}</button>
+								{/each}
+								<button type="button" class="btn-quiet" disabled={!lightsOf(layer.mask).length} onclick={() => layer && (layer.mask = { kind: 'lights', lights: [] })}>Clear</button>
 							</div>
 						{/if}
 					</div>
