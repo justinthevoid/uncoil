@@ -2,12 +2,14 @@
 
 All notable changes to uncoil are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project will follow
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html) from its first release. Until 1.0, minor versions
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Until 1.0, minor versions
 may change config and device-file formats; such changes are called out under **Changed**.
 
 ## [Unreleased]
 
-Everything so far. Nothing has been released yet.
+## [0.1.0] - 2026-10-07
+
+The first release: everything so far.
 
 ### Added
 
@@ -226,4 +228,5 @@ For anyone running an earlier build from source:
   when this run wrote it, says plainly when the administrator prompt was declined or another Windows
   user's uncoild is running the binary. `uninstall-task.ps1` says whether it uninstalled or what is left.
 
-[Unreleased]: https://github.com/justinthevoid/uncoil/commits/main
+[Unreleased]: https://github.com/justinthevoid/uncoil/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/justinthevoid/uncoil/releases/tag/v0.1.0
