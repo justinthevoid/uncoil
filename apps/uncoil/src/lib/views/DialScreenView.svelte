@@ -6,10 +6,12 @@
 	import Slider from '#lib/components/Slider.svelte';
 	import WriteButton from '#lib/components/WriteButton.svelte';
 	import PipeUnavailable from '#lib/components/PipeUnavailable.svelte';
+	import CheckNotice from '#lib/components/CheckNotice.svelte';
 	import { daemon } from '#lib/api.ts';
 	import { pipe, loadDevices, errorText } from '#lib/daemon.svelte.ts';
+	import { locked } from '#lib/checks.ts';
 	import { DIAL_MODES } from '#lib/keys.ts';
-	import type { Capabilities, DialState, OledState, WriteResult } from '#lib/types.ts';
+	import type { Capabilities, DialState, Feature, FeatureCheck, OledState, WriteResult } from '#lib/types.ts';
 
 	let { deviceId }: { deviceId: string } = $props();
 	type Note = { ok: boolean; text: string } | null;
@@ -21,17 +23,30 @@
 	const hasDial = $derived(!!device?.features.includes('dial'));
 	const hasOled = $derived(!!device?.features.includes('oled'));
 
+	// Experimental devices (and unconfirmed features): saving stays off until the read-only check passes.
+	let caps = $state<Capabilities | null>(null);
+	const present = $derived(!!device);
+	$effect(() => {
+		if (!present) return;
+		daemon<Capabilities>('capabilities', deviceId)
+			.then((c) => (caps = c))
+			.catch((e) => (dialNote = oledNote = { ok: false, text: errorText(e) }));
+	});
+	const dialLocked = $derived(locked(caps, 'dial'));
+	const oledLocked = $derived(locked(caps, 'oled'));
+	const gated = $derived((['dial', 'oled'] as Feature[]).filter((f) => device?.features.includes(f)));
+	const onchecks = (checks: FeatureCheck[]) => caps && (caps = { ...caps, checks });
+
 	let dial = $state<DialState | null>(null);
-	let dialModes = $state<string[]>([]);
+	const dialModes = $derived(caps?.dial_modes ?? []);
 	let dialChoice = $state<string | null>(null);
 	let dialBusy = $state(false);
 	let dialNote = $state<Note>(null);
 	$effect(() => {
 		if (!hasDial) return;
-		Promise.all([daemon<DialState>('dial.get', deviceId), daemon<Capabilities>('capabilities', deviceId)])
-			.then(([s, c]) => {
+		daemon<DialState>('dial.get', deviceId)
+			.then((s) => {
 				dial = s;
-				dialModes = c.dial_modes;
 				dialChoice = s.mode;
 			})
 			.catch((e) => (dialNote = { ok: false, text: errorText(e) }));
@@ -88,6 +103,7 @@
 	<PipeUnavailable page="dial" unreachable={pipe.unreachable} />
 {:else}
 	<Workspace title={pageTitle('dial')} subtitle="Saved in the keyboard, so they work without uncoil.">
+		<CheckNotice {deviceId} {caps} features={gated} {onchecks} />
 		<div class="grid">
 			{#if hasDial}
 				<section class="card" aria-labelledby="dial-title">
@@ -101,7 +117,7 @@
 						onchange={(v) => (dialChoice = v)}
 					/>
 					<p class="note">Volume is tested. The others are sent exactly as Synapse sends them; whether the keyboard acts on them without Synapse hasn't been checked yet.</p>
-					<WriteButton label="Save to keyboard" warning="Saves the dial mode in the keyboard's memory. Choose Volume and save again to undo." disabled={!dialChoice || dialChoice === dial?.mode} busy={dialBusy} onconfirm={saveDial} />
+					<WriteButton label="Save to keyboard" warning="Saves the dial mode in the keyboard's memory. Choose Volume and save again to undo." disabled={!dialChoice || dialChoice === dial?.mode || dialLocked} busy={dialBusy} onconfirm={saveDial} />
 					{#if dialNote}<p class="outcome" class:bad={!dialNote.ok} role="status">{dialNote.text}</p>{/if}
 				</section>
 			{/if}
@@ -110,7 +126,7 @@
 					<h2 id="oled-title" class="section-title">Screen</h2>
 					<p class="note">The keyboard's small display.</p>
 					<Slider label="Brightness" min={0} max={100} bind:value={oledBright} format={(v) => `${Math.round(v)}%`} />
-					<WriteButton label="Save brightness" warning="Saves the screen brightness in the keyboard's memory. It was {oled?.brightness ?? '?'}% before." disabled={!oled || Math.round(oledBright) === oled.brightness} busy={oledBusy} onconfirm={saveOled} />
+					<WriteButton label="Save brightness" warning="Saves the screen brightness in the keyboard's memory. It was {oled?.brightness ?? '?'}% before." disabled={!oled || Math.round(oledBright) === oled.brightness || oledLocked} busy={oledBusy} onconfirm={saveOled} />
 					{#if oledNote}<p class="outcome" class:bad={!oledNote.ok} role="status">{oledNote.text}</p>{/if}
 					{#if oled}
 						<dl class="readout">

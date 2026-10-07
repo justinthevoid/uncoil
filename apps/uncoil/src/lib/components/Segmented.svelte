@@ -10,6 +10,7 @@
 	let { label, options, value, onchange }: Props = $props();
 
 	let buttons: HTMLButtonElement[] = $state([]);
+	// The chosen segment, or the first when the value isn't among the options (so Tab still reaches the group).
 	const index = $derived(Math.max(0, options.findIndex((o) => o.value === value)));
 
 	function onkeydown(e: KeyboardEvent, i: number) {
@@ -30,7 +31,7 @@
 			type="button"
 			role="radio"
 			aria-checked={o.value === value}
-			tabindex={o.value === value ? 0 : -1}
+			tabindex={i === index ? 0 : -1}
 			onclick={() => onchange(o.value)}
 			onkeydown={(e) => onkeydown(e, i)}
 		>

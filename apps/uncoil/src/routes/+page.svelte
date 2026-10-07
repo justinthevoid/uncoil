@@ -110,13 +110,16 @@
 
 	// The desk (and so the device tabs) follows what is connected: experimental devices with a layout join it.
 	const deskKey = $derived(deskSources().key);
+	// Only the placements change the desk: tracking the whole config refetched it on every slider step.
+	const placements = $derived(app.config ? JSON.stringify(app.config.desk ?? {}) : '');
 	$effect(() => {
 		deskKey;
-		const config = app.config;
+		if (!placements) return;
 		// Read the sources untracked: they read app.status, which the 2 s poll replaces, and re-running here
 		// rebuilds every tab's device object, so the open device page reloaded and lost unsaved edits.
 		const src = untrack(deskSources);
-		if (config) getDesk($state.snapshot(config) as Config, src.connected, src.external).then((d) => (desk = d));
+		const config = untrack(() => $state.snapshot(app.config)) as Config;
+		getDesk(config, src.connected, src.external).then((d) => (desk = d));
 	});
 
 	onMount(() => {

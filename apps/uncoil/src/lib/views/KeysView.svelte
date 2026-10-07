@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { Search } from '@lucide/svelte';
 	import Workspace from '#lib/components/Workspace.svelte';
@@ -14,6 +14,7 @@
 	import CheckNotice from '#lib/components/CheckNotice.svelte';
 	import { daemon, getDesk } from '#lib/api.ts';
 	import { pipe, loadDevices, errorText, experimentalBadge } from '#lib/daemon.svelte.ts';
+	import { deskSources } from '#lib/state.svelte.ts';
 	import { locked } from '#lib/checks.ts';
 	import { GEL_NAMES, KEY_GROUPS, actionName, MODIFIERS, MOUSE_BUTTONS, describeFunction, gelFor, keyTitle, parseSpec, shortLabel, toSpec, type Gel, type Mapping } from '#lib/keys.ts';
 	import { ms } from '#lib/motion.ts';
@@ -30,9 +31,20 @@
 	let loadError = $state<string | null>(null);
 	let selectedId = $state<number | null>(null);
 
-	onMount(async () => {
-		desk = await getDesk($state.snapshot(config) as Config);
-		if (!pipe.loaded) await loadDevices();
+	let deskLoaded = $state(false);
+	onMount(() => {
+		if (!pipe.loaded) loadDevices();
+	});
+	// Pass what is connected: an experimental keyboard only joins the desk (and gets a drawing) when connected.
+	const deskKey = $derived(deskSources().key);
+	$effect(() => {
+		deskKey;
+		const src = untrack(deskSources);
+		const cfg = untrack(() => $state.snapshot(config)) as Config;
+		getDesk(cfg, src.connected, src.external)
+			.then((d) => (desk = d))
+			.catch(() => {})
+			.finally(() => (deskLoaded = true));
 	});
 
 	const device = $derived(pipe.devices.find((d) => d.id === deviceId) ?? null);
@@ -65,8 +77,13 @@
 			loading = false;
 		}
 	}
+	// Only the device and the layer reload the keymap: tracking `caps` (read inside load) dumped it twice on
+	// open and again after a check run, which reset the unsaved draft.
+	const present = $derived(!!device);
 	$effect(() => {
-		if (device) load(deviceId, layer);
+		const id = deviceId;
+		const l = layer;
+		if (present) untrack(() => load(id, l));
 	});
 
 	const selected = $derived(rows.find((k) => k.key === selectedId) ?? null);
@@ -202,8 +219,26 @@
 		<div class="map" aria-busy={loading}>
 			{#if loadError}
 				<p class="outcome bad" role="alert">{loadError}</p>
-			{:else if board && caps}
-				<Keyboard device={board} caps={capMap} selected={selectedId !== null ? (ledById.get(selectedId) ?? null) : null} onselect={(led) => keyByLed.has(led) && (selectedId = keyByLed.get(led)!)} />
+			{:else if !isMouse}
+				{#if board && caps}
+					<Keyboard device={board} caps={capMap} selected={selectedId !== null ? (ledById.get(selectedId) ?? null) : null} onselect={(led) => keyByLed.has(led) && (selectedId = keyByLed.get(led)!)} />
+				{:else if deskLoaded && caps}
+					<div class="keylist-wrap">
+						<p class="note">No drawing of this keyboard yet. Pick a key from the list.</p>
+						<div class="buttons keylist" role="listbox" aria-label="Keys">
+							{#each rows as k (k.key)}
+								{@const gel = gelOf(k)}
+								<button type="button" role="option" aria-selected={k.key === selectedId} onclick={() => (selectedId = k.key)}>
+									<span class="bname">{keyName(k)}</span>
+									<span class="bdesc">{action(k)}</span>
+									{#if gel}<span class="gel" style:background="var(--color-gel-{gel})" title={GEL_NAMES[gel]}></span>{/if}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{:else}
+					<p class="note">Loading the keyboard…</p>
+				{/if}
 			{:else}
 				<div class="mouse-stage">
 				{#if art}
@@ -363,6 +398,16 @@
 	.buttons button[aria-selected='true'] {
 		border-color: var(--color-select);
 		box-shadow: inset 0 0 0 1px var(--color-select);
+	}
+	.keylist-wrap {
+		display: grid;
+		gap: 10px;
+		width: 100%;
+	}
+	.keylist {
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		max-height: 440px;
+		overflow-y: auto;
 	}
 	.bname {
 		font-weight: 600;

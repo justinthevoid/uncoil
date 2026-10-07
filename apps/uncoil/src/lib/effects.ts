@@ -1,6 +1,9 @@
 // The effect catalogue for the UI: names, one-line notes, defaults, what input an effect needs, and the
 // swatch each effect card shows. The effects themselves live in the engine (uncoil-core effect.rs).
+import { hex as toHex } from './effect.ts';
 import type { LayerEffect, Rgb } from './types';
+
+export { toHex };
 
 export type LayerKind = LayerEffect['kind'];
 
@@ -28,6 +31,8 @@ export const EFFECTS: EffectInfo[] = [
 ];
 
 export const effectInfo = (kind: string) => EFFECTS.find((e) => e.kind === kind);
+/** The effects that react to key presses, or to what the PC is playing. */
+export const kindsNeeding = (input: 'keys' | 'audio'): string[] => EFFECTS.filter((e) => e.needs === input).map((e) => e.kind);
 
 /** Named colours, like a gel book's swatches. */
 export const GELS: { name: string; hex: string }[] = [
@@ -45,7 +50,6 @@ export const GELS: { name: string; hex: string }[] = [
 	{ name: 'Moss green', hex: '#6aa84f' }
 ];
 
-export const toHex = ([r, g, b]: Rgb) => '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
 export const fromHex = (h: string): Rgb => {
 	const n = parseInt(h.slice(1), 16);
 	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];

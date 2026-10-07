@@ -49,6 +49,10 @@ export function checkReads(feature: Feature, kind: DeviceKind): string {
 			return 'the battery level and sleep settings';
 		case 'scroll':
 			return 'the scroll wheel settings';
+		case 'dial':
+			return 'the dial mode';
+		case 'oled':
+			return 'the screen settings';
 		case 'lighting':
 		case 'hw_effects':
 			return 'the lighting layout the device reports';

@@ -118,12 +118,12 @@
 		stages = stages.filter((_, j) => j !== i);
 		if (active > i + 1 || active > stages.length) active = Math.max(1, active - 1);
 	}
-	$effect(() => {
-		// Linking again copies each stage's X value to Y.
-		if (linked) {
-			if (stages.some((s) => s.x !== s.y)) stages = stages.map((s) => ({ x: s.x, y: s.x }));
-		}
-	});
+	// Linking again copies each stage's X value to Y. An event, not an effect: an effect that reads and writes
+	// `stages` loops on a cleared field, since NaN !== NaN.
+	function setLinked(on: boolean) {
+		linked = on;
+		if (on) stages = stages.map((s) => ({ x: s.x, y: s.x }));
+	}
 
 	const fmt = (d: Dpi) => (d.x === d.y ? `${d.x}` : `${d.x}×${d.y}`);
 	type Outcome = { ok: boolean; text: string } | null;
@@ -267,7 +267,7 @@
 						<h2 id="stages-title" class="section-title">DPI stages</h2>
 						<p class="hint">The mouse's DPI button steps through these. The chosen stage is the one it starts on.</p>
 						<fieldset disabled={dpiLocked}>
-							<Toggle label="Same DPI for X and Y" bind:checked={linked} />
+							<Toggle label="Same DPI for X and Y" bind:checked={() => linked, setLinked} />
 							<div class="rows" role="radiogroup" aria-label="Active stage">
 								<div class="row head" class:split={!linked} aria-hidden="true">
 									<span></span><span>{linked ? 'DPI' : 'X'}</span>{#if !linked}<span>Y</span>{/if}<span></span>

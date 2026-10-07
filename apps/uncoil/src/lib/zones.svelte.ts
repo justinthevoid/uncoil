@@ -59,7 +59,7 @@ export function editFor(config: Config, t: Target, name: (id: string) => string)
 		const layers = config.effect.layers;
 		const from = t.kind === 'devices' ? effectOn(config, t.ids[0]) : baseOf(config);
 		const made: StudioLayer = {
-			name: t.kind === 'lights' ? 'Picked lights' : t.ids.map(name).join(', '),
+			name: t.kind === 'lights' ? 'Picked lights' : [...new Set(t.ids.map(name))].join(', '),
 			enabled: true,
 			opacity: 1,
 			effect: structuredClone($state.snapshot(from)) as LayerEffect,

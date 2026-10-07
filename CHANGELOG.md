@@ -153,6 +153,12 @@ For anyone running an earlier build from source:
 - **A broken config file is reported** in the daemon's log (at start and on reload) instead of silently
   falling back to defaults. At start it still means defaults; on reload the daemon keeps the settings it
   was running, so a half-saved or mistyped file no longer resets the effect, desk and OpenRGB mode.
+- **The app never saves over a config it didn't load.** A `config.json` that doesn't parse is shown as an
+  error instead of defaults the next change would write over it, and a file changed outside the window (a
+  hand edit, the CLI) is reloaded instead of overwritten.
+- **The app installs for all users** into `%ProgramFiles%\uncoil`, beside `uncoild.exe`, instead of
+  `%LOCALAPPDATA%\uncoil` (where the daemon keeps its log and status). The installer names its publisher,
+  licence and homepage. About shows the app's own version and says when the engine's differs.
 - The browser mock now matches the real daemon's check states, and tests keep it and the TypeScript
   effect code in step with the engine.
 - **The daemon runs unelevated by default.** `scripts/install-task.ps1` registers the `uncoil` task with run

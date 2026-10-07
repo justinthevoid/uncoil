@@ -46,20 +46,48 @@ struct DeskDevice {
     placed: PlacedDevice,
 }
 
+/// config.json as the window last loaded or saved it, so a save never overwrites a change made outside the
+/// window (a hand edit, the CLI, the tray). `None` until the window first loads it.
+#[derive(Default)]
+struct ConfigSeen(Mutex<Option<Option<String>>>);
+
+fn config_text() -> Option<String> {
+    std::fs::read_to_string(Config::path()).ok()
+}
+
+/// The config, or why it can't be used: a config.json that doesn't parse is reported, not replaced with
+/// defaults the next save would write over the user's file.
 #[tauri::command]
-fn get_config() -> Config {
-    Config::load()
+fn get_config(seen: tauri::State<ConfigSeen>) -> Result<Config, String> {
+    let text = config_text();
+    let (config, problem) = Config::load_reporting();
+    if let Some(p) = problem {
+        return Err(format!("{p}. Fix the file (or delete it to start over), then reopen the window."));
+    }
+    if let Ok(mut s) = seen.0.lock() {
+        *s = Some(text);
+    }
+    Ok(config)
 }
 
 #[tauri::command]
-fn save_config(app: tauri::AppHandle, config: Config) -> Result<(), String> {
-    use tauri::Manager;
+fn save_config(app: tauri::AppHandle, seen: tauri::State<ConfigSeen>, config: Config) -> Result<(), String> {
+    use tauri::{Emitter, Manager};
+    let mut seen = seen.0.lock().map_err(|_| "settings are locked; try again".to_string())?;
+    let now = config_text();
+    if seen.as_ref().is_some_and(|s| *s != now) {
+        // changed outside the window since it loaded: reload instead of overwriting
+        let _ = app.emit("config-changed", ());
+        return Err("config.json was changed outside the app, so the window reloaded it; make the change again.".into());
+    }
     // The tray remembers the effect being left, so its menu can switch back to the same settings.
     let old = Config::load_reporting().0.effect;
     if tray::kind_of(&old) != tray::kind_of(&config.effect) {
         app.state::<tray::TrayState>().remember(&old);
     }
     config.save().map_err(|e| format!("could not save {}: {e}", Config::path().display()))?;
+    *seen = Some(config_text());
+    drop(seen);
     tray::refresh(&app);
     Ok(())
 }
@@ -83,12 +111,13 @@ fn save_app_settings(
 ) -> Result<(), String> {
     use tauri_plugin_autostart::ManagerExt;
     let settings = settings.sanitized();
-    settings.save().map_err(|e| format!("could not save {}: {e}", AppSettings::path().display()))?;
+    // the entry first, so app.json never claims a start-with-Windows entry that isn't there
     let autostart = app.autolaunch();
     if autostart.is_enabled().ok() != Some(settings.start_in_tray) {
         let r = if settings.start_in_tray { autostart.enable() } else { autostart.disable() };
         r.map_err(|e| format!("could not change the start-with-Windows entry: {e}"))?;
     }
+    settings.save().map_err(|e| format!("could not save {}: {e}", AppSettings::path().display()))?;
     if let Ok(mut s) = state.settings.lock() {
         *s = settings;
     }
@@ -218,6 +247,7 @@ fn main() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![TRAY_ARG])))
         .manage(AppState { settings: Mutex::new(AppSettings::load()) })
         .manage(tray::TrayState::default())
+        .manage(ConfigSeen::default())
         .setup(|app| {
             use tauri::Manager;
             tray::create(app.handle())?;

@@ -10,7 +10,7 @@
 	const mb = (b: number) => (b / 1048576).toFixed(1);
 </script>
 
-<Workspace title={pageTitle('about')} subtitle="Version {s?.version ?? '0.1.0'} · free and open source (GPL-3.0-or-later)">
+<Workspace title={pageTitle('about')} subtitle="Version {__APP_VERSION__}{s?.version && s.version !== __APP_VERSION__ ? ` (engine ${s.version}; update one to match)` : ''} · free and open source (GPL-3.0-or-later)">
 	<section class="card">
 		<p class="lead">A small background engine that runs your Razer lighting, and this app to adjust it. Close the app whenever you like; the engine keeps running on its own.</p>
 		<p>Changes saved into the devices themselves, like Fn+P for Print Screen, keep working even without uncoil.</p>

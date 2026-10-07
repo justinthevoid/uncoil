@@ -1,5 +1,5 @@
 <script lang="ts">
-	// On/off switch: label on the left, a pill switch on the right that fills red when on.
+	// On/off switch: label on the left, a pill switch on the right that fills with ink when on.
 	interface Props {
 		label: string;
 		checked: boolean;

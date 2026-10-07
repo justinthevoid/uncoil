@@ -10,6 +10,8 @@
 	}
 	let { label, options, value, current = null, onchange }: Props = $props();
 	let buttons: HTMLButtonElement[] = $state([]);
+	// The chosen option takes Tab, or the first when nothing (or something not listed) is chosen.
+	const tabStop = $derived(Math.max(0, options.findIndex((o) => o.value === value)));
 
 	function onkeydown(e: KeyboardEvent, i: number) {
 		const d = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0;
@@ -28,7 +30,7 @@
 			type="button"
 			role="radio"
 			aria-checked={o.value === value}
-			tabindex={o.value === value || (value === null && i === 0) ? 0 : -1}
+			tabindex={i === tabStop ? 0 : -1}
 			onclick={() => onchange(o.value)}
 			onkeydown={(e) => onkeydown(e, i)}
 		>

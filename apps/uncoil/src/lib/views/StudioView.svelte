@@ -113,7 +113,7 @@
 			desk={preview.state.desk}
 			colors={preview.state.colors}
 			{marked}
-			onpick={picking(layer?.mask) ? pick : preview.uses(['reactive', 'ripple']) ? (h, phase) => phase === 'start' && preview.press(h.x, h.y) : undefined}
+			onpick={picking(layer?.mask) ? pick : preview.needs('keys') ? (h, phase) => phase === 'start' && preview.press(h.x, h.y) : undefined}
 			pickLabel={picking(layer?.mask) ? 'Your desk. Click or drag to pick lights for this layer.' : 'Your desk. Click a key to preview a key press.'}
 		/>
 	</div>
@@ -190,7 +190,7 @@
 									<label class="dev"><input type="checkbox" checked={ids.includes(d.id)} onchange={() => toggleDevice(d.id)} />{deviceName(d.id)}</label>
 								{/each}
 							</div>
-						{:else}
+						{:else if picking(layer.mask)}
 							<p class="note">{coverage(layer.mask)}. Click or drag on the desk to add lights on any device; drag from a picked light to remove.</p>
 							<div class="row">
 								{#each preview.state.desk as d (d.id)}

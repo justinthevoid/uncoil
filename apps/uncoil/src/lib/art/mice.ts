@@ -52,16 +52,31 @@ for (const [path, art] of Object.entries(generated)) ART[path.replace(/^.*\/(.+)
 
 export const mouseArt = (id: string): MouseArt | undefined => ART[id];
 
-/** Which strip segment (and so which LED) each part of the outline belongs to, for `count` strip LEDs. */
+/** Which strip segment (and so which LED) each part of the outline belongs to, for `count` strip LEDs. Each
+ * part runs from its window's start to its end along the outline, so the parts meet without gaps however
+ * coarse the outline is, and every one has at least two points. */
 export function stripParts(art: MouseArt, count: number): string[] {
-	if (count <= 0 || art.strip.length < 2) return [];
+	const s = art.strip;
+	if (count <= 0 || s.length < 2) return [];
 	const d = [0];
-	for (let i = 1; i < art.strip.length; i++) d.push(d[i - 1] + Math.hypot(art.strip[i][0] - art.strip[i - 1][0], art.strip[i][1] - art.strip[i - 1][1]));
+	for (let i = 1; i < s.length; i++) d.push(d[i - 1] + Math.hypot(s[i][0] - s[i - 1][0], s[i][1] - s[i - 1][1]));
 	const total = d[d.length - 1];
+	if (total <= 0) return [];
+	/** The point `len` along the outline. */
+	const at = (len: number): Pt => {
+		let i = 1;
+		while (i < s.length - 1 && d[i] < len) i++;
+		const span = d[i] - d[i - 1];
+		const u = span > 0 ? Math.min(1, Math.max(0, (len - d[i - 1]) / span)) : 0;
+		return [s[i - 1][0] + (s[i][0] - s[i - 1][0]) * u, s[i - 1][1] + (s[i][1] - s[i - 1][1]) * u];
+	};
+	const fmt = ([x, y]: Pt) => `${+x.toFixed(2)} ${+y.toFixed(2)}`;
 	const out: string[] = [];
 	for (let k = 0; k < count; k++) {
-		const pts = art.strip.filter((_, i) => d[i] >= (total * k) / count - 1e-6 && d[i] <= (total * (k + 1)) / count + 1e-6);
-		out.push('M' + pts.map((p) => p.join(' ')).join(' L'));
+		const a = (total * k) / count;
+		const b = (total * (k + 1)) / count;
+		const inner = s.filter((_, i) => d[i] > a && d[i] < b);
+		out.push('M' + [at(a), ...inner, at(b)].map(fmt).join(' L'));
 	}
 	return out;
 }

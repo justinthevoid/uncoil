@@ -66,13 +66,14 @@
 			<span role="columnheader">Device</span><span role="columnheader">Status</span><span role="columnheader">Link</span><span role="columnheader" class="r">LEDs</span><span></span>
 		</div>
 		{#each rows as r (r.id)}
-			<button type="button" class="tr" role="row" onclick={() => onopen(r.id)}>
-				<span role="cell"><b>{r.name}</b><small>{r.kind}{#if r.experimental}<span class="exp" title={EXPERIMENTAL_TEXT}>{EXPERIMENTAL}</span>{/if}</small></span>
+			<!-- a real button in the first cell, stretched over the row, so the row keeps its table role -->
+			<div class="tr link" role="row">
+				<span role="cell"><button type="button" class="open" onclick={() => onopen(r.id)}><b>{r.name}</b></button><small>{r.kind}{#if r.experimental}<span class="exp" title={EXPERIMENTAL_TEXT}>{EXPERIMENTAL}</span>{/if}</small></span>
 				<span role="cell" class="status"><span class="dot" class:on={r.live} class:warn={r.errors > 0}></span>{!app.status ? 'Unknown' : !r.live ? 'Not connected' : r.errors ? `${r.errors} error${r.errors === 1 ? '' : 's'}` : 'Connected'}</span>
 				<span role="cell">{r.link}</span>
 				<span role="cell" class="r num">{r.leds ?? 'None'}</span>
 				<span class="go" aria-hidden="true"><ChevronRight size={16} /></span>
-			</button>
+			</div>
 		{/each}
 		{#each unknown as u (u.product_id)}
 			<div class="tr unknown" role="row">
@@ -133,8 +134,30 @@
 		font-size: 12px;
 		font-weight: 500;
 	}
-	button.tr:hover {
+	.link {
+		position: relative;
+	}
+	.link:hover {
 		background: var(--color-surface-2);
+	}
+	.open {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		text-align: left;
+	}
+	.open::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+	}
+	.open:focus-visible {
+		outline: none;
+	}
+	.link:has(.open:focus-visible) {
+		outline: 2px solid var(--color-select);
+		outline-offset: -2px;
 	}
 	b {
 		display: block;
@@ -173,6 +196,8 @@
 		gap: 8px;
 	}
 	.exp {
+		position: relative;
+		z-index: 1;
 		padding: 0 6px;
 		border: var(--hair-strong);
 		border-radius: var(--radius-sm);

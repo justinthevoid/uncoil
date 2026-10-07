@@ -1,7 +1,8 @@
 <script lang="ts">
 	// An effect card's swatch: the effect itself, running on a small keyboard of 15 × 5 keys laid over a
 	// keyboard's real extent, rendered by the same effect code as the desk preview (lib/effect.ts). Reactive
-	// and ripple get simulated presses, the audio meter a made-up level. Still with reduced motion.
+	// and ripple get simulated presses, the audio meter a made-up level. Still with reduced motion, and paused
+	// while scrolled out of view.
 	import { onMount } from 'svelte';
 	import { frameWith, type Inputs } from '#lib/effect.ts';
 	import { onTick } from '#lib/ticker.ts';
@@ -64,7 +65,22 @@
 		}
 	}
 
-	onMount(() => onTick(draw));
+	// Only cards on screen take the clock: a long effect list scrolled away costs nothing.
+	onMount(() => {
+		let stop: (() => void) | null = null;
+		const io = new IntersectionObserver(([e]) => {
+			if (e.isIntersecting) stop ??= onTick(draw);
+			else {
+				stop?.();
+				stop = null;
+			}
+		});
+		if (canvas) io.observe(canvas);
+		return () => {
+			io.disconnect();
+			stop?.();
+		};
+	});
 	// Settings changed while paused or with reduced motion: show them anyway.
 	$effect(() => {
 		$state.snapshot(fx);

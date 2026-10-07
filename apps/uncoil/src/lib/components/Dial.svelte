@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Direction knob: a pointer showing the way the bands travel across the desk, with a red tip.
+	// Direction knob: a pointer showing the way the bands travel across the desk, with an ink tip.
 	// Same orientation as the preview: 0° = left to right, 90° = back to front.
 	import { Spring } from 'svelte/motion';
 	import { reducedMotion } from '#lib/motion.ts';

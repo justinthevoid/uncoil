@@ -5,6 +5,7 @@
 	// with its hoses up to a top radiator, fans at the top, front, rear and floor, and the PSU shroud with the PSU.
 	// Each lit part OpenRGB reports (lib/pc.ts) is drawn where it sits, its LEDs in their live colours; fans and
 	// sticks it doesn't report are left as empty mounts, and anything it can't place runs along the shroud.
+	// Without `onselect` it is only a picture (the desk preview): nothing in it is focusable or announced.
 	import { FAN_SLOTS, type Part } from '#lib/pc.ts';
 
 	interface Props {
@@ -26,7 +27,7 @@
 	const pumps = $derived(of('pump'));
 	const radiators = $derived(of('radiator'));
 	const fans = $derived(of('fan'));
-	const other = $derived([...of('other'), ...of('ram').slice(4), ...fans.slice(FAN_SLOTS.length)]);
+	const other = $derived([...of('other'), ...of('ram').slice(4), ...pumps.slice(1), ...fans.slice(FAN_SLOTS.length)]);
 
 	// fan centres by slot (112 mm fans, front of the case on the right)
 	const F = 112;
@@ -34,10 +35,14 @@
 		'top 1': [222, 92], 'top 2': [342, 92], 'top 3': [462, 92],
 		'front 1': [508, 232], 'front 2': [508, 352], 'front 3': [508, 472],
 		rear: [92, 92],
-		'floor 1': [262, 532], 'floor 2': [382, 532], 'floor 3': [382, 532]
+		'floor 1': [262, 532], 'floor 2': [382, 532]
 	};
-	const placedFans = $derived(fans.slice(0, 7).map((p, i) => ({ p, at: SLOT_AT[FAN_SLOTS[i]] })));
-	const emptyFans = $derived(['top 1', 'top 2', 'top 3', 'front 1', 'front 2', 'front 3', 'rear'].slice(placedFans.length).map((s) => SLOT_AT[s]));
+	// The floor fans sit in front of the shroud, so they are drawn after it.
+	const UPPER = FAN_SLOTS.filter((s) => !s.startsWith('floor'));
+	const FLOOR = FAN_SLOTS.filter((s) => s.startsWith('floor'));
+	const placedFans = $derived(fans.slice(0, UPPER.length).map((p, i) => ({ p, at: SLOT_AT[UPPER[i]] })));
+	const floorFans = $derived(fans.slice(UPPER.length, FAN_SLOTS.length).map((p, i) => ({ p, at: SLOT_AT[FLOOR[i]] })));
+	const emptyFans = $derived(UPPER.slice(placedFans.length).map((s) => SLOT_AT[s]));
 
 	const P = (cx: number, cy: number, r: number, a: number) => `${(cx + r * Math.cos(a)).toFixed(1)} ${(cy + r * Math.sin(a)).toFixed(1)}`;
 	/** A ring of n arcs round (cx, cy), one per LED. */
@@ -74,17 +79,35 @@
 	const boardHalf = $derived(Math.ceil(boardLeds.length / 2));
 	const shroudRun = $derived(run(84, 192, 84, 282, boardHalf));
 	const chipRun = $derived(run(232, 386, 300, 386, boardLeds.length - boardHalf));
-	const pick = (p: Part) => () => onselect?.(p.device);
-	const key = (p: Part) => (e: KeyboardEvent) => {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			onselect?.(p.device);
-		}
-	};
+	/** A part's button attributes, or none when the drawing is only a picture. */
+	const act = (p: Part, label: string) =>
+		onselect
+			? {
+					role: 'button',
+					tabindex: 0,
+					'aria-label': label,
+					onclick: () => onselect(p.device),
+					onkeydown: (e: KeyboardEvent) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							onselect(p.device);
+						}
+					}
+				}
+			: {};
+	const svgAttrs = $derived(onselect ? { role: 'group', 'aria-label': 'Inside the PC' } : { 'aria-hidden': 'true' as const });
 	const sel = (p: Part) => selected === p.device;
 	// DIMM slots, left to right
 	const DIMM = [252, 266, 280, 294];
 </script>
+
+<!-- selection (dashed) and keyboard focus (solid) round a part's whole area, light over dark so either reads -->
+{#snippet outline(x: number, y: number, w: number, h: number)}
+	<rect class="sel-under" {x} {y} width={w} height={h} rx="6" />
+	<rect class="sel-over" {x} {y} width={w} height={h} rx="6" />
+	<rect class="focus-under" x={x - 3} y={y - 3} width={w + 6} height={h + 6} rx="8" />
+	<rect class="focus-over" x={x - 3} y={y - 3} width={w + 6} height={h + 6} rx="8" />
+{/snippet}
 
 {#snippet fan(x: number, y: number)}
 	<rect class="frame" x={x - F / 2} y={y - F / 2} width={F} height={F} rx="10" />
@@ -96,7 +119,16 @@
 	<circle class="hub" cx={x} cy={y} r="14" />
 {/snippet}
 
-<svg viewBox="0 0 580 620" role="group" aria-label="Inside the PC">
+{#snippet litFan(p: Part, x: number, y: number)}
+	<g class="part" class:sel={sel(p)} {...act(p, `Fan: ${p.zone}, ${p.deviceName}`)}>
+		<title>Fan: {p.deviceName}</title>
+		{@render fan(x, y)}
+		{#each ring(x, y, 50, p.leds.length) as d, k (k)}<path class="led" {d} style:stroke={c(p, k)} />{/each}
+		{@render outline(x - F / 2 - 4, y - F / 2 - 4, F + 8, F + 8)}
+	</g>
+{/snippet}
+
+<svg viewBox="0 0 580 620" {...svgAttrs}>
 	<defs>
 		<pattern id="{uid}-mesh" width="5" height="5" patternUnits="userSpaceOnUse">
 			<circle cx="2.5" cy="2.5" r="1.3" class="hole" />
@@ -139,19 +171,21 @@
 		<!-- memory: empty slots stay dark; each stick its heat spreader and light bar -->
 		{#each ram as p, i (p.device + p.leds[0])}
 			{@const x = DIMM[i]}
-			<g class="part" class:sel={sel(p)} role="button" tabindex="0" aria-label="Memory: {p.deviceName}" onclick={pick(p)} onkeydown={key(p)}>
+			<g class="part" class:sel={sel(p)} {...act(p, `Memory: ${p.deviceName}`)}>
 				<title>Memory: {p.deviceName}</title>
 				<rect class="stick" x={x - 1} y="184" width="11" height="126" rx="2" />
 				{#each run(x + 4.5, 190, x + 4.5, 250, p.leds.length) as d, k (k)}<path class="led thin" {d} style:stroke={c(p, k)} />{/each}
+				{@render outline(x - 4, 181, 17, 132)}
 			</g>
 		{/each}
 
 		<!-- the motherboard's own LEDs: down the I/O shroud, then along the chipset -->
 		{#if board.length}
-			<g class="part" class:sel={board.some(sel)} role="button" tabindex="0" aria-label="Motherboard: {board[0].deviceName}" onclick={pick(board[0])} onkeydown={key(board[0])}>
+			<g class="part" class:sel={board.some(sel)} {...act(board[0], `Motherboard: ${board[0].deviceName}`)}>
 				<title>Motherboard: {board[0].deviceName}</title>
 				{#each boardLeds.slice(0, boardHalf) as { p, k }, i (i)}<path class="led" d={shroudRun[i]} style:stroke={c(p, k)} />{/each}
 				{#each boardLeds.slice(boardHalf) as { p, k }, i (i)}<path class="led thin" d={chipRun[i]} style:stroke={c(p, k)} />{/each}
+				{@render outline(56, 164, 252, 276)}
 			</g>
 		{/if}
 
@@ -165,17 +199,19 @@
 			<rect class="radiator" x="166" y="142" width="352" height="16" rx="3" fill="url(#{uid}-fins)" />
 		{/if}
 		{#if radiators.length}
-			<g class="part" class:sel={radiators.some(sel)} role="button" tabindex="0" aria-label="Radiator: {radiators[0].deviceName}" onclick={pick(radiators[0])} onkeydown={key(radiators[0])}>
+			<g class="part" class:sel={radiators.some(sel)} {...act(radiators[0], `Radiator: ${radiators[0].deviceName}`)}>
 				<title>Radiator: {radiators[0].deviceName}</title>
 				{#each runOf(radiators, 176, 162, 508, 162) as s, i (i)}<path class="led thin" d={s.d} style:stroke={c(s.p, s.k)} />{/each}
+				{@render outline(162, 138, 360, 30)}
 			</g>
 		{/if}
 		{#each pumps.slice(0, 1) as p (p.device + p.leds[0])}
-			<g class="part" class:sel={sel(p)} role="button" tabindex="0" aria-label="Cooler pump: {p.deviceName}" onclick={pick(p)} onkeydown={key(p)}>
+			<g class="part" class:sel={sel(p)} {...act(p, `Cooler pump: ${p.deviceName}`)}>
 				<title>Cooler pump: {p.deviceName}</title>
 				<rect class="pump" x="130" y="214" width="70" height="70" rx="16" />
 				<circle class="lcd" cx="165" cy="249" r="20" />
 				{#each ring(165, 249, 28, p.leds.length) as d, k (k)}<path class="led" {d} style:stroke={c(p, k)} />{/each}
+				{@render outline(126, 210, 78, 78)}
 			</g>
 		{/each}
 
@@ -187,10 +223,11 @@
 			<rect class="shell" x="330" y="312" width="26" height="8" rx="2" />
 		{/snippet}
 		{#if gpu.length}
-			<g class="part" class:sel={gpu.some(sel)} role="button" tabindex="0" aria-label="Graphics card: {gpu[0].deviceName}" onclick={pick(gpu[0])} onkeydown={key(gpu[0])}>
+			<g class="part" class:sel={gpu.some(sel)} {...act(gpu[0], `Graphics card: ${gpu[0].deviceName}`)}>
 				<title>Graphics card: {gpu[0].deviceName}</title>
 				{@render card()}
 				{#each runOf(gpu, 76, 326, 350, 326) as s, i (i)}<path class="led" d={s.d} style:stroke={c(s.p, s.k)} />{/each}
+				{@render outline(36, 308, 336, 72)}
 			</g>
 		{:else}
 			<g class="dim">{@render card()}</g>
@@ -199,29 +236,21 @@
 		<!-- fans: empty mounts, then the lit ones -->
 		{#each emptyFans as [x, y] (`${x},${y}`)}<rect class="mount" x={x - F / 2} y={y - F / 2} width={F} height={F} rx="10" />{/each}
 		{#each placedFans as { p, at: [x, y] } (p.device + p.leds[0])}
-			<g class="part" class:sel={sel(p)} role="button" tabindex="0" aria-label="Fan: {p.zone}, {p.deviceName}" onclick={pick(p)} onkeydown={key(p)}>
-				<title>Fan: {p.deviceName}</title>
-				{@render fan(x, y)}
-				{#each ring(x, y, 50, p.leds.length) as d, k (k)}<path class="led" {d} style:stroke={c(p, k)} />{/each}
-			</g>
+			{@render litFan(p, x, y)}
 		{/each}
 
 		<!-- the PSU shroud, the PSU's vented end showing at the back, anything else along its top edge -->
 		<rect class="shroud" x="22" y="470" width="430" height="128" rx="4" />
 		<rect class="psu" x="34" y="490" width="168" height="94" rx="6" />
 		<rect class="psu" x="44" y="500" width="86" height="74" rx="4" fill="url(#{uid}-mesh)" />
-		{#each fans.slice(7, 9) as p, i (p.device + p.leds[0])}
-			{@const [x, y] = SLOT_AT[`floor ${i + 1}`]}
-			<g class="part" class:sel={sel(p)} role="button" tabindex="0" aria-label="Fan: {p.zone}, {p.deviceName}" onclick={pick(p)} onkeydown={key(p)}>
-				<title>Fan: {p.deviceName}</title>
-				{@render fan(x, y)}
-				{#each ring(x, y, 50, p.leds.length) as d, k (k)}<path class="led" {d} style:stroke={c(p, k)} />{/each}
-			</g>
+		{#each floorFans as { p, at: [x, y] } (p.device + p.leds[0])}
+			{@render litFan(p, x, y)}
 		{/each}
 		{#if other.length}
-			<g class="part" class:sel={other.some(sel)} role="button" tabindex="0" aria-label="Other lighting" onclick={pick(other[0])} onkeydown={key(other[0])}>
+			<g class="part" class:sel={other.some(sel)} {...act(other[0], 'Other lighting')}>
 				<title>Other lighting</title>
 				{#each runOf(other, 34, 476, 440, 476) as s, i (i)}<path class="led thin" d={s.d} style:stroke={c(s.p, s.k)} />{/each}
+				{@render outline(28, 468, 418, 16)}
 			</g>
 		{/if}
 	</g>
@@ -384,25 +413,46 @@
 	.led.thin {
 		stroke-width: 4;
 	}
-	.part {
+	.part[role='button'] {
 		cursor: pointer;
 		outline: none;
 	}
-	.part:hover .frame,
-	.part:hover .card,
-	.part:hover .stick,
-	.part:hover .pump {
+	.part[role='button']:hover .frame,
+	.part[role='button']:hover .card,
+	.part[role='button']:hover .stick,
+	.part[role='button']:hover .pump {
 		stroke: var(--color-ink-3);
 	}
-	.part.sel .frame,
-	.part.sel .card,
-	.part.sel .stick,
-	.part.sel .pump {
+	/* the drawing wears the dark device finish, but the rings are two-tone so they read on any ground */
+	.sel-under,
+	.sel-over,
+	.focus-under,
+	.focus-over {
+		display: none;
+		fill: none;
+		pointer-events: none;
+	}
+	.sel-under {
+		stroke: #0c0b0a;
+		stroke-width: 4;
+	}
+	.sel-over {
 		stroke: #f4f1ec;
 		stroke-width: 2;
-		stroke-dasharray: 5 3;
+		stroke-dasharray: 6 4;
 	}
-	.part:focus-visible .led {
-		stroke-width: 8;
+	.focus-under {
+		stroke: #0c0b0a;
+		stroke-width: 5;
+	}
+	.focus-over {
+		stroke: #f4f1ec;
+		stroke-width: 2.5;
+	}
+	.part.sel .sel-under,
+	.part.sel .sel-over,
+	.part[role='button']:focus-visible .focus-under,
+	.part[role='button']:focus-visible .focus-over {
+		display: inline;
 	}
 </style>
