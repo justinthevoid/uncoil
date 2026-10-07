@@ -453,6 +453,6 @@ Running unelevated and treating device files and the pipe as untrusted (validati
 and server check, `winsec.rs`, the config-driven OpenRGB hand-off) took it to 1,257,472 bytes (about
 1.3 MB, measured 2026-10-03). The command-policy and write-helper refactor left it at 1,260,544 bytes
 (measured 2026-10-04). Live OpenRGB, the device lock, the scroll wheel, device info and conflict detection
-took it to 1,379,328 bytes (about 1.4 MB, +116 KB, measured 2026-10-04; 1,387,520 bytes on 2026-10-07 with the lock thread and the lights mask): about 62 KB is the live OpenRGB
+took it to 1,379,328 bytes (about 1.4 MB, +116 KB, measured 2026-10-04; 1,402,880 bytes on 2026-10-07 with the lock thread and the lights mask): about 62 KB is the live OpenRGB
 client, including the `OpenRGB.json` merge, and about 46 KB the scroll wheel, device info, the lock and the
 conflict check.

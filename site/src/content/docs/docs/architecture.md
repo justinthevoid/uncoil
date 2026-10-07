@@ -19,7 +19,7 @@ full version, module by module.
 ## The daemon: `uncoild`
 
 One process, no window, no console, no service, no kernel driver. It runs as the logged-in user, unelevated.
-On the maintainer's PC it is a 1.4 MB executable (1,387,520 bytes, 2026-10-07) that used about 3 MB of private memory and
+On the maintainer's PC it is a 1.4 MB executable (1,402,880 bytes, 2026-10-07) that used about 3 MB of private memory and
 under 1% of one core while animating (memory and CPU measured on an earlier build).
 
 - **Main loop** (every 33 ms; every 250 ms while the lights are faded out): watches the config file's
@@ -129,7 +129,7 @@ uncoil check mouse        # the read-only checks, nothing is written
   ],
   "memory_bytes": 3145728,
   "cpu_percent": 0.8,
-  "exe_bytes": 1387520,
+  "exe_bytes": 1402880,
   "unknown_devices": [],
   "conflicts": [],
   "openrgb": { "state": "off", "detail": null, "devices": [], "ours": false }

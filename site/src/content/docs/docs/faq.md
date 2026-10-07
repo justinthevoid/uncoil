@@ -29,7 +29,7 @@ Chroma Extended):
 | Kernel drivers | yes | none |
 
 That is one machine. Memory and CPU were measured on an earlier build; the size is the build of 2026-10-07
-(1,387,520 bytes). With live OpenRGB streaming to 350 more LEDs it showed 5 to 6 MB of memory.
+(1,402,880 bytes). With live OpenRGB streaming to 350 more LEDs it showed 5 to 6 MB of memory.
 uncoild measures itself and writes the numbers to `%LOCALAPPDATA%\uncoil\status.json` (`uncoil status` prints
 them), so you can check yours.
 

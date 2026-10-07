@@ -22,7 +22,7 @@ actually use, in one 1.4 MB process.**
 
 <sub>Measured on the maintainer's PC (Windows 11, BlackWidow V4 Pro 75%, Basilisk V3 Pro, Goliathus Chroma
 Extended, rainbow wave running); memory and CPU on an earlier build, size on the build of 2026-10-07
-(1,387,520 bytes). With live OpenRGB streaming to 350 more LEDs it showed 5 to 6 MB (2026-10-07). One
+(1,402,880 bytes). With live OpenRGB streaming to 350 more LEDs it showed 5 to 6 MB (2026-10-07). One
 machine, not a benchmark; yours will differ. The daemon reports its own memory, CPU
 and size in `status.json`, so you can check yours.</sub>
 
@@ -123,9 +123,9 @@ if you can help test.
 ## Install
 
 > [!IMPORTANT]
-> uncoil is pre-release. Nothing has been released and there are no published binaries yet; build from
-> source below. The release workflow is set up so that a tagged release attaches `uncoild.exe`, the `uncoil`
-> CLI, the install scripts and an installer for the app to a GitHub release.
+> uncoil is pre-release (0.x). Each release on [GitHub Releases](https://github.com/justinthevoid/uncoil/releases)
+> carries `uncoild.exe`, the `uncoil` CLI, the install scripts, an installer for the app and `SHA256SUMS.txt`;
+> or build from source below. The binaries are not code-signed yet, so SmartScreen may warn.
 
 **Close Synapse first.** Two programs driving the same keyboard is a race neither wins. Quit Synapse and
 disable its startup entry (or uninstall it). If Synapse left a device in driver mode, uncoil puts it back

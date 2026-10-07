@@ -11,7 +11,7 @@ keys and buttons and sets the dial, the screen and mouse settings in the device'
 1.4 MB executable that runs as you, unelevated; it used about 3 MB of RAM and under 1% of one core on the
 maintainer's PC (measured on an earlier build).
 
-uncoil is pre-release: nothing has been released yet, so installing means building from source.
+uncoil is pre-release (0.x): download it from [GitHub Releases](https://github.com/justinthevoid/uncoil/releases), or build it from source.
 
 Not affiliated with or endorsed by Razer Inc.
 

@@ -75,8 +75,8 @@ From the source checkout, after building:
 powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
 ```
 
-With no arguments it installs `target\release\uncoild.exe`. To install an `uncoild.exe` from somewhere else
-(for example a release download, once there is one), pass it with `-Exe .\uncoild.exe`.
+With no arguments it installs the `uncoild.exe` next to the script (a release download), or else the
+clone's `target\release\uncoild.exe`. To install one from somewhere else, pass it with `-Exe path\uncoild.exe`.
 
 The script asks for elevation (one UAC prompt), then:
 
@@ -157,7 +157,7 @@ the same options as before: without `-OpenRgb`, an existing **uncoil-openrgb** t
 
 ## Uninstall
 
-From the source checkout (or the folder with a release's `uninstall-task.ps1`, once there is one):
+From the folder with a release's `uninstall-task.ps1` (or the source checkout):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-task.ps1   # tasks and executable (asks for elevation)
