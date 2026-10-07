@@ -151,7 +151,8 @@ For anyone running an earlier build from source:
 - **The app loads your extra device files** from `%APPDATA%\uncoil\devices`, like the daemon, so they
   join the desk preview and Studio.
 - **A broken config file is reported** in the daemon's log (at start and on reload) instead of silently
-  falling back to defaults.
+  falling back to defaults. At start it still means defaults; on reload the daemon keeps the settings it
+  was running, so a half-saved or mistyped file no longer resets the effect, desk and OpenRGB mode.
 - The browser mock now matches the real daemon's check states, and tests keep it and the TypeScript
   effect code in step with the engine.
 - **The daemon runs unelevated by default.** `scripts/install-task.ps1` registers the `uncoil` task with run
@@ -186,5 +187,25 @@ For anyone running an earlier build from source:
   lock, the scroll wheel, device info and conflict detection, 1,208,320 before the hardening above), up from
   0.66 MB before the control pipe;
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#footprint) has the breakdown.
+
+### Fixed
+
+For anyone running an earlier build from source:
+
+- After the display wakes, or when a firmware effect ends, the daemon prepares the device again until it
+  answers, instead of trying once; a busy reply no longer leaves the keyboard on its onboard lighting.
+- With the display off, only black frames that were actually sent count, so a busy device lock no longer
+  leaves the lights on; a firmware effect that fails to follow the display is tried again.
+- An onboard write that fails after its `pending` journal entry (a failed firmware-effect save, or a write
+  whose read-back fails) is journalled `failed` instead of staying `pending`.
+- Two user device files, or a user file and a built-in under another id, for the same USB product no longer
+  open the device twice: the user's file replaces the built-in, and a second user file is left out with a
+  logged reason.
+- Live OpenRGB: a controller reporting more LEDs than uncoil drives (in one zone or in all of them) is
+  refused instead of stalling or stopping the daemon.
+- Without the Razer device lock (its handle failed), devices no longer skip frames waiting between turns.
+  A command that has to wait for one of uncoil's own long commands says so, instead of blaming another
+  program.
+- Log lines written from several threads at once are no longer lost when the log is trimmed.
 
 [Unreleased]: https://github.com/justinthevoid/uncoil/commits/main

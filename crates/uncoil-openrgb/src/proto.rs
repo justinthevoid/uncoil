@@ -103,6 +103,9 @@ fn zone(r: &mut Reader, version: u32) -> io::Result<Zone> {
     let kind = r.i32()?;
     r.skip(4 * 2)?; // leds_min, leds_max
     let leds = r.u32()?;
+    if leds as usize > MAX_LEDS {
+        return Err(bad(format!("zone {name:?} reports {leds} LEDs, more than uncoil drives")));
+    }
     let matrix_len = r.u16()? as usize;
     let matrix = if matrix_len >= 8 {
         let height = r.u32()?;
@@ -146,6 +149,11 @@ pub fn parse_controller(data: &[u8], version: u32) -> io::Result<Controller> {
         skip_mode(&mut r, version)?;
     }
     let zones = (0..r.u16()?).map(|_| zone(&mut r, version)).collect::<io::Result<Vec<Zone>>>()?;
+    // the zones' LEDs are the controller's LEDs, so their total gets the same cap
+    let total = zones.iter().try_fold(0u32, |sum, z| sum.checked_add(z.leds)).filter(|&t| t as usize <= MAX_LEDS);
+    if total.is_none() {
+        return Err(bad(format!("{name:?}: its zones add up to more LEDs than uncoil drives")));
+    }
     let n = r.u16()? as usize;
     if n > MAX_LEDS {
         return Err(bad(format!("{name:?} reports {n} LEDs, more than uncoil drives")));

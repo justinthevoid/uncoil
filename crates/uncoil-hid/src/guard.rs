@@ -11,7 +11,9 @@
 //!
 //! Waits are short ([`WAIT`]): a frame report that can't get a turn skips the rest of that frame
 //! ([`RazerLock::for_frame`]); a command tries twice and then fails with plain words
-//! ([`RazerLock::for_command`]). A thread that already holds a turn may take it again (nested calls).
+//! ([`RazerLock::for_command`]): [`Busy`] when another program has the mutex, [`OwnBusy`] when the turn is
+//! still draining for one of uncoil's own long commands. A thread that already holds a turn may take it
+//! again (nested calls).
 
 use anyhow::Result;
 use std::marker::PhantomData;
@@ -32,6 +34,16 @@ pub enum Opened {
     Shared,
     /// Neither possible (or not Windows): uncoil runs without it.
     Without(String),
+}
+
+/// Why a wait for a turn timed out.
+#[cfg_attr(not(windows), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Blocked {
+    /// The lock thread was waiting for the mutex: another program has it.
+    Other,
+    /// The turn was over but one of this process's own threads was still inside it (a long command).
+    Ours,
 }
 
 /// The process's handle on the lock (or none).
@@ -88,15 +100,20 @@ impl RazerLock {
 
     /// Wait up to `wait` for the lock. `None` on timeout. With no lock at all this always succeeds.
     pub fn acquire(&self, wait: Duration) -> Option<Held<'_>> {
+        self.try_acquire(wait).ok()
+    }
+
+    fn try_acquire(&self, wait: Duration) -> Result<Held<'_>, Blocked> {
         #[cfg(windows)]
         {
-            let Some(t) = &self.turns else { return Some(self.unlocked()) };
-            t.enter(wait).then_some(Held { turns: Some(t.as_ref()), _not_send: PhantomData })
+            let Some(t) = &self.turns else { return Ok(self.unlocked()) };
+            t.enter(wait)?;
+            Ok(Held { turns: Some(t.as_ref()), _not_send: PhantomData })
         }
         #[cfg(not(windows))]
         {
             let _ = wait;
-            Some(self.unlocked())
+            Ok(self.unlocked())
         }
     }
 
@@ -120,14 +137,19 @@ impl RazerLock {
     }
 
     /// Run one command's request and reply under the lock: wait [`WAIT`], try once more, then fail with
-    /// plain words naming `device`.
+    /// plain words naming `device` ([`Busy`] or [`OwnBusy`], by why the last wait timed out).
     pub fn for_command<T>(&self, device: &str, f: impl FnOnce() -> Result<T>) -> Result<T> {
+        let mut why = Blocked::Other;
         for _ in 0..2 {
-            if let Some(_held) = self.acquire(WAIT) {
-                return f();
+            match self.try_acquire(WAIT) {
+                Ok(_held) => return f(),
+                Err(b) => why = b,
             }
         }
-        Err(anyhow::Error::new(Busy(device.to_string())))
+        Err(match why {
+            Blocked::Other => anyhow::Error::new(Busy(device.to_string())),
+            Blocked::Ours => anyhow::Error::new(OwnBusy(device.to_string())),
+        })
     }
 }
 
@@ -157,16 +179,29 @@ impl std::fmt::Display for Busy {
 
 impl std::error::Error for Busy {}
 
-/// Did `e` come from waiting for the lock ([`Busy`]) rather than from the device?
+/// A command gave up waiting for a turn because uncoil itself was still busy with another device's long
+/// command. Not a sign the device is gone either.
+#[derive(Debug)]
+pub struct OwnBusy(pub String);
+
+impl std::fmt::Display for OwnBusy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "uncoil is busy with another device, so {} has to wait; try again in a moment", self.0)
+    }
+}
+
+impl std::error::Error for OwnBusy {}
+
+/// Did `e` come from waiting for the lock ([`Busy`], [`OwnBusy`]) rather than from the device?
 pub fn is_busy(e: &anyhow::Error) -> bool {
-    e.downcast_ref::<Busy>().is_some()
+    e.downcast_ref::<Busy>().is_some() || e.downcast_ref::<OwnBusy>().is_some()
 }
 
 /// The lock thread and the turns it hands out. A Windows mutex belongs to the thread that took it, so one
 /// thread takes and releases it; device threads only count themselves in and out of its turn.
 #[cfg(windows)]
 mod turns {
-    use super::{win, TURN, WAIT};
+    use super::{win, Blocked, TURN, WAIT};
     use std::cell::RefCell;
     use std::sync::{Arc, Condvar, Mutex, MutexGuard};
     use std::time::{Duration, Instant};
@@ -213,8 +248,9 @@ mod turns {
             self as *const Turns as usize
         }
 
-        /// Join the current turn, waiting up to `wait` for one. `false` on timeout.
-        pub fn enter(&self, wait: Duration) -> bool {
+        /// Join the current turn, waiting up to `wait` for one. On timeout, why: still draining for one of
+        /// this process's threads, or waiting for the mutex.
+        pub fn enter(&self, wait: Duration) -> Result<(), Blocked> {
             let key = self.key();
             let nested = DEPTH.with(|d| match d.borrow_mut().iter_mut().find(|e| e.0 == key) {
                 Some(e) => {
@@ -224,7 +260,7 @@ mod turns {
                 None => false,
             });
             if nested {
-                return true;
+                return Ok(());
             }
             let deadline = Instant::now() + wait;
             let mut st = self.lock();
@@ -240,13 +276,13 @@ mod turns {
                 if now >= deadline || st.closed {
                     st.wanted -= 1;
                     self.cv.notify_all();
-                    return false;
+                    return Err(if st.draining { Blocked::Ours } else { Blocked::Other });
                 }
                 st = self.cv.wait_timeout(st, deadline - now).unwrap_or_else(|e| e.into_inner()).0;
             }
             drop(st);
             DEPTH.with(|d| d.borrow_mut().push((key, 1)));
-            true
+            Ok(())
         }
 
         pub fn leave(&self) {
@@ -310,10 +346,10 @@ mod turns {
                 if owned {
                     // a program waiting on the mutex is given it here
                     handle.release();
-                    std::thread::yield_now();
-                } else {
-                    std::thread::sleep(WAIT);
                 }
+                // without the mutex the next turn starts right away: pausing here would time out the device
+                // threads waiting to enter (WAIT is their whole wait) and skip their frames
+                std::thread::yield_now();
             }
         }
     }
@@ -455,6 +491,29 @@ mod tests {
         .join()
         .unwrap();
         assert!(lock.acquire(Duration::from_secs(1)).is_some());
+    }
+
+    #[test]
+    fn a_long_command_of_our_own_says_so() {
+        let lock = Arc::new(RazerLock::open(&test_lock("own")));
+        let (inside, entered) = mpsc::channel();
+        let long = {
+            let lock = lock.clone();
+            std::thread::spawn(move || {
+                let _held = lock.acquire(WAIT).unwrap();
+                inside.send(()).unwrap();
+                // one device's command running well past the end of the turn
+                std::thread::sleep(Duration::from_millis(300));
+            })
+        };
+        entered.recv().unwrap();
+        // past the end of the turn: it is draining for the long command
+        std::thread::sleep(TURN + Duration::from_millis(15));
+        let err = lock.for_command("Razer Firefly V2", || Ok(())).unwrap_err();
+        assert!(err.to_string().starts_with("uncoil is busy with another device"), "{err}");
+        assert!(is_busy(&err));
+        long.join().unwrap();
+        assert_eq!(lock.for_command("x", || Ok(9)).unwrap(), 9);
     }
 
     #[test]

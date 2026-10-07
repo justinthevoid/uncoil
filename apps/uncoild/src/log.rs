@@ -7,10 +7,15 @@ use std::borrow::Cow;
 use std::io::{Read, Seek, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Off in tests and `--fake` mode, so neither writes the real daemon log.
 static TO_FILE: AtomicBool = AtomicBool::new(cfg!(not(test)));
+
+/// One writer at a time: a trim (read, truncate, rewrite) racing another thread's append would drop or
+/// split lines.
+static FILE: Mutex<()> = Mutex::new(());
 
 /// Print log lines to stderr instead of the log file.
 #[cfg_attr(not(feature = "fake"), allow(dead_code))]
@@ -51,6 +56,7 @@ pub fn line(msg: &str) {
     eprintln!("{msg}");
     let p = path();
     let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let _one = FILE.lock().unwrap_or_else(|e| e.into_inner());
     let mut f = match crate::winsec::open_user_file(&p, true) {
         Ok(f) => f,
         Err(e) => return crate::winsec::warn_once(&e),

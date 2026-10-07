@@ -188,11 +188,12 @@ impl LiveDevice {
         Ok(())
     }
 
-    /// Upload one full frame, taking the Razer device lock around each report (as OpenRGB does), so the other
-    /// devices' threads get their turn between this device's rows instead of waiting out a whole keyboard
-    /// frame. `color(row, col)` returns the colour for that matrix slot. `Ok(false)`: the frame was not
-    /// sent in full, because the device does not stream frames or another program held the lock (the rest
-    /// of the frame is skipped; the next one comes soon).
+    /// Upload one full frame, joining the process's turn on the Razer device lock for each report (see
+    /// [`guard`]): uncoil's device threads share a turn and send in parallel, and between 20 ms turns the
+    /// lock thread lets go of the mutex so OpenRGB gets in, even partway through a keyboard frame.
+    /// `color(row, col)` returns the colour for that matrix slot. `Ok(false)`: the frame was not sent in
+    /// full, because the device does not stream frames or no turn came in time (the rest of the frame is
+    /// skipped; the next one comes soon).
     pub fn send_frame(&mut self, mut color: impl FnMut(usize, usize) -> [u8; 3]) -> Result<bool> {
         let (rows, cols) = match &self.def.matrix {
             Some(m) if self.def.streams_frames() => (m.rows, m.cols),
@@ -255,15 +256,6 @@ impl LiveDevice {
         match last {
             Some(reply) if reply.answers(r) => Ok(reply),
             _ => anyhow::bail!("no reply to {:02X}/{:02X} from {}", r.class, r.id, self.def.name),
-        }
-    }
-
-    /// Put the device back in firmware mode (best effort; used on shutdown). Sent even when the Razer
-    /// device lock stays busy: leaving the device in driver mode is worse.
-    pub fn release(&mut self) {
-        let r = proto::set_device_mode(self.tid(), DeviceMode::Normal);
-        if self.ask(&r).is_err() {
-            let _ = self.ask_unlocked(&r);
         }
     }
 }

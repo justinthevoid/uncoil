@@ -233,16 +233,18 @@ fn main() -> Result<()> {
         let m = mtime(&Config::path());
         if m != cfg_mtime {
             cfg_mtime = m;
-            let (cfg, problem) = Config::load_reporting();
-            if let Some(p) = problem {
-                log::line(&p);
+            // a broken file keeps what is running (logged once per change of the file)
+            match Config::reload() {
+                Ok(cfg) => {
+                    let cfg = Arc::new(cfg);
+                    *shared.config.write().unwrap() = cfg.clone();
+                    shared.rearrange(&defs);
+                    listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
+                    shared.generation.fetch_add(1, Ordering::Relaxed);
+                    log::line("config reloaded");
+                }
+                Err(why) => log::line(&why),
             }
-            let cfg = Arc::new(cfg);
-            *shared.config.write().unwrap() = cfg.clone();
-            shared.rearrange(&defs);
-            listeners.sync(&cfg, &shared.inputs, &shared.registry, shared.t0);
-            shared.generation.fetch_add(1, Ordering::Relaxed);
-            log::line("config reloaded");
         }
         let cfg = shared.config();
 
@@ -347,6 +349,12 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
             // a firmware effect replaces streamed frames until the config changes or `effect.software`
             let mut hw: Option<HwEffect> = None;
             let mut hw_dark = false;
+            // following the display with the firmware effect failed (logged once until it works again)
+            let mut hw_failing = false;
+            // prepare again (after a wake, or when a firmware effect ends): tried every tick until the device
+            // answers ok, since a busy lock or a busy device only delays it; the first failure is logged
+            let mut needs_prepare = false;
+            let mut prepare_failing = false;
             let mut last_ping = Instant::now();
             let mut jobs_open = true;
             let mut gen = u32::MAX;
@@ -376,20 +384,33 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                         // editing the config means "use the software effect again"
                         *hw_state.lock().unwrap() = None;
                         hw_dark = false;
-                        if let Err(e) = dev.prepare() {
-                            log::line(&format!("re-prepare {} failed: {e:#}", dev.def.name));
-                        }
+                        needs_prepare = true;
                     }
                 }
                 let w = shared.wake.load(Ordering::Relaxed);
                 if w != wake {
                     wake = w;
-                    let res = match &hw {
-                        Some(e) => apply_hw(&mut dev, e),
-                        None => dev.prepare().map(|_| ()),
-                    };
-                    if let Err(e) = res {
-                        log::line(&format!("re-prepare {} after wake failed: {e:#}", dev.def.name));
+                    match &hw {
+                        Some(e) => {
+                            if let Err(e) = apply_hw(&mut dev, e) {
+                                log::line(&format!("firmware effect on {} after wake failed: {e:#}", dev.def.name));
+                            }
+                        }
+                        None => needs_prepare = true,
+                    }
+                }
+                if needs_prepare && hw.is_none() {
+                    let res = dev.prepare();
+                    if matches!(res, Ok(uncoil_core::proto::Status::Ok)) {
+                        needs_prepare = false;
+                        prepare_failing = false;
+                    } else if !prepare_failing {
+                        prepare_failing = true;
+                        let why = match res {
+                            Ok(st) => format!("the device answered {st:?}"),
+                            Err(e) => format!("{e:#}"),
+                        };
+                        log::line(&format!("re-prepare {} failed ({why}); trying again", dev.def.name));
                     }
                 }
                 let level = shared.level();
@@ -410,15 +431,24 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                 }
                 if let Some(e) = &hw {
                     // firmware effect: just follow the display (off while it is off)
+                    // only a change that went through counts, so a failed one is tried again next tick
                     if dark != hw_dark {
-                        hw_dark = dark;
                         let res = if dark { apply_hw(&mut dev, &HwEffect::Off) } else { apply_hw(&mut dev, e) };
-                        if let Err(e) = res {
-                            log::line(&format!("firmware effect on {} failed: {e:#}", dev.def.name));
+                        match res {
+                            Ok(()) => {
+                                hw_dark = dark;
+                                hw_failing = false;
+                            }
+                            Err(e) if !hw_failing => {
+                                hw_failing = true;
+                                log::line(&format!("firmware effect on {} failed: {e:#}", dev.def.name));
+                            }
+                            Err(_) => {}
                         }
                     }
                 } else if streams && (!dark || dark_frames < 3) {
-                    // once faded out, send a few black frames and then idle (the device holds the frame)
+                    // once faded out, send a few black frames and then idle (the device holds the frame); only
+                    // frames that went out count, so a skipped one (lock busy) does not leave the lights on
                     let t = shared.t0.elapsed().as_secs_f32();
                     let presses = if cfg.effect.uses_keys() { shared.inputs.presses(t) } else { Vec::new() };
                     let inputs = shared.inputs.desk().inputs(&presses, shared.inputs.audio());
@@ -429,14 +459,19 @@ fn spawn_renderer(shared: Arc<Shared>, mut dev: LiveDevice) {
                             None => [0, 0, 0],
                         });
                     match res {
-                        Ok(sent) => frames += sent as u32,
+                        Ok(sent) => {
+                            frames += sent as u32;
+                            dark_frames += (dark && sent) as u32;
+                        }
                         Err(e) => {
                             log::line(&format!("lost {} ({e:#})", dev.def.name));
                             break;
                         }
                     }
                 }
-                dark_frames = if dark { dark_frames + 1 } else { 0 };
+                if !dark {
+                    dark_frames = 0;
+                }
 
                 let el = fps_window.elapsed();
                 if el >= Duration::from_secs(2) {

@@ -5,7 +5,7 @@
 //! the value is read before and after, the write is logged, and it is journalled
 //! (`%LOCALAPPDATA%\uncoil\onboard-writes.jsonl`): a `pending` entry with the value from before goes in
 //! before anything is sent, a `done` entry after the read-back, and a `failed` entry (with what was already
-//! applied) when a write of several reports stops part-way. `keymap.reset` restores what was there before
+//! applied) when a write stops part-way or cannot be read back. `keymap.reset` restores what was there before
 //! uncoil first touched a key.
 //!
 //! Every report sent while reading (gets, dumps, checks, probes) goes through `proto::query_read`, which
@@ -78,7 +78,7 @@ enum State {
     /// Sent and read back; `after` is what the device now holds. (Entries from before states existed.)
     #[default]
     Done,
-    /// Stopped part-way; `after` says what was applied.
+    /// Stopped part-way, or sent but not read back; `after` says what was applied.
     Failed,
 }
 
@@ -288,7 +288,11 @@ pub fn run(
                 let after = serde_json::to_string(&a.effect).unwrap_or_default();
                 let e = JournalEntry { after, ..JournalEntry::new(def, "effect") };
                 journal.record(&e, State::Pending);
-                query_ok(t, &report)?;
+                if let Err(err) = query_ok(t, &report) {
+                    let after = format!("{}; failed: {err:#}", e.after);
+                    journal.record(&JournalEntry { after, ..e }, State::Failed);
+                    return Err(err);
+                }
                 journal.record(&e, State::Done);
                 log.push(format!("ONBOARD WRITE {}: firmware effect {} saved to the device", def.id, a.effect.name()));
             } else {
@@ -603,7 +607,15 @@ fn verified_write<T: Serialize + Clone>(
     let steps = steps(t, &before)?;
     let entry = JournalEntry { before: (w.show)(&before), ..w.entry };
     let labels = send_journalled(t, journal, &entry, w.requested, &steps)?;
-    let after = (w.read)(t)?;
+    let after = match (w.read)(t) {
+        Ok(a) => a,
+        Err(e) => {
+            // sent, but not read back: the journal says so rather than staying `pending`
+            let after = format!("applied: {}; read back failed: {e:#}", labels.join(", "));
+            journal.record(&JournalEntry { after, ..entry }, State::Failed);
+            return Err(e);
+        }
+    };
     let verified = (w.wants)(&after);
     let line = format!(
         "ONBOARD WRITE {}{}: {} (verified {verified})",
@@ -1272,6 +1284,23 @@ mod tests {
         assert!(text.lines().next().unwrap().contains("\"pending\""));
         // reset still finds the original mapping (the pending entry carries it)
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_failed_onboard_effect_never_leaves_the_journal_pending() {
+        let def = kb();
+        let mut dev = FakeDevice::keyboard();
+        let (j, path) = journal();
+        dev.fail_on(0x0F, 0x02);
+        let save = cmd("effect.hw", json!({"effect": "spectrum", "storage": "onboard", "write": true}));
+        assert!(go(&mut dev, &def, 0x1F, &save, &j).is_err());
+        let text = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let states: Vec<String> = text
+            .lines()
+            .map(|l| serde_json::from_str::<serde_json::Value>(l).unwrap()["state"].as_str().unwrap().into())
+            .collect();
+        assert_eq!(states, ["pending", "failed"]);
     }
 
     #[test]

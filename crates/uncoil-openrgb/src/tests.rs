@@ -141,6 +141,26 @@ fn controller_data_parses_for_every_version() {
     assert_eq!(parse_controller(&hidden, 5).unwrap().flags, CONTROLLER_FLAG_HIDDEN);
 }
 
+/// Overwrite the LED count of the zone called `zone` in a controller block, as a hostile server could.
+fn with_zone_leds(mut block: Vec<u8>, zone: &str, leds: u32) -> Vec<u8> {
+    let at = block.windows(zone.len() + 1).position(|w| &w[..zone.len()] == zone.as_bytes() && w[zone.len()] == 0);
+    let at = at.unwrap() + zone.len() + 1 + 4 + 8; // NUL, type, leds_min, leds_max
+    block[at..at + 4].copy_from_slice(&leds.to_le_bytes());
+    block
+}
+
+#[test]
+fn hostile_led_counts_are_refused() {
+    let zones: Vec<TestZone> = vec![("Front", 1, 2, None), ("Back", 1, 2, None)];
+    let block = controller_block(5, 2, "GPU", "NVIDIA", &zones, 0);
+    assert!(parse_controller(&block, 5).is_ok());
+    // one zone far past the cap
+    assert!(parse_controller(&with_zone_leds(block.clone(), "Front", u32::MAX), 5).is_err());
+    // two zones each within the cap that pass it together
+    let both = with_zone_leds(with_zone_leds(block, "Front", MAX_LEDS as u32), "Back", 1);
+    assert!(parse_controller(&both, 5).is_err());
+}
+
 #[test]
 fn names_lose_control_characters() {
     let block = controller_block(5, 2, "Ge\u{1b}[31mForce\n", "NVIDIA", &[("GPU", 1, 1, None)], 0);

@@ -671,16 +671,25 @@ pub fn load_installed() -> (Vec<DeviceDef>, Vec<String>) {
     load_all_with_errors(Some(&user_dir()))
 }
 
-/// Built-ins plus any `*.toml` in `dir` (user definitions override built-ins with the same id; without a
-/// `support` line they are experimental, see [`DeviceDef::from_toml_user`]), and why each user file that
-/// was left out failed.
+/// Do `a` and `b` claim one USB product (vendor id and a product id in common)? The daemon would open that
+/// device once for each.
+fn same_product(a: &DeviceDef, b: &DeviceDef) -> bool {
+    a.vendor_id == b.vendor_id && a.usb.iter().any(|e| b.endpoint_for(e.product_id).is_some())
+}
+
+/// Built-ins plus any `*.toml` in `dir`, in file name order, and why each user file that was left out
+/// failed. A user definition overrides the built-in with the same id, or for the same USB product under
+/// another id; one for a product another user file already claims (under another id) is left out. Without
+/// a `support` line user definitions are experimental, see [`DeviceDef::from_toml_user`].
 pub fn load_all_with_errors(dir: Option<&std::path::Path>) -> (Vec<DeviceDef>, Vec<String>) {
     let mut defs = builtin();
+    let mut users: Vec<DeviceDef> = vec![];
     let mut errors = vec![];
     if let Some(dir) = dir {
         if let Ok(rd) = std::fs::read_dir(dir) {
-            for e in rd.flatten() {
-                let p = e.path();
+            let mut paths: Vec<std::path::PathBuf> = rd.flatten().map(|e| e.path()).collect();
+            paths.sort();
+            for p in paths {
                 if p.extension().and_then(|x| x.to_str()) != Some("toml") {
                     continue;
                 }
@@ -691,14 +700,24 @@ pub fn load_all_with_errors(dir: Option<&std::path::Path>) -> (Vec<DeviceDef>, V
                 };
                 match read.and_then(|s| DeviceDef::from_toml_user(&p.display().to_string(), &s)) {
                     Ok(d) => {
-                        defs.retain(|x| x.id != d.id);
-                        defs.push(d);
+                        if let Some(other) = users.iter().find(|u| u.id != d.id && same_product(u, &d)) {
+                            errors.push(format!(
+                                "{}: left out, another user file ({}) is already for the same USB product",
+                                p.display(),
+                                other.id
+                            ));
+                            continue;
+                        }
+                        users.retain(|x| x.id != d.id);
+                        users.push(d);
                     }
                     Err(e) => errors.push(format!("{e:#}")),
                 }
             }
         }
     }
+    defs.retain(|b| !users.iter().any(|u| u.id == b.id || same_product(u, b)));
+    defs.extend(users);
     (defs, errors)
 }
 
@@ -1076,5 +1095,23 @@ mod tests {
         assert_eq!(defs.iter().find(|d| d.id == "razer-test-kb").unwrap().support, Support::Experimental);
         assert_eq!(errors.len(), 1, "{errors:?}");
         assert!(errors[0].contains("bad.toml"), "{errors:?}");
+    }
+
+    #[test]
+    fn one_usb_product_gets_one_definition() {
+        let dir = std::env::temp_dir().join(format!("uncoil-test-device-pids-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // the BlackWidow V4 Pro 75%'s product under a new id: the user's file replaces the built-in
+        let mine = LIT.replace("0x0098", "0x02B3").replace("razer-test-kb", "my-blackwidow");
+        std::fs::write(dir.join("a.toml"), &mine).unwrap();
+        // a second user file for the same product is left out
+        std::fs::write(dir.join("b.toml"), mine.replace("my-blackwidow", "my-other-blackwidow")).unwrap();
+        let (defs, errors) = load_all_with_errors(Some(&dir));
+        let _ = std::fs::remove_dir_all(&dir);
+        let claiming: Vec<&str> =
+            defs.iter().filter(|d| d.endpoint_for(0x02B3).is_some()).map(|d| d.id.as_str()).collect();
+        assert_eq!(claiming, ["my-blackwidow"]);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert!(errors[0].contains("b.toml") && errors[0].contains("my-blackwidow"), "{errors:?}");
     }
 }

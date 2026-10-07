@@ -184,16 +184,27 @@ impl Config {
         config
     }
 
+    /// Load again after the file changed. A file that cannot be read or parsed is an error saying why, and
+    /// the caller keeps the settings it has (a half-saved or mistyped file must not reset the effect, desk
+    /// and OpenRGB mode). No file: defaults.
+    pub fn reload() -> Result<Config, String> {
+        Self::read_from(&Self::path()).map_err(|why| format!("{why}; keeping the previous settings"))
+    }
+
     fn load_from(path: &std::path::Path) -> (Config, Option<String>) {
+        match Self::read_from(path) {
+            Ok(c) => (c, None),
+            Err(why) => (Config::default(), Some(format!("{why}; using defaults"))),
+        }
+    }
+
+    fn read_from(path: &std::path::Path) -> Result<Config, String> {
         let text = match std::fs::read_to_string(path) {
             Ok(t) => t,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (Config::default(), None),
-            Err(e) => return (Config::default(), Some(format!("{} not read ({e}); using defaults", path.display()))),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Config::default()),
+            Err(e) => return Err(format!("{} not read ({e})", path.display())),
         };
-        match serde_json::from_str(&text) {
-            Ok(c) => (c, None),
-            Err(e) => (Config::default(), Some(format!("{} is not valid ({e}); using defaults", path.display()))),
-        }
+        serde_json::from_str(&text).map_err(|e| format!("{} is not valid ({e})", path.display()))
     }
 
     pub fn save(&self) -> std::io::Result<()> {
@@ -277,6 +288,20 @@ mod tests {
         assert_eq!(c, Config::default());
         let p = problem.unwrap();
         assert!(p.contains("config.json is not valid") && p.ends_with("using defaults"), "{p}");
+    }
+
+    #[test]
+    fn a_broken_config_on_reload_is_an_error_not_defaults() {
+        let dir = std::env::temp_dir().join(format!("uncoil-test-reload-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, r#"{"fps": 45}"#).unwrap();
+        assert_eq!(Config::read_from(&path), Ok(Config { fps: 45, ..Config::default() }));
+        std::fs::write(&path, r#"{"fps": 45,"#).unwrap();
+        let why = Config::read_from(&path).unwrap_err();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(why.contains("config.json is not valid"), "{why}");
+        assert_eq!(Config::read_from(&path), Ok(Config::default()), "a removed file means defaults");
     }
 
     #[test]
