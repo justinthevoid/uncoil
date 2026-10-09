@@ -8,10 +8,11 @@
 //! a second and then the connection is dropped and retried with a growing pause (1 s doubling to 10 s).
 //! OpenRGB coalesces updates per device itself, so slow SMBus devices skip frames rather than lag.
 //!
-//! Razer devices that OpenRGB reports are always left alone (uncoil drives them itself), as are hidden ones,
-//! names matched by `openrgb.live.exclude`, and RAM while Corsair iCUE runs (both would write the SMBus;
-//! checked every few seconds, so RAM is let go soon after iCUE starts). An OpenRGB that is not uncoil's own
-//! server is never driven.
+//! Razer devices that OpenRGB reports are always left alone (uncoil drives them itself), as are hidden ones
+//! and names matched by `openrgb.live.exclude`. Devices a running program lights itself (iCUE, Armoury
+//! Crate, ...: `uncoil_core::owners`) are left to it and listed as `held`; the running programs are looked
+//! at every few seconds, so a device is let go soon after its program starts and taken back after it quits.
+//! An OpenRGB that is not uncoil's own server is never driven.
 
 use crate::{log, Shared};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -20,8 +21,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 use uncoil_core::config::{OpenRgbLive, OpenRgbMode};
 use uncoil_core::device::DeviceDef;
-use uncoil_core::ipc::{OpenRgbDeviceStatus, OpenRgbState, OpenRgbStatus};
+use uncoil_core::ipc::{OpenRgbDeviceStatus, OpenRgbHeld, OpenRgbState, OpenRgbStatus};
 use uncoil_core::layout::{self, ExternalZone, ZoneKind, ZoneMatrix};
+use uncoil_core::owners::{self, Part};
 use uncoil_openrgb::{device_type, Client, Controller};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
@@ -30,8 +32,8 @@ const MAX_BACKOFF: Duration = Duration::from_secs(10);
 const REFRESH: Duration = Duration::from_secs(1);
 /// OpenRGB devices are slower than USB ones; no point sending more often than this.
 const MAX_FPS: u32 = 30;
-/// How often to look whether iCUE started or quit, while OpenRGB lists RAM (one process snapshot).
-const ICUE_CHECK: Duration = Duration::from_secs(3);
+/// How often to look whether a program that lights PC parts itself started or quit (one process snapshot).
+const OWNER_CHECK: Duration = Duration::from_secs(3);
 
 /// What the main loop, the desk and the status see of the live client.
 #[derive(Default)]
@@ -64,8 +66,13 @@ impl Live {
         self.generation.load(Ordering::Relaxed)
     }
 
-    /// New state (logged when it changes); `devices` replaces the device list when given.
-    fn set(&self, state: OpenRgbState, detail: Option<String>, devices: Option<Vec<OpenRgbDeviceStatus>>) {
+    /// New state (logged when it changes); `devices` replaces the driven and the held devices when given.
+    fn set(
+        &self,
+        state: OpenRgbState,
+        detail: Option<String>,
+        devices: Option<(Vec<OpenRgbDeviceStatus>, Vec<OpenRgbHeld>)>,
+    ) {
         let mut s = self.state.lock().unwrap();
         if (s.status.state, &s.status.detail) != (state, &detail) {
             let what = detail.clone().unwrap_or_else(|| format!("{state:?}").to_lowercase());
@@ -73,7 +80,8 @@ impl Live {
         }
         s.status.state = state;
         s.status.detail = detail;
-        if let Some(devices) = devices {
+        if let Some((devices, held)) = devices {
+            s.status.held = held;
             if devices != s.status.devices {
                 s.defs = devices.iter().map(|d| Arc::new(d.def())).collect();
                 s.status.devices = devices;
@@ -95,22 +103,48 @@ struct Driven {
     sent: Option<Instant>,
 }
 
-/// Which OpenRGB devices to drive, in desk order (motherboards, RAM, GPUs, the rest), with their status
-/// entries (ids `openrgb:<slug>`, made unique with `-2`, `-3`, ...).
-fn plan(controllers: &[Controller], live: &OpenRgbLive, icue: bool) -> Vec<(u32, OpenRgbDeviceStatus)> {
-    let mut picked: Vec<(u32, &Controller)> = controllers
+/// A controller as `owners` sees it: its OpenRGB type, name and vendor.
+type PartOf = (i32, String, String);
+
+fn part_of(c: &Controller) -> PartOf {
+    (c.kind, c.name.clone(), c.vendor.clone())
+}
+
+/// For each part, the running program that lights it itself, if any (`owners`).
+fn holders<S: AsRef<str>>(parts: &[PartOf], processes: &[S]) -> Vec<Option<String>> {
+    parts
         .iter()
-        .enumerate()
-        .map(|(i, c)| (i as u32, c))
-        .filter(|(_, c)| {
-            let razer = [&c.name, &c.vendor].iter().any(|s| s.to_lowercase().contains("razer"));
-            !razer
-                && !live.excludes(&c.name)
-                && c.flags & uncoil_openrgb::CONTROLLER_FLAG_HIDDEN == 0
-                && c.zones.iter().any(|z| z.leds > 0)
-                && !(icue && c.kind == device_type::DRAM)
+        .map(|(kind, name, vendor)| {
+            let part = Part { kind: device_type::word(*kind), name, vendor };
+            owners::holder(owners::shipped(), processes, part).map(|o| o.name.clone())
         })
-        .collect();
+        .collect()
+}
+
+/// What [`plan`] decides: the devices to drive and the ones left to another program, each with its index on
+/// the server.
+type Plan = (Vec<(u32, OpenRgbDeviceStatus)>, Vec<(u32, OpenRgbHeld)>);
+
+/// Which OpenRGB devices to drive, in desk order (motherboards, RAM, GPUs, the rest), with their status
+/// entries (ids `openrgb:<slug>`, made unique with `-2`, `-3`, ...), and the ones left to the program in
+/// `holders` (one entry per controller), with their indexes.
+fn plan(controllers: &[Controller], live: &OpenRgbLive, holders: &[Option<String>]) -> Plan {
+    let mut held = Vec::new();
+    let mut picked: Vec<(u32, &Controller)> = Vec::new();
+    for (i, c) in controllers.iter().enumerate() {
+        let razer = [&c.name, &c.vendor].iter().any(|s| s.to_lowercase().contains("razer"));
+        if razer
+            || live.excludes(&c.name)
+            || c.flags & uncoil_openrgb::CONTROLLER_FLAG_HIDDEN != 0
+            || !c.zones.iter().any(|z| z.leds > 0)
+        {
+            continue;
+        }
+        match holders.get(i).cloned().flatten() {
+            Some(by) => held.push((i as u32, OpenRgbHeld { name: c.name.clone(), by })),
+            None => picked.push((i as u32, c)),
+        }
+    }
     let rank = |k: i32| match k {
         device_type::MOTHERBOARD => 0,
         device_type::DRAM => 1,
@@ -119,7 +153,7 @@ fn plan(controllers: &[Controller], live: &OpenRgbLive, icue: bool) -> Vec<(u32,
     };
     picked.sort_by_key(|(_, c)| rank(c.kind));
     let mut ids: Vec<String> = Vec::new();
-    picked
+    let planned = picked
         .into_iter()
         .map(|(index, c)| {
             let base = format!("{}{}", layout::EXTERNAL_PREFIX, layout::slug(&c.name));
@@ -151,25 +185,70 @@ fn plan(controllers: &[Controller], live: &OpenRgbLive, icue: bool) -> Vec<(u32,
             let leds = zones.iter().map(|z| z.leds).sum();
             (index, OpenRgbDeviceStatus { id, name: c.name.clone(), leds, zones })
         })
-        .collect()
+        .collect();
+    (planned, held)
 }
 
-/// What [`connect`] made: the client, the devices it drives and their status entries, and, when OpenRGB
-/// lists RAM, whether iCUE was running (RAM is driven only without it, so a change means planning again).
-type Connected = (Client, Vec<Driven>, Vec<OpenRgbDeviceStatus>, Option<bool>);
+/// The status line for a connection: how many devices are driven and which program has the rest.
+fn connected_detail(driving: usize, held: &[OpenRgbHeld]) -> String {
+    let mut by: Vec<(&str, usize)> = Vec::new();
+    for h in held {
+        match by.iter_mut().find(|(name, _)| *name == h.by) {
+            Some((_, n)) => *n += 1,
+            None => by.push((&h.by, 1)),
+        }
+    }
+    let left: Vec<String> = by.iter().map(|(name, n)| format!("; {n} left to {name}")).collect();
+    format!("Connected; driving {driving} device(s){}.", left.concat())
+}
+
+/// A live connection: the client, the devices it drives, the settings it was made for, every controller as
+/// a part (to look again at who holds what without asking OpenRGB) and who held each one then.
+struct Connection {
+    client: Client,
+    driven: Vec<Driven>,
+    made_for: OpenRgbLive,
+    parts: Vec<PartOf>,
+    holders: Vec<Option<String>>,
+}
+
+/// A held device with the part it is, so it can be recognised when OpenRGB lists it again.
+type HeldPart = (PartOf, OpenRgbHeld);
+
+/// The held devices after a new connection: the ones held now (`held_now`), plus the ones held before that
+/// OpenRGB no longer lists while their program still runs (uncoil's OpenRGB turns off the detectors a
+/// running program claims, so they drop out of its list), with who holds them as of `processes`.
+fn carry_over<S: AsRef<str>>(
+    before: Vec<HeldPart>,
+    listed: &[PartOf],
+    held_now: Vec<HeldPart>,
+    processes: &[S],
+) -> Vec<HeldPart> {
+    let mut held = held_now;
+    for (part, h) in before {
+        if listed.contains(&part) {
+            continue;
+        }
+        if let Some(by) = holders(std::slice::from_ref(&part), processes).pop().flatten() {
+            held.push((part, OpenRgbHeld { by, ..h }));
+        }
+    }
+    held
+}
 
 /// Connect, list the devices and put the ones to drive in their per-LED mode. Only uncoil's own server is
 /// driven: another OpenRGB (its own Windows service, say) has the Razer detectors and the exclusions on.
-fn connect(live: &OpenRgbLive) -> std::io::Result<Connected> {
+/// Also returns the status entries of the driven and the held devices.
+fn connect(live: &OpenRgbLive) -> std::io::Result<(Connection, Vec<OpenRgbDeviceStatus>, Vec<HeldPart>)> {
     let port = live.valid_port().ok_or_else(|| std::io::Error::other("openrgb.live.port must be 1024-65535"))?;
     let mut client = Client::connect(port, "uncoil", CONNECT_TIMEOUT)?;
     if !crate::openrgb::ours() {
         return Err(std::io::Error::other(NOT_OURS));
     }
     let controllers = client.controllers()?;
-    let ram = controllers.iter().any(|c| c.kind == device_type::DRAM);
-    let icue = ram && crate::openrgb::running("iCUE.exe");
-    let planned = plan(&controllers, live, icue);
+    let parts: Vec<PartOf> = controllers.iter().map(part_of).collect();
+    let holders = holders(&parts, &crate::conflicts::process_names());
+    let (planned, held) = plan(&controllers, live, &holders);
     let mut driven = Vec::new();
     for (index, status) in &planned {
         client.set_custom_mode(*index)?;
@@ -177,7 +256,9 @@ fn connect(live: &OpenRgbLive) -> std::io::Result<Connected> {
         let names = layout::external_led_names(&status.zones);
         driven.push(Driven { index: *index, id: status.id.clone(), names, colors, last: vec![], sent: None });
     }
-    Ok((client, driven, planned.into_iter().map(|(_, s)| s).collect(), ram.then_some(icue)))
+    let held = held.into_iter().map(|(i, h)| (parts[i as usize].clone(), h)).collect();
+    let conn = Connection { client, driven, made_for: live.clone(), parts, holders };
+    Ok((conn, planned.into_iter().map(|(_, s)| s).collect(), held))
 }
 
 /// Why a server that answers is not driven.
@@ -234,35 +315,48 @@ pub fn spawn(shared: Arc<Shared>) {
 fn run(shared: &Shared) {
     let live = &shared.openrgb;
     // the connection, the devices it drives, the settings it was made for and iCUE then (see `Connected`)
-    let mut conn: Option<(Client, Vec<Driven>, OpenRgbLive, Option<bool>)> = None;
+    let mut conn: Option<Connection> = None;
     let mut backoff = Duration::from_secs(1);
     let mut next_try = Instant::now();
     let mut dark_frames = 0u32;
-    let mut icue_checked = Instant::now();
+    let mut owners_checked = Instant::now();
+    // who held what at the last look, when it differed from the connection's: acted on only when the next
+    // look agrees, so a program that is starting up (or flickers in and out) doesn't make devices bounce
+    let mut changing: Option<Vec<Option<String>>> = None;
+    // the devices held at the last connection, kept across reconnections (see `carry_over`)
+    let mut held: Vec<HeldPart> = Vec::new();
     loop {
         let start = Instant::now();
         let cfg = shared.config();
         if cfg.openrgb_mode() != OpenRgbMode::Live {
             conn = None;
+            held.clear();
             if live.state.lock().unwrap().status.state != OpenRgbState::Off {
-                live.set(OpenRgbState::Off, None, Some(vec![]));
+                live.set(OpenRgbState::Off, None, Some(Default::default()));
             }
             thread::sleep(Duration::from_secs(1));
             continue;
         }
         let settings = cfg.openrgb_live();
         // new port or exclusions: list the devices again
-        if conn.as_ref().is_some_and(|(_, _, made_for, _)| *made_for != settings) {
+        if conn.as_ref().is_some_and(|c| c.made_for != settings) {
             conn = None;
             next_try = start;
         }
-        // iCUE started or quit since: plan again, so RAM is dropped (or taken back) within seconds
-        if start.duration_since(icue_checked) >= ICUE_CHECK {
-            icue_checked = start;
-            if let Some((_, _, _, Some(was))) = &conn {
-                if crate::openrgb::running("iCUE.exe") != *was {
+        // a program that lights PC parts started or quit: plan again, so its devices are let go (or taken
+        // back) within seconds
+        if start.duration_since(owners_checked) >= OWNER_CHECK {
+            owners_checked = start;
+            if let Some(c) = &conn {
+                let now = holders(&c.parts, &crate::conflicts::process_names());
+                if now == c.holders {
+                    changing = None;
+                } else if changing.as_ref() == Some(&now) {
+                    changing = None;
                     conn = None;
                     next_try = start;
+                } else {
+                    changing = Some(now);
                 }
             }
         }
@@ -272,22 +366,26 @@ fn run(shared: &Shared) {
                 continue;
             }
             match connect(&settings) {
-                Ok((client, driven, devices, icue)) => {
-                    let detail = format!("Connected; driving {} device(s).", devices.len());
-                    live.set(OpenRgbState::Connected, Some(detail), Some(devices));
+                Ok((c, devices, held_now)) => {
+                    let processes = crate::conflicts::process_names();
+                    held = carry_over(std::mem::take(&mut held), &c.parts, held_now, &processes);
+                    let held: Vec<OpenRgbHeld> = held.iter().map(|(_, h)| h.clone()).collect();
+                    let detail = connected_detail(devices.len(), &held);
+                    live.set(OpenRgbState::Connected, Some(detail), Some((devices, held)));
                     backoff = Duration::from_secs(1);
-                    conn = Some((client, driven, settings.clone(), icue));
+                    changing = None;
+                    conn = Some(c);
                 }
                 Err(e) => {
                     let (state, detail) = failure(&e, settings.port);
-                    live.set(state, Some(detail), Some(vec![]));
+                    live.set(state, Some(detail), Some(Default::default()));
                     next_try = start + backoff;
                     backoff = (backoff * 2).min(MAX_BACKOFF);
                     continue;
                 }
             }
         }
-        let Some((client, driven, _, _)) = conn.as_mut() else { continue };
+        let Some(Connection { client, driven, .. }) = conn.as_mut() else { continue };
         let level = shared.level();
         let dark = level <= 0.0;
         // once faded out, send a few black frames and then idle (the devices hold the frame)
@@ -302,7 +400,7 @@ fn run(shared: &Shared) {
             }
             Err(e) => {
                 let (state, detail) = failure(&e, settings.port);
-                live.set(state, Some(detail), Some(vec![]));
+                live.set(state, Some(detail), Some(Default::default()));
                 conn = None;
                 next_try = Instant::now() + backoff;
             }
@@ -359,9 +457,15 @@ mod tests {
         ]
     }
 
+    fn nobody(controllers: &[Controller]) -> Vec<Option<String>> {
+        vec![None; controllers.len()]
+    }
+
     #[test]
     fn plan_skips_razer_and_sorts_the_pc() {
-        let planned = plan(&pc(), &OpenRgbLive::default(), false);
+        let pc = pc();
+        let (planned, held) = plan(&pc, &OpenRgbLive::default(), &nobody(&pc));
+        assert!(held.is_empty());
         let got: Vec<(u32, &str)> = planned.iter().map(|(i, s)| (*i, s.id.as_str())).collect();
         assert_eq!(
             got,
@@ -389,10 +493,35 @@ mod tests {
     }
 
     #[test]
-    fn plan_respects_exclusions_and_icue() {
+    fn plan_respects_exclusions_and_leaves_held_devices_to_their_program() {
+        let pc = pc();
         let live = OpenRgbLive { exclude: vec!["geforce".into()], ..OpenRgbLive::default() };
-        let ids: Vec<String> = plan(&pc(), &live, true).into_iter().map(|(_, s)| s.id).collect();
+        let parts: Vec<PartOf> = pc.iter().map(part_of).collect();
+        // iCUE running: both Corsair sticks are its; the Razer keyboard is never anyone's business but uncoil's
+        let icue = holders(&parts, &["iCUE.exe"]);
+        let (planned, held) = plan(&pc, &live, &icue);
+        let ids: Vec<String> = planned.into_iter().map(|(_, s)| s.id).collect();
         assert_eq!(ids, ["openrgb:asus-rog-strix-b550-f-gaming-wi-fi", "openrgb:case-panel"]);
+        let stick = OpenRgbHeld { name: "Corsair Vengeance Pro RGB".into(), by: "Corsair iCUE".into() };
+        assert_eq!(held, [(2, stick.clone()), (4, stick)]);
+        let held: Vec<OpenRgbHeld> = held.into_iter().map(|(_, h)| h).collect();
+        assert_eq!(connected_detail(2, &held), "Connected; driving 2 device(s); 2 left to Corsair iCUE.");
+        // nothing running: nothing held
+        assert_eq!(holders(&parts, &["explorer.exe"]), nobody(&pc));
+        assert_eq!(connected_detail(5, &[]), "Connected; driving 5 device(s).");
+    }
+
+    #[test]
+    fn held_devices_stay_listed_while_their_program_runs() {
+        let hub: PartOf = (4, "Corsair iCUE Link System Hub".into(), "Corsair".into());
+        let board: PartOf = (0, "ASUS ROG STRIX B650E-F GAMING WIFI".into(), "ASUS".into());
+        let held = |p: &PartOf| (p.clone(), OpenRgbHeld { name: p.1.clone(), by: "Corsair iCUE".into() });
+        // iCUE took the hub; OpenRGB restarted without its detector, so only the board is listed now
+        let after = carry_over(vec![held(&hub)], std::slice::from_ref(&board), vec![], &["iCUE.exe"]);
+        assert_eq!(after, [held(&hub)]);
+        // iCUE quit: the hub is back in OpenRGB's list (and driven), or gone for good; either way not held
+        assert!(carry_over(after.clone(), &[board.clone(), hub.clone()], vec![], &["iCUE.exe"]).is_empty());
+        assert!(carry_over(after, std::slice::from_ref(&board), vec![], &["explorer.exe"]).is_empty());
     }
 
     #[test]
@@ -409,16 +538,19 @@ mod tests {
     fn status_changes_bump_the_desk_only_when_devices_change() {
         let live = Live::default();
         let g = live.generation();
-        live.set(OpenRgbState::Waiting, Some("waiting".into()), Some(vec![]));
+        live.set(OpenRgbState::Waiting, Some("waiting".into()), Some(Default::default()));
         assert_eq!(live.generation(), g, "no devices before, none now");
+        let pc = pc();
         let planned: Vec<OpenRgbDeviceStatus> =
-            plan(&pc(), &OpenRgbLive::default(), false).into_iter().map(|(_, s)| s).collect();
-        live.set(OpenRgbState::Connected, None, Some(planned.clone()));
+            plan(&pc, &OpenRgbLive::default(), &nobody(&pc)).0.into_iter().map(|(_, s)| s).collect();
+        live.set(OpenRgbState::Connected, None, Some((planned.clone(), vec![])));
         assert_eq!(live.generation(), g + 1);
         assert_eq!(live.defs().len(), 5);
-        live.set(OpenRgbState::Connected, None, Some(planned));
+        // only who holds what changed: the status says so, the desk stays
+        let held = vec![OpenRgbHeld { name: "Corsair iCUE Link System Hub".into(), by: "Corsair iCUE".into() }];
+        live.set(OpenRgbState::Connected, None, Some((planned, held.clone())));
         assert_eq!(live.generation(), g + 1);
         let s = live.status();
-        assert_eq!((s.state, s.devices.len()), (OpenRgbState::Connected, 5));
+        assert_eq!((s.state, s.devices.len(), s.held), (OpenRgbState::Connected, 5, held));
     }
 }

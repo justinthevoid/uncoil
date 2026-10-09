@@ -50,6 +50,16 @@ pub mod device_type {
     pub const MOTHERBOARD: i32 = 0;
     pub const DRAM: i32 = 1;
     pub const GPU: i32 = 2;
+
+    /// The type as the word `uncoil_core::owners` uses: "motherboard", "dram", "gpu" or "other".
+    pub fn word(kind: i32) -> &'static str {
+        match kind {
+            MOTHERBOARD => "motherboard",
+            DRAM => "dram",
+            GPU => "gpu",
+            _ => "other",
+        }
+    }
 }
 
 /// Controller flag (protocol 5): hidden in OpenRGB.

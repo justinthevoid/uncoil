@@ -10,6 +10,7 @@
 //! * [`features`] — device features beyond lighting frames: firmware effects, key maps, profiles, the
 //!   OLED command dial and display (report builders + reply parsers)
 //! * [`ipc`]     — the daemon's control-pipe protocol, shared by the CLI and the GUI
+//! * [`owners`]  — programs that light PC parts themselves, and which devices uncoil leaves them
 
 pub mod color;
 pub mod config;
@@ -18,6 +19,7 @@ pub mod effect;
 pub mod features;
 pub mod ipc;
 pub mod layout;
+pub mod owners;
 pub mod proto;
 pub mod scancode;
 

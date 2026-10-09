@@ -4,8 +4,8 @@
 //! `status.conflicts` (the app shows a notice).
 //!
 //! Privacy: only process image names are read (a Toolhelp process snapshot), compared against the table
-//! below, and only the matching program's name is kept or logged. Nothing else about other processes is
-//! looked at.
+//! below (and, by the live OpenRGB client, against `uncoil_core::owners`), and only the matching program's
+//! name is kept or logged. Nothing else about other processes is looked at.
 
 use uncoil_core::ipc::Conflict;
 
@@ -98,7 +98,7 @@ pub fn running(image: &str) -> bool {
 
 /// Image names of the running processes (empty if the snapshot fails).
 #[cfg(windows)]
-fn process_names() -> Vec<String> {
+pub fn process_names() -> Vec<String> {
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
@@ -123,7 +123,7 @@ fn process_names() -> Vec<String> {
 }
 
 #[cfg(not(windows))]
-fn process_names() -> Vec<String> {
+pub fn process_names() -> Vec<String> {
     vec![]
 }
 

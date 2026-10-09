@@ -1,0 +1,42 @@
+# Programs that light PC parts themselves. While one of `processes` runs, uncoil leaves it the OpenRGB
+# devices it claims (stops sending them frames, the hardware hand-off skips them, and uncoil's live OpenRGB
+# restarts with the detectors that find them turned off), and takes them back when it quits. Read by
+# crates/uncoil-core/src/owners.rs; the first matching owner wins.
+#
+#   processes   executable names, any case; any one running counts
+#   kinds       OpenRGB device types it claims whatever their make: "motherboard", "dram", "gpu"
+#               (detectors: "DRAM" or "Motherboard" in the name; a GPU detector names only its card)
+#   names       parts of a device's (or detector's) name or vendor it claims, any case
+#   everything  claims every device
+#
+# Only executable names seen on a real PC or in a published source are listed; add one with where it came
+# from.
+
+# Seen running on the maintainer's PC (2026-10-09). RAM of any make: iCUE writes the SMBus, which
+# the RAM shares with every other stick.
+[[owner]]
+name = "Corsair iCUE"
+processes = ["iCUE.exe"]
+kinds = ["dram"]
+names = ["Corsair"]
+
+# ASUS's Aura lighting service, installed with Armoury Crate or Aura Sync, at
+# C:\Program Files (x86)\LightingService\LightingService.exe (ASUS ROG forum reports; SignalRGB's ASUS
+# troubleshooting page). It runs whenever Armoury Crate is installed, not only while its window is open.
+[[owner]]
+name = "ASUS Armoury Crate"
+processes = ["LightingService.exe"]
+kinds = ["dram"]
+names = ["ASUS"]
+
+# MSI Center's Mystic Light component (file.net's process entry; SignalRGB forum reports).
+[[owner]]
+name = "MSI Mystic Light"
+processes = ["LEDKeeper2.exe"]
+names = ["MSI"]
+
+# SignalRGB drives every RGB device it finds.
+[[owner]]
+name = "SignalRGB"
+processes = ["SignalRgb.exe"]
+everything = true

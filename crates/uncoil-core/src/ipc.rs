@@ -620,9 +620,22 @@ pub struct OpenRgbStatus {
     pub detail: Option<String>,
     #[serde(default)]
     pub devices: Vec<OpenRgbDeviceStatus>,
+    /// Devices OpenRGB lists that uncoil leaves alone because a program that lights them itself is running
+    /// (`owners`); they come back when it quits.
+    #[serde(default)]
+    pub held: Vec<OpenRgbHeld>,
     /// The SDK server was started by uncoil's own `uncoil-openrgb` task.
     #[serde(default)]
     pub ours: bool,
+}
+
+/// A device left to another program (`status.openrgb.held`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpenRgbHeld {
+    /// The device's name as OpenRGB lists it.
+    pub name: String,
+    /// The program that has it ("Corsair iCUE").
+    pub by: String,
 }
 
 /// One device driven through OpenRGB.

@@ -14,6 +14,14 @@ may change config and device-file formats; such changes are called out under **C
   frames, uncoil's OpenRGB now turns off any detector whose name the exclusion matches and restarts, so
   OpenRGB lets go of the device and iCUE (or the maker's app) can take it back, for example the iCUE Link
   fans. Only detectors uncoil turned off are turned back on.
+- **uncoil steps aside for programs that light PC parts themselves.** A table of them (iCUE, Armoury Crate's
+  lighting service, MSI Mystic Light, SignalRGB), kept as data in `crates/uncoil-core/owners.toml`, says which
+  OpenRGB devices each one claims. While one runs, uncoil stops lighting those devices in live mode, its
+  OpenRGB restarts with the detectors that find them turned off (so the program can take them back, an iCUE
+  Link hub included), and the hardware hand-off skips them; a few seconds after it quits, uncoil lights them
+  again. Changes wait for two looks in a row to agree, so a program starting up costs one OpenRGB restart.
+  The PC page lists the devices under "Run by other software". This replaces the single "skip RAM while
+  iCUE runs" rule, which also stays covered: iCUE claims all RAM.
 
 ### Fixed
 

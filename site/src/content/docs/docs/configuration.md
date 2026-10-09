@@ -253,8 +253,8 @@ Both modes need:
    unelevated daemon can't do this itself. (A daemon installed with `-Elevated` runs the hand-off or the
    server itself at start.)
 
-Either way, if OpenRGB is already running in your session, it is closed first, and RAM is left alone while
-Corsair iCUE runs, because both would write the same bus. An OpenRGB it can't close, such as OpenRGB's own
+Either way, if OpenRGB is already running in your session, it is closed first, and devices that another
+running program lights itself are left to it (see [Programs that light PC parts](#programs-that-light-pc-parts)). An OpenRGB it can't close, such as OpenRGB's own
 Windows service, makes live mode stop there (result `2`) rather than start a second server beside it: two
 OpenRGBs open the same devices and the lights flicker between them. Stop that service and set it to Manual.
 
@@ -283,7 +283,7 @@ an entry.
 |---|---|
 | `match` | Part of the device name as OpenRGB lists it (passed to `OpenRGB.exe -d`). |
 | `mode` | The OpenRGB mode to put it in (passed to `-m`). |
-| `ram` | `true` for RAM on the SMBus: skipped while Corsair iCUE runs. Default `false`. |
+| `ram` | `true` for RAM on the SMBus: skipped while a program that lights RAM runs, such as iCUE. Default `false`. |
 
 `match` and `mode` must be plain names: 1 to 64 letters, digits, spaces and `-_.()+#&:/`, not starting with
 `-` or a space and not ending with a space. Anything else is skipped, so a config entry can never become an
@@ -305,7 +305,8 @@ OpenRGB option.
 
 uncoil drives every device OpenRGB finds except Razer devices (anything with "Razer" in its name or vendor,
 so also products like the Lian Li O11 Dynamic Razer Edition case), hidden ones, ones with no LEDs, the ones
-`exclude` matches, and RAM while iCUE runs. The OpenRGB it starts has every Razer detector turned off.
+`exclude` matches, and the ones another running program lights itself. The OpenRGB it starts has every Razer
+detector turned off.
 
 `exclude` also turns off every OpenRGB detector whose name it matches, so OpenRGB doesn't open those devices
 at all and their own software can take them back: excluding `"Corsair iCUE Link System Hub"` hands the
@@ -336,6 +337,30 @@ Things to know:
   Razer devices and your exclusions on.
 - The app's Settings page shows the connection: connected with the number of devices, waiting for the
   server, or the error.
+
+### Programs that light PC parts
+
+Some programs light parts of the PC themselves. While one of them runs, uncoil leaves it the devices it
+claims, in both modes, and lights them again a few seconds after it quits:
+
+| Program | Seen as | Leaves it |
+|---|---|---|
+| Corsair iCUE | `iCUE.exe` | Corsair devices, and all RAM (iCUE writes the bus every stick shares) |
+| ASUS Armoury Crate | `LightingService.exe` | ASUS devices and RAM. Its lighting service runs whenever Armoury Crate is installed. |
+| MSI Mystic Light | `LEDKeeper2.exe` | MSI devices |
+| SignalRGB | `SignalRgb.exe` | everything |
+
+The app's PC page lists those devices under **Run by other software**, with the program that has them. In
+live mode uncoil stops sending them frames, and the **uncoil-openrgb** task restarts OpenRGB with the
+detectors that find them turned off, so OpenRGB lets go of them too (the PC's other lights pause for a second
+or two). When the program quits, the detectors go back on and OpenRGB restarts again. Both wait for two
+looks a couple of seconds apart, so a program that is starting up causes one restart, not several.
+
+Detectors are matched by name: one starting with the make ("Corsair …", "ASUS …"), and for RAM any with
+"DRAM" in its name. A GPU detector names only its card, so a GPU from another make keeps its detector even
+when its program holds it; uncoil still doesn't send it frames. A program that isn't listed here, or one
+that lights more than its own make (iCUE with its motherboard plugin, say), is not noticed: use `exclude`
+for those devices.
 
 ## The app's own settings
 

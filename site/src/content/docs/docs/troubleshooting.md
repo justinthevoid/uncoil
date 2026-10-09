@@ -96,10 +96,13 @@ The same applies to Fn shortcuts that stopped working: in normal mode the firmwa
   device it knows, including the ones you left to iCUE. uncoil shows "Another OpenRGB is running besides
   uncoil's own" when it sees one. In an elevated PowerShell, `Stop-Service OpenRGB` then
   `Set-Service OpenRGB -StartupType Manual`. To give the whole case to iCUE, set `openrgb.mode` to `"off"`.
-- **iCUE:** RAM lighting shares the SMBus with iCUE, so uncoil skips the RAM, in both OpenRGB modes, while
-  iCUE is running (live mode looks every few seconds, so it lets go of the RAM soon after iCUE starts). To give iCUE a Corsair device that
-  OpenRGB drives, such as an iCUE Link hub, choose it on the app's PC page and pick **Leave it to its own
-  software** (or add its name to `openrgb.live.exclude`): OpenRGB restarts without it and iCUE takes over.
+- **iCUE, Armoury Crate, Mystic Light:** while one of them runs, uncoil leaves it the devices it lights itself
+  (iCUE: Corsair devices and all RAM, which shares the SMBus), in both OpenRGB modes, and takes them back a
+  few seconds after it quits; the PC page lists them under **Run by other software** (see
+  [Programs that light PC parts](/docs/configuration/#programs-that-light-pc-parts)). In live mode OpenRGB
+  also restarts without those devices, so iCUE can take an iCUE Link hub back. For a device the program
+  lights but uncoil can't tell is its (iCUE driving an ASUS board through its plugin), choose it on the PC
+  page and pick **Leave it to its own software** (or add its name to `openrgb.live.exclude`).
 
 ## Lighting around display sleep
 

@@ -193,8 +193,17 @@ export interface OpenRgbStatus {
 	detail: string | null;
 	/** `id` is `openrgb:<slug>`, the id the desk uses. */
 	devices: OpenRgbDevice[];
+	/** Devices left to a program that lights them itself while it runs (iCUE, Armoury Crate). Missing from older engines. */
+	held?: OpenRgbHeld[];
 	/** The OpenRGB server was started by uncoil's own task. */
 	ours: boolean;
+}
+
+/** A device OpenRGB lists that uncoil leaves to another program right now (`uncoil_core::ipc::OpenRgbHeld`). */
+export interface OpenRgbHeld {
+	name: string;
+	/** The program that has it ("Corsair iCUE"). */
+	by: string;
 }
 
 export interface UnknownDevice {

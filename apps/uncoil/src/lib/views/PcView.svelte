@@ -18,6 +18,8 @@
 	onMount(() => preview.start());
 
 	const devices = $derived(app.status?.openrgb?.devices ?? []);
+	// devices a running program (iCUE, Armoury Crate) lights itself; uncoil takes them back when it quits
+	const held = $derived(app.status?.openrgb?.held ?? []);
 	const parts = $derived(pcParts(devices));
 	const live = $derived(app.status?.openrgb?.state === 'connected');
 
@@ -62,6 +64,11 @@
 		<div class="stage-pc device-finish">
 			<PcInterior {parts} {color} {selected} onselect={(id) => (selected = selected === id ? null : id)} />
 		</div>
+	{:else if held.length}
+		<div class="empty">
+			<h2 class="section-title">Other software has the PC's lighting</h2>
+			<p>Everything OpenRGB found is lit by {[...new Set(held.map((h) => h.by))].join(' and ')} right now. uncoil lights it again a few seconds after that quits.</p>
+		</div>
 	{:else}
 		<div class="empty">
 			<h2 class="section-title">No PC lighting yet</h2>
@@ -87,8 +94,19 @@
 			</div>
 		{:else if devices.length}
 			<p class="note">{live ? `${devices.length} ${devices.length === 1 ? 'device' : 'devices'} through OpenRGB. Click a part to see what it is.` : 'OpenRGB is not connected right now; the parts are what it reported last.'}</p>
-		{:else}
+		{:else if !held.length}
 			<p class="note">Nothing from OpenRGB yet.</p>
+		{/if}
+		{#if held.length}
+			<section class="left" aria-labelledby="held-title">
+				<h2 id="held-title" class="section-title">Run by other software</h2>
+				<ul>
+					{#each held as h, i (i)}
+						<li><span>{h.name}</span><span class="n">{h.by} has it</span></li>
+					{/each}
+				</ul>
+				<p class="note">uncoil leaves these alone while that program runs, and lights them again a few seconds after it quits.</p>
+			</section>
 		{/if}
 		{#if excluded.length}
 			<section class="left" aria-labelledby="left-title">

@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 use uncoil_core::config::{Config, OpenRgbDevice, OpenRgbLive, OpenRgbMode};
+use uncoil_core::owners::{self, Owner, Part};
 
 const OPENRGB: &str = r"C:\Program Files\OpenRGB\OpenRGB.exe";
 
@@ -71,22 +72,29 @@ fn prerequisites() -> Result<(&'static Path, PathBuf), String> {
 }
 
 /// The OpenRGB arguments for these targets: `--noautoconnect --config DIR` and one `-d NAME -m MODE` pair
-/// per target. Entries that are not plain names are left out (and named in the returned problems); RAM
-/// entries are left out while iCUE runs.
-fn arguments(devices: &[OpenRgbDevice], config: &Path, icue: bool) -> (Vec<String>, Vec<String>) {
+/// per target. Entries that are not plain names are left out (and named in the returned problems), and so
+/// are entries a running program lights itself (`uncoil_core::owners`; RAM entries count as RAM, which
+/// shares the SMBus with every stick), named in the third list with who has them.
+fn arguments<S: AsRef<str>>(
+    devices: &[OpenRgbDevice],
+    config: &Path,
+    processes: &[S],
+) -> (Vec<String>, Vec<String>, Vec<String>) {
     let mut args = vec!["--noautoconnect".to_string(), "--config".into(), config.display().to_string()];
-    let mut problems = vec![];
+    let (mut problems, mut held) = (vec![], vec![]);
     for d in devices {
         if let Some(p) = d.problem() {
             problems.push(p);
             continue;
         }
-        if d.ram && icue {
+        let part = Part { kind: if d.ram { "dram" } else { "other" }, name: &d.name, vendor: "" };
+        if let Some(o) = owners::holder(owners::shipped(), processes, part) {
+            held.push(format!("{} ({} has it)", d.name, o.name));
             continue;
         }
         args.extend(["-d".into(), d.name.clone(), "-m".into(), d.mode.clone()]);
     }
-    (args, problems)
+    (args, problems, held)
 }
 
 /// Run the hardware hand-off once. `Ok` carries a summary for the log; `Err` says why nothing (or not
@@ -96,19 +104,17 @@ pub fn hand_off(cfg: &Config) -> Result<String, String> {
         return Err("no devices in openrgb.devices; nothing to hand off".into());
     }
     let (exe, dir) = prerequisites()?;
-    // RAM shares the SMBus with iCUE; never write it while iCUE is running.
-    let icue = running("iCUE.exe");
-    let (args, problems) = arguments(&cfg.openrgb.devices, &dir, icue);
+    let (args, problems, held) = arguments(&cfg.openrgb.devices, &dir, &crate::conflicts::process_names());
     if args.len() == 3 {
-        return Err(format!("nothing to hand off ({})", problems.join("; ")));
+        let why: Vec<String> = problems.into_iter().chain(held).collect();
+        return Err(format!("nothing to hand off ({})", why.join("; ")));
     }
     close_running_openrgb();
     let o = command(exe).args(&args).output().map_err(|e| format!("OpenRGB did not start: {e}"))?;
-    let mut summary = format!(
-        "OpenRGB hand-off applied (exit {:?}, RAM {})",
-        o.status.code(),
-        if icue { "skipped: iCUE running" } else { "included" }
-    );
+    let mut summary = format!("OpenRGB hand-off applied (exit {:?})", o.status.code());
+    for h in held {
+        summary.push_str(&format!("; left {h}"));
+    }
     for p in problems {
         summary.push_str(&format!("; skipped {p}"));
     }
@@ -133,10 +139,10 @@ const EXCLUDED: &str = "uncoil_excluded_detectors";
 
 /// OpenRGB's `OpenRGB.json` for live mode: whatever is there already, plus every Razer detector off (uncoil
 /// drives those devices itself), every detector whose name `openrgb.live.exclude` matches off (so OpenRGB
-/// never opens that device and its own software, such as iCUE, keeps it), and the server on 127.0.0.1 at
-/// the port. OpenRGB writes its full detector list into the file on its first run; before that there is
-/// nothing to match.
-fn settings(existing: Option<&str>, live: &OpenRgbLive) -> serde_json::Value {
+/// never opens that device and its own software, such as iCUE, keeps it), likewise every detector a running
+/// program in `holding` claims (`uncoil_core::owners`), and the server on 127.0.0.1 at the port. OpenRGB
+/// writes its full detector list into the file on its first run; before that there is nothing to match.
+fn settings(existing: Option<&str>, live: &OpenRgbLive, holding: &[&Owner]) -> serde_json::Value {
     use serde_json::{json, Map, Value};
     let mut root = existing.and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object);
     let root = root.get_or_insert_with(|| json!({}));
@@ -161,7 +167,8 @@ fn settings(existing: Option<&str>, live: &OpenRgbLive) -> serde_json::Value {
     }
     let mut excluded = Vec::new();
     for (name, on) in list.iter_mut() {
-        if *on == Value::Bool(true) && live.excludes(name) && !razer.contains(&name.as_str()) {
+        let wanted_off = live.excludes(name) || holding.iter().any(|o| o.claims_detector(name));
+        if *on == Value::Bool(true) && wanted_off && !razer.contains(&name.as_str()) {
             *on = Value::Bool(false);
             excluded.push(Value::String(name.clone()));
         }
@@ -185,10 +192,10 @@ fn settings(existing: Option<&str>, live: &OpenRgbLive) -> serde_json::Value {
 
 /// Write `OpenRGB.json` into the admin-only folder (elevated: no links, no hard-linked files). `Ok(true)` when
 /// it changed.
-fn write_settings(dir: &Path, live: &OpenRgbLive) -> Result<bool, String> {
+fn write_settings(dir: &Path, live: &OpenRgbLive, holding: &[&Owner]) -> Result<bool, String> {
     let path = dir.join("OpenRGB.json");
     let existing = std::fs::read_to_string(&path).ok();
-    let new = settings(existing.as_deref(), live);
+    let new = settings(existing.as_deref(), live, holding);
     if existing.as_deref().and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok()).as_ref() == Some(&new) {
         return Ok(false);
     }
@@ -205,8 +212,15 @@ fn write_settings(dir: &Path, live: &OpenRgbLive) -> Result<bool, String> {
     Ok(true)
 }
 
-/// How often the server task looks at `config.json` for new exclusions or a new port.
+/// How often the server task looks at `config.json` for new exclusions or a new port, and at the running
+/// programs that light PC parts themselves.
 const WATCH: Duration = Duration::from_secs(2);
+
+/// The programs in `uncoil_core::owners` running now (one process snapshot), in table order.
+fn running_owners() -> Vec<&'static Owner> {
+    let processes = crate::conflicts::process_names();
+    owners::shipped().iter().filter(|o| o.running(&processes)).collect()
+}
 
 /// Why not to start a server while an OpenRGB that [`close_running_openrgb`] could not close still runs.
 const ANOTHER_OPENRGB: &str = "another OpenRGB is still running (OpenRGB's own Windows service, or another \
@@ -214,15 +228,20 @@ const ANOTHER_OPENRGB: &str = "another OpenRGB is still running (OpenRGB's own W
      the OpenRGB service to Manual";
 
 /// Live mode: start OpenRGB as uncoil's SDK server and wait while it runs. When `openrgb.live` changes in a
-/// way that changes OpenRGB's settings (an exclusion that turns a detector off or on, a new port), OpenRGB is
-/// restarted with them: a detector only takes effect when OpenRGB starts. When `openrgb.mode` leaves `live`,
-/// OpenRGB is closed and this returns `Ok`, so the devices are free for their own software. `Ok` also when
-/// it ran and exited cleanly; `Err` says why it did not start or how it ended.
+/// way that changes OpenRGB's settings (an exclusion that turns a detector off or on, a new port), or a
+/// program that lights PC parts itself starts or quits (seen on two looks in a row, so one starting up
+/// restarts OpenRGB once), OpenRGB is restarted with them: a detector only takes effect when OpenRGB starts.
+/// When `openrgb.mode` leaves `live`, OpenRGB is closed and this returns `Ok`, so the devices are free for
+/// their own software. `Ok` also when it ran and exited cleanly; `Err` says why it did not start or how it
+/// ended.
 pub fn serve(cfg: &Config) -> Result<(), String> {
     let mut live = cfg.openrgb_live();
     live.valid_port().ok_or("openrgb.live.port must be 1024-65535")?;
     let (exe, dir) = prerequisites()?;
-    write_settings(&dir, &live)?;
+    let mut holding = running_owners();
+    // programs seen on the last look when they differed from `holding`, waiting for a second look to agree
+    let mut changing: Option<Vec<&Owner>> = None;
+    write_settings(&dir, &live, &holding)?;
     close_running_openrgb();
     if running("OpenRGB.exe") {
         return Err(ANOTHER_OPENRGB.into());
@@ -249,12 +268,17 @@ pub fn serve(cfg: &Config) -> Result<(), String> {
                 let _ = child.wait();
                 return Ok(());
             }
-            let next = now.openrgb_live();
-            if next == live || next.valid_port().is_none() {
+            let next = Some(now.openrgb_live()).filter(|n| n.valid_port().is_some()).unwrap_or_else(|| live.clone());
+            let seen = running_owners();
+            let agreed = seen == holding || changing.as_ref() == Some(&seen);
+            changing = (!agreed).then(|| seen.clone());
+            let next_holding = if agreed { seen } else { holding.clone() };
+            if next == live && next_holding == holding {
                 continue;
             }
             live = next;
-            if write_settings(&dir, &live)? {
+            holding = next_holding;
+            if write_settings(&dir, &live, &holding)? {
                 break None;
             }
         };
@@ -262,7 +286,11 @@ pub fn serve(cfg: &Config) -> Result<(), String> {
             Some(s) if s.success() => return Ok(()),
             Some(s) => return Err(format!("OpenRGB's SDK server ended (exit {:?})", s.code())),
             None => {
-                eprintln!("uncoild --openrgb-once: openrgb.live changed OpenRGB's settings; restarting it");
+                let names: Vec<&str> = holding.iter().map(|o| o.name.as_str()).collect();
+                eprintln!(
+                    "uncoild --openrgb-once: OpenRGB's settings changed (left to other programs: {}); restarting it",
+                    if names.is_empty() { "none".into() } else { names.join(", ") }
+                );
                 let _ = child.kill();
                 let _ = child.wait();
             }
@@ -413,7 +441,8 @@ mod tests {
             dev("Vengeance", "rainbow wave", true),
         ];
         let dir = Path::new(r"C:\ProgramData\uncoil\openrgb");
-        let (args, problems) = arguments(&list, dir, false);
+        let (args, problems, held) = arguments(&list, dir, &["explorer.exe"]);
+        assert!(held.is_empty());
         assert_eq!(
             args,
             [
@@ -431,9 +460,13 @@ mod tests {
             ]
         );
         assert_eq!(problems.len(), 1);
-        // RAM waits while iCUE runs
-        let (args, _) = arguments(&list, dir, true);
+        // RAM waits while iCUE runs, and ASUS devices while Armoury Crate's lighting service does
+        let (args, _, held) = arguments(&list, dir, &["iCUE.exe"]);
         assert!(!args.contains(&"Vengeance".to_string()));
+        assert_eq!(held, ["Vengeance (Corsair iCUE has it)"]);
+        let (args, _, held) = arguments(&list, dir, &["lightingservice.exe"]);
+        assert_eq!(args.len(), 3, "{args:?}");
+        assert_eq!(held, ["ASUS ROG STRIX (ASUS Armoury Crate has it)", "Vengeance (ASUS Armoury Crate has it)"]);
     }
 
     #[test]
@@ -466,7 +499,7 @@ mod tests {
     fn live_settings_turn_razer_detectors_off_and_keep_the_rest() {
         let old = r#"{"Detectors": {"detectors": {"Razer Blackwidow 2019": true, "ASUS Aura": true}},
                       "Server": {"default_host": "0.0.0.0", "legacy_workaround": true}, "Theme": {"theme": "dark"}}"#;
-        let s = settings(Some(old), &OpenRgbLive { port: 6800, ..OpenRgbLive::default() });
+        let s = settings(Some(old), &OpenRgbLive { port: 6800, ..OpenRgbLive::default() }, &[]);
         let d = &s["Detectors"]["detectors"];
         assert_eq!(d["Razer Blackwidow 2019"], false);
         assert_eq!(d["ASUS Aura"], true, "other detectors are left as they were");
@@ -477,7 +510,7 @@ mod tests {
         assert_eq!(s["Theme"]["theme"], "dark");
         // nothing or junk there: a fresh file
         for existing in [None, Some("not json"), Some("[1, 2]")] {
-            let s = settings(existing, &OpenRgbLive::default());
+            let s = settings(existing, &OpenRgbLive::default(), &[]);
             assert_eq!(s["Detectors"]["detectors"]["Razer Blackwidow 2019"], false);
             assert_eq!(s["Server"]["default_host"], "127.0.0.1");
         }
@@ -488,16 +521,16 @@ mod tests {
         let old = r#"{"Detectors": {"detectors": {"Corsair iCUE Link System Hub": true,
                       "Corsair Vengeance RGB DRAM": true, "ASUS Aura Motherboard": true, "Corsair Lighting Node": false}}}"#;
         let hub = OpenRgbLive { exclude: vec!["corsair icue link system hub".into()], ..OpenRgbLive::default() };
-        let s = settings(Some(old), &hub);
+        let s = settings(Some(old), &hub, &[]);
         let d = &s["Detectors"]["detectors"];
         assert_eq!(d["Corsair iCUE Link System Hub"], false);
         assert_eq!(d["Corsair Vengeance RGB DRAM"], true);
         assert_eq!(s["Detectors"][EXCLUDED], serde_json::json!(["Corsair iCUE Link System Hub"]));
         // the same settings again change nothing
-        assert_eq!(settings(Some(&s.to_string()), &hub), s);
+        assert_eq!(settings(Some(&s.to_string()), &hub, &[]), s);
         // a wider exclusion: every Corsair detector that was on, but not the Razer ones
         let corsair = OpenRgbLive { exclude: vec!["Corsair".into(), "razer".into()], ..OpenRgbLive::default() };
-        let s = settings(Some(&s.to_string()), &corsair);
+        let s = settings(Some(&s.to_string()), &corsair, &[]);
         let d = &s["Detectors"]["detectors"];
         assert_eq!(
             (&d["Corsair iCUE Link System Hub"], &d["Corsair Vengeance RGB DRAM"]),
@@ -507,7 +540,7 @@ mod tests {
         let excluded = s["Detectors"][EXCLUDED].as_array().unwrap();
         assert_eq!(excluded.len(), 2, "{excluded:?}");
         // no exclusions: what uncoil turned off is on again, and the one the user turned off stays off
-        let s = settings(Some(&s.to_string()), &OpenRgbLive::default());
+        let s = settings(Some(&s.to_string()), &OpenRgbLive::default(), &[]);
         let d = &s["Detectors"]["detectors"];
         assert_eq!(
             (&d["Corsair iCUE Link System Hub"], &d["Corsair Vengeance RGB DRAM"]),
@@ -516,6 +549,31 @@ mod tests {
         assert_eq!(d["Corsair Lighting Node"], false);
         assert_eq!(d["Razer Blackwidow 2019"], false);
         assert!(s["Detectors"].get(EXCLUDED).is_none());
+    }
+
+    #[test]
+    fn a_running_program_gets_its_detectors_off_until_it_quits() {
+        let old = r#"{"Detectors": {"detectors": {"Corsair iCUE Link System Hub": true, "Corsair DRAM": true,
+                      "Kingston Fury DDR5 DRAM": true, "ASUS Aura Motherboard": true, "ASUS Aura Addressable": true,
+                      "Corsair Lighting Node": false}}}"#;
+        let icue: Vec<&Owner> = owners::shipped().iter().filter(|o| o.name == "Corsair iCUE").collect();
+        let pump = OpenRgbLive { exclude: vec!["ASUS Aura Addressable".into()], ..OpenRgbLive::default() };
+        let s = settings(Some(old), &pump, &icue);
+        let d = &s["Detectors"]["detectors"];
+        for off in ["Corsair iCUE Link System Hub", "Corsair DRAM", "Kingston Fury DDR5 DRAM", "ASUS Aura Addressable"]
+        {
+            assert_eq!(d[off], false, "{off}");
+        }
+        assert_eq!(d["ASUS Aura Motherboard"], true);
+        assert_eq!(s["Detectors"][EXCLUDED].as_array().unwrap().len(), 4);
+        // iCUE quits: its detectors come back, the exclusion stays, and the one the user turned off stays off
+        let s = settings(Some(&s.to_string()), &pump, &[]);
+        let d = &s["Detectors"]["detectors"];
+        for on in ["Corsair iCUE Link System Hub", "Corsair DRAM", "Kingston Fury DDR5 DRAM", "ASUS Aura Motherboard"] {
+            assert_eq!(d[on], true, "{on}");
+        }
+        assert_eq!((&d["ASUS Aura Addressable"], &d["Corsair Lighting Node"]), (&false.into(), &false.into()));
+        assert_eq!(s["Detectors"][EXCLUDED], serde_json::json!(["ASUS Aura Addressable"]));
     }
 
     #[cfg(windows)]

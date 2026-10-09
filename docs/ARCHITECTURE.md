@@ -392,8 +392,24 @@ Only one OpenRGB may hold the devices. The task closes an OpenRGB in the user's 
 own, but OpenRGB's own Windows service runs in session 0, out of reach; if any OpenRGB is still running then,
 the task fails (result 2) instead of starting a second server on the same port. The daemon drives a server
 only while uncoil's marker exists (`openrgb::ours`), and the conflict check flags a second `OpenRGB.exe`
-beside uncoil's. While OpenRGB lists RAM, the client looks for `iCUE.exe` every 3 s (one process snapshot)
-and plans again when that changes, so RAM is let go soon after iCUE starts.
+beside uncoil's.
+
+**Owners** (`uncoil_core::owners`, data in `crates/uncoil-core/owners.toml`) are programs that light PC parts
+themselves: each names its executables and claims devices by OpenRGB type (`dram`), by part of the name or
+vendor, or everything. iCUE claims Corsair devices and all RAM (it writes the SMBus every stick shares),
+Armoury Crate's `LightingService.exe` ASUS devices and RAM, MSI's `LEDKeeper2.exe` MSI devices, SignalRGB
+everything. Only executable names seen on a real PC or in a published source go in, with where from. The
+live client looks at the running processes every 3 s (one Toolhelp snapshot) and works out who holds each
+controller; when that changes and the next look agrees, it plans again, so a device is let go within about
+6 s of its program starting and taken back as quickly after it quits. Held devices are listed in
+`status.openrgb.held` with the program's name. The hardware hand-off skips held entries the same way.
+
+The elevated task does the same from its side every 2 s: the detectors a running owner claims
+(`Owner::claims_detector`: its names in the detector's name, `dram` as "DRAM", `motherboard` as
+"Motherboard"; a GPU detector names only its card) are turned off with the exclusions, recorded in the same
+`uncoil_excluded_detectors` list, and OpenRGB restarts, so it lets go of the devices; when the owner quits
+they go back on. It too acts only when two looks in a row agree. Devices whose detector went off drop out of
+OpenRGB's list, so the client keeps the ones it saw held while their owner runs (`carry_over`).
 
 **The client** (`crates/uncoil-openrgb`) is written from the protocol facts in OpenRGB's `OpenRGBSDK.md` and
 `NetworkProtocol.h`, std only. It asks for protocol version 5 at most (version 6 adds acknowledgements and
@@ -416,8 +432,7 @@ live mode off drops the connection and sends nothing more, so the PC's lights st
 It drives every OpenRGB device except Razer ones (name or vendor containing "Razer", which also covers
 products such as the Lian Li O11 Dynamic Razer Edition case; uncoil's server has those detectors off
 anyway), hidden ones, ones without LEDs, names matched by
-`openrgb.live.exclude` (part of the name, any case), and RAM while Corsair iCUE runs (both would write the
-SMBus).
+`openrgb.live.exclude` (part of the name, any case), and devices a running owner holds (above).
 
 **On the desk** each driven device becomes a desk device with id `openrgb:<slug of its name>` (`-2`, `-3`
 for duplicates) and kind `other`, built from its OpenRGB zones (`layout::external_def`): zones sit side by
