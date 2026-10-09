@@ -37,6 +37,18 @@
 	const chosen = $derived(devices.find((d) => d.id === selected) ?? null);
 	const WHAT: Record<PartKind, string> = { ram: 'Memory', gpu: 'Graphics card', board: 'Motherboard', fan: 'Fan', pump: 'Cooler pump', radiator: 'Radiator', other: 'Other lighting' };
 	const chosenParts = $derived(parts.filter((p) => p.device === selected));
+
+	// `openrgb.live.exclude`: devices left to their own software. The daemon stops lighting them, and uncoil's
+	// OpenRGB turns off the detector by that name where there is one, so their own app can take them back.
+	const excluded = $derived(config.openrgb?.live?.exclude ?? []);
+	function setExcluded(exclude: string[]) {
+		const o = config.openrgb ?? { devices: [] };
+		config.openrgb = { ...o, live: { port: o.live?.port ?? 6742, exclude } };
+	}
+	function leave(name: string) {
+		if (!excluded.some((e) => e.trim().toLowerCase() === name.toLowerCase())) setExcluded([...excluded, name]);
+		selected = null;
+	}
 </script>
 
 <Workspace title={pageTitle('pc')} subtitle="The lighting inside your PC that uncoil drives through OpenRGB, lit with the desk's effect. Where each part sits is a guess from its name." panelLabel="PC part">
@@ -68,11 +80,28 @@
 					{/each}
 				</ul>
 				<p class="note">Give it its own effect on Lighting: choose the PC there, or pick its lights on the desk.</p>
+				<div class="leave">
+					<button type="button" class="btn-quiet" onclick={() => leave(chosen.name)}>Leave it to its own software</button>
+					<p class="note">uncoil stops lighting it, and OpenRGB lets go of it where it can (it restarts, a second or two dark), so iCUE or the maker's app can take it back. Every device with this name goes.</p>
+				</div>
 			</div>
 		{:else if devices.length}
 			<p class="note">{live ? `${devices.length} ${devices.length === 1 ? 'device' : 'devices'} through OpenRGB. Click a part to see what it is.` : 'OpenRGB is not connected right now; the parts are what it reported last.'}</p>
 		{:else}
 			<p class="note">Nothing from OpenRGB yet.</p>
+		{/if}
+		{#if excluded.length}
+			<section class="left" aria-labelledby="left-title">
+				<h2 id="left-title" class="section-title">Left to their own software</h2>
+				<ul>
+					{#each excluded as name (name)}
+						<li>
+							<span>{name}</span>
+							<button type="button" class="btn-quiet" aria-label={`Light ${name} with uncoil again`} onclick={() => setExcluded(excluded.filter((e) => e !== name))}>Light it again</button>
+						</li>
+					{/each}
+				</ul>
+			</section>
 		{/if}
 	{/snippet}
 </Workspace>
@@ -117,6 +146,25 @@
 		padding: 6px 10px;
 		border-radius: var(--radius);
 		background: var(--color-surface);
+	}
+	.leave,
+	.left {
+		display: grid;
+		gap: 6px;
+	}
+	.leave {
+		justify-items: start;
+		padding-top: 10px;
+		border-top: var(--hair);
+	}
+	.left {
+		margin-top: 16px;
+	}
+	.left .section-title {
+		margin: 0;
+	}
+	.left li {
+		align-items: center;
 	}
 	.n {
 		color: var(--color-ink-3);

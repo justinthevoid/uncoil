@@ -7,6 +7,14 @@ may change config and device-file formats; such changes are called out under **C
 
 ## [Unreleased]
 
+### Added
+
+- **Leave a PC device to its own software.** On the app's PC page, choose a device and pick "Leave it to its
+  own software" (it lands in `openrgb.live.exclude`; "Light it again" undoes it). Besides no longer sending it
+  frames, uncoil's OpenRGB now turns off any detector whose name the exclusion matches and restarts, so
+  OpenRGB lets go of the device and iCUE (or the maker's app) can take it back, for example the iCUE Link
+  fans. Only detectors uncoil turned off are turned back on.
+
 ### Changed
 
 - **Website:** a new landing page, "Uncoiling". The desk's 113 real LEDs start wound into the uncoil spiral,

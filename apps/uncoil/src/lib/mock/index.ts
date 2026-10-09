@@ -29,11 +29,11 @@ function conflicts(): Conflict[] {
 /** Live OpenRGB follows the stored config: connected with a board, two sticks of RAM, a GPU and a fan hub
  * (four fans and an AIO pump) when the mode is live, or with `?openrgb=live` in the dev URL. */
 function openrgb(): OpenRgbStatus {
-	if (param('openrgb') !== 'live' && (stored ?? defaultConfig()).openrgb?.mode !== 'live') return { state: 'off', detail: null, devices: [], ours: false };
-	return {
-		state: 'connected',
-		detail: null,
-		devices: [
+	const config = stored ?? defaultConfig();
+	if (param('openrgb') !== 'live' && config.openrgb?.mode !== 'live') return { state: 'off', detail: null, devices: [], ours: false };
+	// `openrgb.live.exclude`, as the daemon reads it: part of the name, any case
+	const exclude = (config.openrgb?.live?.exclude ?? []).map((e) => e.trim().toLowerCase()).filter(Boolean);
+	const devices: OpenRgbDevice[] = [
 			{ id: 'openrgb:asus-rog-strix-b550-f-gaming', name: 'ASUS ROG STRIX B550-F GAMING', leds: 8, zones: [{ name: 'Aura Mainboard', kind: 'linear', leds: 8 }, { name: 'Addressable RGB Header 1', kind: 'linear', leds: 0 }] },
 			{ id: 'openrgb:corsair-vengeance-pro-rgb', name: 'Corsair Vengeance Pro RGB', leds: 10, zones: [{ name: 'Corsair DRAM', kind: 'linear', leds: 10 }] },
 			{ id: 'openrgb:corsair-vengeance-pro-rgb-2', name: 'Corsair Vengeance Pro RGB', leds: 10, zones: [{ name: 'Corsair DRAM', kind: 'linear', leds: 10 }] },
@@ -47,9 +47,8 @@ function openrgb(): OpenRgbStatus {
 					{ name: 'iCUE LINK COOLER PUMP LCD', kind: 'linear', leds: 24 }
 				]
 			}
-		],
-		ours: true
-	};
+	];
+	return { state: 'connected', detail: null, devices: devices.filter((d) => !exclude.some((e) => d.name.toLowerCase().includes(e))), ours: true };
 }
 
 function status(): Status {

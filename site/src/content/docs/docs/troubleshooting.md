@@ -91,8 +91,9 @@ The same applies to Fn shortcuts that stopped working: in normal mode the firmwa
   OpenRGB's instructions. A device missing from the PC column may be excluded by `openrgb.live.exclude`,
   hidden in OpenRGB, or have "Razer" in its name or vendor (those are always left to uncoil).
 - **iCUE:** RAM lighting shares the SMBus with iCUE, so uncoil skips the RAM, in both OpenRGB modes, while
-  iCUE is running (live mode checks when it connects to OpenRGB). Corsair devices themselves are iCUE's
-  business.
+  iCUE is running (live mode checks when it connects to OpenRGB). To give iCUE a Corsair device that
+  OpenRGB drives, such as an iCUE Link hub, choose it on the app's PC page and pick **Leave it to its own
+  software** (or add its name to `openrgb.live.exclude`): OpenRGB restarts without it and iCUE takes over.
 
 ## Lighting around display sleep
 

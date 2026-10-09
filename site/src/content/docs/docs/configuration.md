@@ -299,11 +299,21 @@ OpenRGB option.
 | Key | Default | Meaning |
 |---|---|---|
 | `live.port` | `6742` | The SDK server's port on `127.0.0.1`, 1024–65535. The task starts OpenRGB on it and the daemon connects to it. |
-| `live.exclude` | `[]` | OpenRGB devices to leave alone: any whose name contains one of these, ignoring case. |
+| `live.exclude` | `[]` | OpenRGB devices to leave to their own software: any whose name contains one of these, ignoring case. The app's PC page adds and removes them ("Leave it to its own software"). |
 
 uncoil drives every device OpenRGB finds except Razer devices (anything with "Razer" in its name or vendor,
 so also products like the Lian Li O11 Dynamic Razer Edition case), hidden ones, ones with no LEDs, the ones
 `exclude` matches, and RAM while iCUE runs. The OpenRGB it starts has every Razer detector turned off.
+
+`exclude` also turns off every OpenRGB detector whose name it matches, so OpenRGB doesn't open those devices
+at all and their own software can take them back: excluding `"Corsair iCUE Link System Hub"` hands the
+iCUE Link fans and pump back to iCUE. Detector names are often, not always, the device's name (a motherboard
+is usually found by a detector such as "ASUS Aura Motherboard"); a device with no matching detector is just
+not sent frames, and keeps the colour it last had until something else sets it. When an exclusion turns a
+detector off or back on, the **uncoil-openrgb** task restarts OpenRGB within a couple of seconds, so the
+PC's lights pause briefly. uncoil turns back on only the detectors it turned off; ones you turned off in
+OpenRGB stay off. OpenRGB lists its detectors in its settings file on its first run, so there is nothing to
+match before that.
 
 The devices appear on the [desk](#desk) as a "PC" column left of the keyboard, in the order motherboards,
 RAM, GPUs, the rest, so the effect reaches them the way it reaches a mouse or a mat. Move them with `desk` if

@@ -380,6 +380,14 @@ elevated `uncoil-openrgb` task (`openrgb.rs`) writes OpenRGB's settings (every R
 on `127.0.0.1` at `openrgb.live.port`, 6742 by default) and starts OpenRGB as an SDK server bound to
 `127.0.0.1`, in a job that ends it when the task ends. The daemon connects to it as a client.
 
+`openrgb.live.exclude` also turns off each detector in OpenRGB's own list (`Detectors.detectors`, which
+OpenRGB fills on its first run) whose name it matches, so OpenRGB never opens that device and its own
+software (iCUE for an iCUE Link hub) keeps it; the names turned off are recorded in
+`Detectors.uncoil_excluded_detectors` and turned back on when the exclusion goes, never touching one the user
+turned off. Detectors only take effect when OpenRGB starts, so the task looks at `config.json` every 2 s and
+restarts OpenRGB when `openrgb.live` changes the settings file (an exclusion that moves a detector, a new
+port); other edits restart nothing.
+
 **The client** (`crates/uncoil-openrgb`) is written from the protocol facts in OpenRGB's `OpenRGBSDK.md` and
 `NetworkProtocol.h`, std only. It asks for protocol version 5 at most (version 6 adds acknowledgements and
 unique controller ids, which a lighting client doesn't need) and uses the packets
