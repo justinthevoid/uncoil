@@ -411,6 +411,12 @@ The elevated task does the same from its side every 2 s: the detectors a running
 they go back on. It too acts only when two looks in a row agree. Devices whose detector went off drop out of
 OpenRGB's list, so the client keeps the ones it saw held while their owner runs (`carry_over`).
 
+`openrgb.live.pins` override the table per device (`owners::holder_pinned`, and `detector_held` for
+detectors by the same name rule): the first pin whose `match` is part of the name decides, `"uncoil"` meaning
+nobody holds it and a program's name meaning that program while it runs; a pin naming a program not in the
+table is ignored. `status.openrgb.programs` lists the table's names for the app's "Who lights it" choice; the
+browser mock's copy (`mock/programs.ts`) is checked against it by `check-mirror.mjs`.
+
 **The client** (`crates/uncoil-openrgb`) is written from the protocol facts in OpenRGB's `OpenRGBSDK.md` and
 `NetworkProtocol.h`, std only. It asks for protocol version 5 at most (version 6 adds acknowledgements and
 unique controller ids, which a lighting client doesn't need) and uses the packets

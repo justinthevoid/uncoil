@@ -140,7 +140,8 @@ const EXCLUDED: &str = "uncoil_excluded_detectors";
 /// OpenRGB's `OpenRGB.json` for live mode: whatever is there already, plus every Razer detector off (uncoil
 /// drives those devices itself), every detector whose name `openrgb.live.exclude` matches off (so OpenRGB
 /// never opens that device and its own software, such as iCUE, keeps it), likewise every detector a running
-/// program in `holding` claims (`uncoil_core::owners`), and the server on 127.0.0.1 at the port. OpenRGB
+/// program in `holding` has (`uncoil_core::owners`, with `openrgb.live.pins`), and the server on 127.0.0.1
+/// at the port. OpenRGB
 /// writes its full detector list into the file on its first run; before that there is nothing to match.
 fn settings(existing: Option<&str>, live: &OpenRgbLive, holding: &[&Owner]) -> serde_json::Value {
     use serde_json::{json, Map, Value};
@@ -167,7 +168,7 @@ fn settings(existing: Option<&str>, live: &OpenRgbLive, holding: &[&Owner]) -> s
     }
     let mut excluded = Vec::new();
     for (name, on) in list.iter_mut() {
-        let wanted_off = live.excludes(name) || holding.iter().any(|o| o.claims_detector(name));
+        let wanted_off = live.excludes(name) || owners::detector_held(owners::shipped(), holding, &live.pins, name);
         if *on == Value::Bool(true) && wanted_off && !razer.contains(&name.as_str()) {
             *on = Value::Bool(false);
             excluded.push(Value::String(name.clone()));
@@ -574,6 +575,18 @@ mod tests {
         }
         assert_eq!((&d["ASUS Aura Addressable"], &d["Corsair Lighting Node"]), (&false.into(), &false.into()));
         assert_eq!(s["Detectors"][EXCLUDED], serde_json::json!(["ASUS Aura Addressable"]));
+        // pins: the RAM detector stays on for uncoil, the ASUS board's goes off for iCUE
+        let pinned = OpenRgbLive {
+            pins: vec![
+                uncoil_core::config::OpenRgbPin { name: "Corsair DRAM".into(), to: "uncoil".into() },
+                uncoil_core::config::OpenRgbPin { name: "ASUS Aura Motherboard".into(), to: "Corsair iCUE".into() },
+            ],
+            ..OpenRgbLive::default()
+        };
+        let s = settings(Some(old), &pinned, &icue);
+        let d = &s["Detectors"]["detectors"];
+        assert_eq!((&d["Corsair DRAM"], &d["ASUS Aura Motherboard"]), (&true.into(), &false.into()));
+        assert_eq!(d["Kingston Fury DDR5 DRAM"], false, "unpinned RAM is still iCUE's");
     }
 
     #[cfg(windows)]

@@ -63,13 +63,32 @@ pub struct OpenRgbLive {
     pub port: u16,
     /// OpenRGB devices to leave alone: any whose name contains one of these (ignoring case).
     pub exclude: Vec<String>,
+    /// Who lights a device, overriding `uncoil_core::owners`: the first pin whose `match` is in the device's
+    /// name decides. Without one, a program in the owners table that claims the device and runs has it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pins: Vec<OpenRgbPin>,
 }
 
 impl Default for OpenRgbLive {
     fn default() -> Self {
-        OpenRgbLive { port: 6742, exclude: Vec::new() }
+        OpenRgbLive { port: 6742, exclude: Vec::new(), pins: Vec::new() }
     }
 }
+
+/// `openrgb.live.pins[]`, e.g. `{"match": "ASUS ROG STRIX", "to": "Corsair iCUE"}` (iCUE lights the board
+/// through its plugin, which the owners table can't know).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpenRgbPin {
+    /// Part of the device name as OpenRGB lists it, any case.
+    #[serde(rename = "match")]
+    pub name: String,
+    /// [`PIN_UNCOIL`]: uncoil lights it even while a program that claims it runs. A program's name from the
+    /// owners table ("Corsair iCUE"): that program has it while it runs, uncoil the rest of the time.
+    pub to: String,
+}
+
+/// `to` for a device uncoil always lights.
+pub const PIN_UNCOIL: &str = "uncoil";
 
 impl OpenRgbLive {
     /// The port, if it is one OpenRGB accepts (1024-65535).
@@ -93,7 +112,8 @@ pub struct OpenRgbDevice {
     pub name: String,
     /// OpenRGB mode name (passed to `-m`).
     pub mode: String,
-    /// RAM on the SMBus: skipped while Corsair iCUE runs, because both would write the same bus.
+    /// RAM on the SMBus: skipped while a program that lights RAM runs (`uncoil_core::owners`; iCUE writes
+    /// the same bus).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ram: bool,
 }
@@ -348,7 +368,7 @@ mod tests {
         assert_eq!(live.port, 6742);
         assert!(live.excludes("Corsair Vengeance Pro RGB"));
         assert!(!live.excludes("ASUS ROG STRIX B550-F GAMING (WI-FI)"));
-        assert_eq!(OpenRgbLive { port: 80, exclude: vec![] }.valid_port(), None);
+        assert_eq!(OpenRgbLive { port: 80, ..OpenRgbLive::default() }.valid_port(), None);
         assert_eq!(Config::default().openrgb_live(), OpenRgbLive::default());
     }
 

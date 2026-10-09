@@ -624,6 +624,9 @@ pub struct OpenRgbStatus {
     /// (`owners`); they come back when it quits.
     #[serde(default)]
     pub held: Vec<OpenRgbHeld>,
+    /// The programs in the owners table, by name: what a device can be pinned to (`openrgb.live.pins`).
+    #[serde(default)]
+    pub programs: Vec<String>,
     /// The SDK server was started by uncoil's own `uncoil-openrgb` task.
     #[serde(default)]
     pub ours: bool,

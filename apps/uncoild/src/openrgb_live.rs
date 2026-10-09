@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use uncoil_core::config::{OpenRgbLive, OpenRgbMode};
+use uncoil_core::config::{OpenRgbLive, OpenRgbMode, OpenRgbPin};
 use uncoil_core::device::DeviceDef;
 use uncoil_core::ipc::{OpenRgbDeviceStatus, OpenRgbHeld, OpenRgbState, OpenRgbStatus};
 use uncoil_core::layout::{self, ExternalZone, ZoneKind, ZoneMatrix};
@@ -50,10 +50,12 @@ struct State {
 }
 
 impl Live {
-    /// `status.openrgb`, with whether the running OpenRGB is uncoil's own.
+    /// `status.openrgb`, with whether the running OpenRGB is uncoil's own and the programs a device can be
+    /// pinned to.
     pub fn status(&self) -> OpenRgbStatus {
         let mut s = self.state.lock().unwrap().status.clone();
         s.ours = crate::openrgb::ours();
+        s.programs = owners::shipped().iter().map(|o| o.name.clone()).collect();
         s
     }
 
@@ -110,13 +112,13 @@ fn part_of(c: &Controller) -> PartOf {
     (c.kind, c.name.clone(), c.vendor.clone())
 }
 
-/// For each part, the running program that lights it itself, if any (`owners`).
-fn holders<S: AsRef<str>>(parts: &[PartOf], processes: &[S]) -> Vec<Option<String>> {
+/// For each part, the running program that lights it itself, if any (`owners`, with the user's pins).
+fn holders<S: AsRef<str>>(parts: &[PartOf], pins: &[OpenRgbPin], processes: &[S]) -> Vec<Option<String>> {
     parts
         .iter()
         .map(|(kind, name, vendor)| {
             let part = Part { kind: device_type::word(*kind), name, vendor };
-            owners::holder(owners::shipped(), processes, part).map(|o| o.name.clone())
+            owners::holder_pinned(owners::shipped(), pins, processes, part).map(|o| o.name.clone())
         })
         .collect()
 }
@@ -222,6 +224,7 @@ fn carry_over<S: AsRef<str>>(
     before: Vec<HeldPart>,
     listed: &[PartOf],
     held_now: Vec<HeldPart>,
+    pins: &[OpenRgbPin],
     processes: &[S],
 ) -> Vec<HeldPart> {
     let mut held = held_now;
@@ -229,7 +232,7 @@ fn carry_over<S: AsRef<str>>(
         if listed.contains(&part) {
             continue;
         }
-        if let Some(by) = holders(std::slice::from_ref(&part), processes).pop().flatten() {
+        if let Some(by) = holders(std::slice::from_ref(&part), pins, processes).pop().flatten() {
             held.push((part, OpenRgbHeld { by, ..h }));
         }
     }
@@ -247,7 +250,7 @@ fn connect(live: &OpenRgbLive) -> std::io::Result<(Connection, Vec<OpenRgbDevice
     }
     let controllers = client.controllers()?;
     let parts: Vec<PartOf> = controllers.iter().map(part_of).collect();
-    let holders = holders(&parts, &crate::conflicts::process_names());
+    let holders = holders(&parts, &live.pins, &crate::conflicts::process_names());
     let (planned, held) = plan(&controllers, live, &holders);
     let mut driven = Vec::new();
     for (index, status) in &planned {
@@ -348,7 +351,7 @@ fn run(shared: &Shared) {
         if start.duration_since(owners_checked) >= OWNER_CHECK {
             owners_checked = start;
             if let Some(c) = &conn {
-                let now = holders(&c.parts, &crate::conflicts::process_names());
+                let now = holders(&c.parts, &c.made_for.pins, &crate::conflicts::process_names());
                 if now == c.holders {
                     changing = None;
                 } else if changing.as_ref() == Some(&now) {
@@ -368,7 +371,7 @@ fn run(shared: &Shared) {
             match connect(&settings) {
                 Ok((c, devices, held_now)) => {
                     let processes = crate::conflicts::process_names();
-                    held = carry_over(std::mem::take(&mut held), &c.parts, held_now, &processes);
+                    held = carry_over(std::mem::take(&mut held), &c.parts, held_now, &c.made_for.pins, &processes);
                     let held: Vec<OpenRgbHeld> = held.iter().map(|(_, h)| h.clone()).collect();
                     let detail = connected_detail(devices.len(), &held);
                     live.set(OpenRgbState::Connected, Some(detail), Some((devices, held)));
@@ -498,7 +501,7 @@ mod tests {
         let live = OpenRgbLive { exclude: vec!["geforce".into()], ..OpenRgbLive::default() };
         let parts: Vec<PartOf> = pc.iter().map(part_of).collect();
         // iCUE running: both Corsair sticks are its; the Razer keyboard is never anyone's business but uncoil's
-        let icue = holders(&parts, &["iCUE.exe"]);
+        let icue = holders(&parts, &[], &["iCUE.exe"]);
         let (planned, held) = plan(&pc, &live, &icue);
         let ids: Vec<String> = planned.into_iter().map(|(_, s)| s.id).collect();
         assert_eq!(ids, ["openrgb:asus-rog-strix-b550-f-gaming-wi-fi", "openrgb:case-panel"]);
@@ -507,8 +510,28 @@ mod tests {
         let held: Vec<OpenRgbHeld> = held.into_iter().map(|(_, h)| h).collect();
         assert_eq!(connected_detail(2, &held), "Connected; driving 2 device(s); 2 left to Corsair iCUE.");
         // nothing running: nothing held
-        assert_eq!(holders(&parts, &["explorer.exe"]), nobody(&pc));
+        assert_eq!(holders(&parts, &[], &["explorer.exe"]), nobody(&pc));
         assert_eq!(connected_detail(5, &[]), "Connected; driving 5 device(s).");
+    }
+
+    #[test]
+    fn pins_move_devices_between_uncoil_and_a_program() {
+        let pc = pc();
+        let parts: Vec<PartOf> = pc.iter().map(part_of).collect();
+        let pins = [
+            OpenRgbPin { name: "ROG STRIX".into(), to: "Corsair iCUE".into() },
+            OpenRgbPin { name: "vengeance".into(), to: "uncoil".into() },
+        ];
+        let live = OpenRgbLive { pins: pins.to_vec(), ..OpenRgbLive::default() };
+        // iCUE running: it has the board (pinned), not the RAM (pinned to uncoil)
+        let (planned, held) = plan(&pc, &live, &holders(&parts, &pins, &["iCUE.exe"]));
+        let held: Vec<&str> = held.iter().map(|(_, h)| h.name.as_str()).collect();
+        assert_eq!(held, ["ASUS ROG STRIX B550-F GAMING (WI-FI)"]);
+        assert!(planned.iter().any(|(_, s)| s.id == "openrgb:corsair-vengeance-pro-rgb"));
+        // iCUE gone: uncoil lights the board again
+        let (planned, held) = plan(&pc, &live, &holders(&parts, &pins, &["explorer.exe"]));
+        assert!(held.is_empty());
+        assert_eq!(planned.len(), 5);
     }
 
     #[test]
@@ -517,11 +540,11 @@ mod tests {
         let board: PartOf = (0, "ASUS ROG STRIX B650E-F GAMING WIFI".into(), "ASUS".into());
         let held = |p: &PartOf| (p.clone(), OpenRgbHeld { name: p.1.clone(), by: "Corsair iCUE".into() });
         // iCUE took the hub; OpenRGB restarted without its detector, so only the board is listed now
-        let after = carry_over(vec![held(&hub)], std::slice::from_ref(&board), vec![], &["iCUE.exe"]);
+        let after = carry_over(vec![held(&hub)], std::slice::from_ref(&board), vec![], &[], &["iCUE.exe"]);
         assert_eq!(after, [held(&hub)]);
         // iCUE quit: the hub is back in OpenRGB's list (and driven), or gone for good; either way not held
-        assert!(carry_over(after.clone(), &[board.clone(), hub.clone()], vec![], &["iCUE.exe"]).is_empty());
-        assert!(carry_over(after, std::slice::from_ref(&board), vec![], &["explorer.exe"]).is_empty());
+        assert!(carry_over(after.clone(), &[board.clone(), hub.clone()], vec![], &[], &["iCUE.exe"]).is_empty());
+        assert!(carry_over(after, std::slice::from_ref(&board), vec![], &[], &["explorer.exe"]).is_empty());
     }
 
     #[test]

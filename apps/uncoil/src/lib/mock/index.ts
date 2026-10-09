@@ -9,6 +9,7 @@ import desk from './desk.json';
 import type { AppSettings, Config, Conflict, DeskDevice, OpenRgbDevice, OpenRgbStatus, PreviewPress, Shape, Status } from '../types';
 import { deskInputs, frameWith, hex } from '../effect';
 import { defaultConfig } from './config';
+import { PROGRAMS } from './programs';
 
 let stored: Config | null = null;
 let appSettings: AppSettings = { close_to_tray: false, start_in_tray: false, battery_notifications: true, battery_threshold: 20 };
@@ -50,12 +51,21 @@ function openrgb(): OpenRgbStatus {
 		}
 	];
 	const listed = devices.filter((d) => !exclude.some((e) => d.name.toLowerCase().includes(e)));
-	const icue = (d: OpenRgbDevice) => !!param('icue') && d.name.toLowerCase().includes('corsair');
+	// who has a device, as `owners::holder_pinned` decides: the first matching pin, else iCUE for Corsair parts
+	const running = param('icue') ? ['Corsair iCUE'] : [];
+	const pins = (config.openrgb?.live?.pins ?? []).filter((p) => p.match.trim());
+	const holder = (d: OpenRgbDevice): string | null => {
+		const pin = pins.find((p) => d.name.toLowerCase().includes(p.match.trim().toLowerCase()));
+		if (pin && pin.to.trim().toLowerCase() === 'uncoil') return null;
+		const by = pin && PROGRAMS.includes(pin.to) ? pin.to : d.name.toLowerCase().includes('corsair') ? 'Corsair iCUE' : null;
+		return by && running.includes(by) ? by : null;
+	};
 	return {
 		state: 'connected',
 		detail: null,
-		devices: listed.filter((d) => !icue(d)),
-		held: listed.filter(icue).map((d) => ({ name: d.name, by: 'Corsair iCUE' })),
+		devices: listed.filter((d) => !holder(d)),
+		held: listed.filter((d) => holder(d)).map((d) => ({ name: d.name, by: holder(d)! })),
+		programs: PROGRAMS,
 		ours: true
 	};
 }

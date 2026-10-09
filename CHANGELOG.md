@@ -22,6 +22,11 @@ may change config and device-file formats; such changes are called out under **C
   again. Changes wait for two looks in a row to agree, so a program starting up costs one OpenRGB restart.
   The PC page lists the devices under "Run by other software". This replaces the single "skip RAM while
   iCUE runs" rule, which also stays covered: iCUE claims all RAM.
+- **Who lights it, per PC device.** The PC page's new "Who lights it" choice pins a device: Automatic (the
+  table above decides), uncoil always (even while a program that claims it runs), or a program while it runs,
+  for when a program lights more than its own make, such as iCUE driving an ASUS motherboard through its
+  plugin. Pins are `openrgb.live.pins`; "Run by other software" rows get "Light it with uncoil", and a
+  "Your choices" list undoes pins.
 
 ### Fixed
 

@@ -11,7 +11,8 @@
 	import { pcParts, type PartKind } from '#lib/pc.ts';
 	import { deskInputs, frameWith, hex } from '#lib/effect.ts';
 	import { onTick } from '#lib/ticker.ts';
-	import type { Config } from '#lib/types.ts';
+	import OptionList from '#lib/components/OptionList.svelte';
+	import type { Config, OpenRgbLive } from '#lib/types.ts';
 
 	let { config }: { config: Config } = $props();
 	const preview = createPreview(() => config);
@@ -40,17 +41,44 @@
 	const WHAT: Record<PartKind, string> = { ram: 'Memory', gpu: 'Graphics card', board: 'Motherboard', fan: 'Fan', pump: 'Cooler pump', radiator: 'Radiator', other: 'Other lighting' };
 	const chosenParts = $derived(parts.filter((p) => p.device === selected));
 
+	// `openrgb.live`, changed one key at a time so the others (port, exclude, pins) stay as they are
+	function setLive(patch: Partial<OpenRgbLive>) {
+		const o = config.openrgb ?? { devices: [] };
+		config.openrgb = { ...o, live: { port: 6742, exclude: [], ...o.live, ...patch } };
+	}
+	const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
 	// `openrgb.live.exclude`: devices left to their own software. The daemon stops lighting them, and uncoil's
 	// OpenRGB turns off the detector by that name where there is one, so their own app can take them back.
 	const excluded = $derived(config.openrgb?.live?.exclude ?? []);
 	function setExcluded(exclude: string[]) {
-		const o = config.openrgb ?? { devices: [] };
-		config.openrgb = { ...o, live: { port: o.live?.port ?? 6742, exclude } };
+		setLive({ exclude });
 	}
 	function leave(name: string) {
-		if (!excluded.some((e) => e.trim().toLowerCase() === name.toLowerCase())) setExcluded([...excluded, name]);
+		if (!excluded.some((e) => same(e, name))) setExcluded([...excluded, name]);
 		selected = null;
 	}
+
+	// `openrgb.live.pins`: who lights a device, over the daemon's own judgement (uncoil_core::owners). As in the
+	// engine, the first pin whose `match` is part of the device's name decides.
+	const pins = $derived(config.openrgb?.live?.pins ?? []);
+	const programs = $derived(app.status?.openrgb?.programs ?? []);
+	const pinFor = (name: string) => pins.find((p) => p.match.trim() && name.toLowerCase().includes(p.match.trim().toLowerCase()));
+	function choose(name: string, to: string) {
+		const rest = pins.filter((p) => !same(p.match, name));
+		setLive({ pins: to === 'auto' ? rest : [...rest, { match: name, to }] });
+	}
+	const whoLabel = (to: string) => (same(to, 'uncoil') ? 'uncoil, always' : `${to}, while it runs`);
+	const whoOptions = $derived([
+		{ value: 'auto', label: 'Automatic' },
+		{ value: 'uncoil', label: 'uncoil, always' },
+		...programs.map((p) => ({ value: p, label: `${p}, while it runs` }))
+	]);
+	const chosenWho = $derived.by(() => {
+		const pin = chosen ? pinFor(chosen.name) : undefined;
+		if (!pin) return 'auto';
+		return same(pin.to, 'uncoil') ? 'uncoil' : (programs.find((p) => same(p, pin.to)) ?? 'auto');
+	});
 </script>
 
 <Workspace title={pageTitle('pc')} subtitle="The lighting inside your PC that uncoil drives through OpenRGB, lit with the desk's effect. Where each part sits is a guess from its name." panelLabel="PC part">
@@ -87,6 +115,11 @@
 					{/each}
 				</ul>
 				<p class="note">Give it its own effect on Lighting: choose the PC there, or pick its lights on the desk.</p>
+				<div class="who">
+					<h3 class="section-title">Who lights it</h3>
+					<OptionList label="Who lights it" options={whoOptions} value={chosenWho} onchange={(v) => choose(chosen.name, v)} />
+					<p class="note">Automatic: uncoil, except while a program known to light it runs. A program you pick has it only while it runs; uncoil lights it the rest of the time.</p>
+				</div>
 				<div class="leave">
 					<button type="button" class="btn-quiet" onclick={() => leave(chosen.name)}>Leave it to its own software</button>
 					<p class="note">uncoil stops lighting it, and OpenRGB lets go of it where it can (it restarts, a second or two dark), so iCUE or the maker's app can take it back. Every device with this name goes.</p>
@@ -102,10 +135,26 @@
 				<h2 id="held-title" class="section-title">Run by other software</h2>
 				<ul>
 					{#each held as h, i (i)}
-						<li><span>{h.name}</span><span class="n">{h.by} has it</span></li>
+						<li>
+							<span class="two">{h.name}<span class="n">{h.by} has it</span></span>
+							<button type="button" class="btn-quiet" aria-label={`Light ${h.name} with uncoil, even while ${h.by} runs`} onclick={() => choose(h.name, 'uncoil')}>Light it with uncoil</button>
+						</li>
 					{/each}
 				</ul>
 				<p class="note">uncoil leaves these alone while that program runs, and lights them again a few seconds after it quits.</p>
+			</section>
+		{/if}
+		{#if pins.length}
+			<section class="left" aria-labelledby="pins-title">
+				<h2 id="pins-title" class="section-title">Your choices</h2>
+				<ul>
+					{#each pins as p (p.match)}
+						<li>
+							<span class="two">{p.match}<span class="n">{whoLabel(p.to)}</span></span>
+							<button type="button" class="btn-quiet" aria-label={`Let uncoil decide who lights ${p.match}`} onclick={() => choose(p.match, 'auto')}>Automatic</button>
+						</li>
+					{/each}
+				</ul>
 			</section>
 		{/if}
 		{#if excluded.length}
@@ -166,9 +215,22 @@
 		background: var(--color-surface);
 	}
 	.leave,
-	.left {
+	.left,
+	.who {
 		display: grid;
 		gap: 6px;
+	}
+	.who {
+		padding-top: 10px;
+		border-top: var(--hair);
+	}
+	.who .section-title {
+		margin: 0;
+	}
+	.two {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
 	}
 	.leave {
 		justify-items: start;

@@ -1084,6 +1084,7 @@ mod tests {
             "config_default": Config::default(),
             "effect_defaults": defaults,
             "usage_names": usage_names,
+            "owners": crate::owners::shipped().iter().map(|o| o.name.as_str()).collect::<Vec<_>>(),
             "inputs": {"presses": presses, "audio": audio, "bounds": inputs.bounds.map(|b| json!({"minX": b.min_x, "minY": b.min_y, "maxX": b.max_x, "maxY": b.max_y})), "keyboard_center": inputs.keyboard_center},
             "sat": sat,
             "val": val,

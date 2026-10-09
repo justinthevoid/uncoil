@@ -102,7 +102,7 @@ The same applies to Fn shortcuts that stopped working: in normal mode the firmwa
   [Programs that light PC parts](/docs/configuration/#programs-that-light-pc-parts)). In live mode OpenRGB
   also restarts without those devices, so iCUE can take an iCUE Link hub back. For a device the program
   lights but uncoil can't tell is its (iCUE driving an ASUS board through its plugin), choose it on the PC
-  page and pick **Leave it to its own software** (or add its name to `openrgb.live.exclude`).
+  page and under **Who lights it** pick the program: it has the device while it runs, uncoil after.
 
 ## Lighting around display sleep
 

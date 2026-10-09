@@ -302,6 +302,7 @@ OpenRGB option.
 |---|---|---|
 | `live.port` | `6742` | The SDK server's port on `127.0.0.1`, 1024–65535. The task starts OpenRGB on it and the daemon connects to it. |
 | `live.exclude` | `[]` | OpenRGB devices to leave to their own software: any whose name contains one of these, ignoring case. The app's PC page adds and removes them ("Leave it to its own software"). |
+| `live.pins` | `[]` | Who lights a device, over uncoil's own judgement: `{"match": "ROG STRIX", "to": "Corsair iCUE"}`. `to` is `"uncoil"` (always uncoil) or a program from [the table below](#programs-that-light-pc-parts) (that program while it runs, uncoil otherwise). The first pin whose `match` is part of the device's name decides. The app's PC page sets them ("Who lights it"). |
 
 uncoil drives every device OpenRGB finds except Razer devices (anything with "Razer" in its name or vendor,
 so also products like the Lian Li O11 Dynamic Razer Edition case), hidden ones, ones with no LEDs, the ones
@@ -358,9 +359,14 @@ looks a couple of seconds apart, so a program that is starting up causes one res
 
 Detectors are matched by name: one starting with the make ("Corsair …", "ASUS …"), and for RAM any with
 "DRAM" in its name. A GPU detector names only its card, so a GPU from another make keeps its detector even
-when its program holds it; uncoil still doesn't send it frames. A program that isn't listed here, or one
-that lights more than its own make (iCUE with its motherboard plugin, say), is not noticed: use `exclude`
-for those devices.
+when its program holds it; uncoil still doesn't send it frames.
+
+When a program lights more than its own make (iCUE with its ASUS motherboard plugin, say), tell uncoil: on
+the PC page, choose the device and under **Who lights it** pick that program, which adds a pin. The device
+is then the program's while it runs and uncoil's the rest of the time. **uncoil, always** keeps a device
+even while a program that claims it runs (RAM you want on the desk effect alongside iCUE's fans, say).
+Pins match detectors by the same rule, so OpenRGB lets go of a pinned device only where a detector's name
+contains the pin's `match`. For a program that isn't in the table at all, use `exclude`.
 
 ## The app's own settings
 

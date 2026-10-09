@@ -105,7 +105,7 @@ export interface OpenRgbConfig {
 	/** What the hardware hand-off sets: each device (part of its OpenRGB name) and the hardware mode to use. */
 	devices: { match: string; mode: string; ram?: boolean }[];
 	/** Live mode: the SDK server port (default 6742) and device names (parts of) to leave alone. */
-	live?: { port: number; exclude: string[] };
+	live?: OpenRgbLive;
 }
 
 export interface Shape {
@@ -195,8 +195,23 @@ export interface OpenRgbStatus {
 	devices: OpenRgbDevice[];
 	/** Devices left to a program that lights them itself while it runs (iCUE, Armoury Crate). Missing from older engines. */
 	held?: OpenRgbHeld[];
+	/** The programs a device can be pinned to (the owners table). Missing from older engines. */
+	programs?: string[];
 	/** The OpenRGB server was started by uncoil's own task. */
 	ours: boolean;
+}
+
+/** `openrgb.live` (`uncoil_core::config::OpenRgbLive`). */
+export interface OpenRgbLive {
+	port: number;
+	exclude: string[];
+	pins?: OpenRgbPin[];
+}
+
+/** `openrgb.live.pins[]` (`uncoil_core::config::OpenRgbPin`): who lights a device. `to` is `uncoil` or a program from `programs`. */
+export interface OpenRgbPin {
+	match: string;
+	to: string;
 }
 
 /** A device OpenRGB lists that uncoil leaves to another program right now (`uncoil_core::ipc::OpenRgbHeld`). */

@@ -3,6 +3,7 @@
 //! and takes them back when it quits. The table is data, `owners.toml` next to this crate's `Cargo.toml`;
 //! this file only reads and applies it.
 
+use crate::config::{OpenRgbPin, PIN_UNCOIL};
 use serde::Deserialize;
 use std::sync::OnceLock;
 
@@ -89,6 +90,45 @@ pub fn holder<'a, S: AsRef<str>>(owners: &'a [Owner], processes: &[S], part: Par
     owners.iter().find(|o| o.claims(part) && o.running(processes))
 }
 
+/// The owner by name, any case.
+pub fn by_name<'a>(owners: &'a [Owner], name: &str) -> Option<&'a Owner> {
+    owners.iter().find(|o| o.name.eq_ignore_ascii_case(name.trim()))
+}
+
+/// What a pin says about a device or detector `name`: `Some(None)` uncoil lights it, `Some(Some(owner))`
+/// that program has it while it runs, `None` no pin decides (none matches, or the first that does names a
+/// program not in the table).
+fn pinned<'a>(owners: &'a [Owner], pins: &[OpenRgbPin], name: &str) -> Option<Option<&'a Owner>> {
+    let pin = pins.iter().find(|p| has(name, &p.name))?;
+    if pin.to.trim().eq_ignore_ascii_case(PIN_UNCOIL) {
+        return Some(None);
+    }
+    by_name(owners, &pin.to).map(Some)
+}
+
+/// [`holder`], with the user's pins (`openrgb.live.pins`) first: a pin to uncoil means nobody, a pin to a
+/// program means that program while it runs and nobody otherwise.
+pub fn holder_pinned<'a, S: AsRef<str>>(
+    owners: &'a [Owner],
+    pins: &[OpenRgbPin],
+    processes: &[S],
+    part: Part,
+) -> Option<&'a Owner> {
+    match pinned(owners, pins, part.name) {
+        Some(to) => to.filter(|o| o.running(processes)),
+        None => holder(owners, processes, part),
+    }
+}
+
+/// Should uncoil's OpenRGB leave this detector off, given the programs `running` now? The same rules by the
+/// detector's name: a pin decides first, else any running program that claims it.
+pub fn detector_held(owners: &[Owner], running: &[&Owner], pins: &[OpenRgbPin], detector: &str) -> bool {
+    match pinned(owners, pins, detector) {
+        Some(to) => to.is_some_and(|o| running.contains(&o)),
+        None => running.iter().any(|o| o.claims_detector(detector)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,6 +188,32 @@ mod tests {
         assert!(!asus.claims_detector("Corsair iCUE Link System Hub"));
         let signal = owners.iter().find(|o| o.everything).unwrap();
         assert!(signal.claims_detector("Anything at all"));
+    }
+
+    fn pin(name: &str, to: &str) -> OpenRgbPin {
+        OpenRgbPin { name: name.into(), to: to.into() }
+    }
+
+    #[test]
+    fn pins_decide_before_the_table() {
+        let owners = shipped();
+        let board = part("motherboard", "ASUS ROG STRIX B650E-F GAMING WIFI", "ASUS");
+        let ram = part("dram", "Corsair Vengeance RGB RS", "Corsair");
+        let pins = [pin("rog strix", "Corsair iCUE"), pin("Vengeance", "uncoil"), pin("Strip", "Nobody's App")];
+        let by = |procs: &[&str], p: Part| holder_pinned(owners, &pins, procs, p).map(|o| o.name.as_str());
+        // the board goes to iCUE while it runs (its motherboard plugin), back to uncoil after
+        assert_eq!(by(&["iCUE.exe"], board), Some("Corsair iCUE"));
+        assert_eq!(by(&["explorer.exe"], board), None);
+        // pinned to uncoil: iCUE claims all RAM, but not this
+        assert_eq!(by(&["iCUE.exe"], ram), None);
+        // a pin to a program not in the table is ignored: the table decides
+        assert_eq!(by(&["SignalRgb.exe"], part("other", "LED Strip", "")), Some("SignalRGB"));
+        // the same for detectors, by their names
+        let icue = [by_name(owners, "corsair icue").unwrap()];
+        assert!(detector_held(owners, &icue, &pins, "Corsair iCUE Link System Hub"));
+        assert!(!detector_held(owners, &icue, &pins, "Corsair Vengeance RGB DRAM"), "pinned to uncoil");
+        assert!(detector_held(owners, &icue, &pins, "ASUS ROG STRIX Aura"), "pinned to iCUE");
+        assert!(!detector_held(owners, &[], &pins, "ASUS ROG STRIX Aura"), "iCUE not running");
     }
 
     #[test]

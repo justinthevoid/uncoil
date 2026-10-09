@@ -5,6 +5,7 @@
 //   effects.ts   the catalogue lists every effect kind, each with the engine's fields
 //   keys.ts      every key name the picker offers is one the engine knows
 //   mock config  the browser mock's config.json is Config::default()
+//   mock programs  the programs the mock offers are owners.toml's
 // Plain Node (it strips the TypeScript types itself), no dependencies. Run by `pnpm check`.
 import { readFileSync } from 'node:fs';
 
@@ -13,6 +14,7 @@ const { frameWith } = await import('../src/lib/effect.ts');
 const { EFFECTS } = await import('../src/lib/effects.ts');
 const { KEY_GROUPS } = await import('../src/lib/keys.ts');
 const { defaultConfig } = await import('../src/lib/mock/config.ts');
+const { PROGRAMS } = await import('../src/lib/mock/programs.ts');
 
 const problems = [];
 
@@ -57,8 +59,13 @@ if (!same(defaultConfig(), fx.config_default)) {
 	problems.push(`mock/config.ts: ${JSON.stringify(defaultConfig())} is not Config::default() ${JSON.stringify(fx.config_default)}`);
 }
 
+// mock programs: the owners table's names, in its order
+if (PROGRAMS.join('|') !== fx.owners.join('|')) {
+	problems.push(`mock/programs.ts: [${PROGRAMS}] but owners.toml has [${fx.owners}]`);
+}
+
 if (problems.length) {
 	console.error(`TypeScript mirrors differ from the engine (regenerate fixtures with UNCOIL_UPDATE_MOCK=1 cargo test -p uncoil-core ts_mirror if the engine changed on purpose):\n  ${problems.join('\n  ')}`);
 	process.exit(1);
 }
-console.log(`mirror check: ${samples} colour samples, ${EFFECTS.length} effects, ${known.size} key names and the default config match the engine`);
+console.log(`mirror check: ${samples} colour samples, ${EFFECTS.length} effects, ${known.size} key names, the default config and ${PROGRAMS.length} programs match the engine`);
