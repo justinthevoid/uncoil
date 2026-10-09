@@ -15,6 +15,18 @@ may change config and device-file formats; such changes are called out under **C
   OpenRGB lets go of the device and iCUE (or the maker's app) can take it back, for example the iCUE Link
   fans. Only detectors uncoil turned off are turned back on.
 
+### Fixed
+
+- **Live OpenRGB no longer runs beside a second OpenRGB.** OpenRGB's own Windows service runs in session 0,
+  where the task's "close OpenRGB in this session" never reached it, so uncoil started a second server on the
+  same port and could end up driving the service's, which had every detector on (the iCUE Link hub left to
+  iCUE included): the case lights flickered between iCUE and OpenRGB. The task now stops instead (result
+  `2`), the daemon drives only uncoil's own server, and a second OpenRGB beside it shows as a conflict.
+- **Turning live OpenRGB off closes OpenRGB** within a couple of seconds, instead of leaving it holding the
+  devices until sign-out.
+- **iCUE starting after uncoil** now makes live mode let go of the RAM within a few seconds; it was checked
+  only when the daemon connected to OpenRGB, so RAM could be written by both.
+
 ### Changed
 
 - **Website:** a new landing page, "Uncoiling". The desk's 113 real LEDs start wound into the uncoil spiral,

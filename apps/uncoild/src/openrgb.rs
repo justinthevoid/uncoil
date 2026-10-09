@@ -40,16 +40,10 @@ fn system_tool(name: &str) -> Command {
     command(&crate::winsec::system_dir().join(name))
 }
 
-/// Is a process with this image name running (any session)?
-pub(crate) fn running(image: &str) -> bool {
-    system_tool("tasklist.exe")
-        .args(["/FI", &format!("IMAGENAME eq {image}"), "/NH"])
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains(&image.to_lowercase()))
-        .unwrap_or(false)
-}
+pub(crate) use crate::conflicts::running;
 
-/// Close an OpenRGB running in this session (it would hold the devices); never another user's.
+/// Close an OpenRGB running in this session (it would hold the devices); never another user's, and not one
+/// in session 0, such as OpenRGB's own Windows service ([`serve`] refuses to start beside those).
 fn close_running_openrgb() {
     if running("OpenRGB.exe") {
         let session = format!("SESSION eq {}", crate::winsec::session_id());
@@ -214,16 +208,25 @@ fn write_settings(dir: &Path, live: &OpenRgbLive) -> Result<bool, String> {
 /// How often the server task looks at `config.json` for new exclusions or a new port.
 const WATCH: Duration = Duration::from_secs(2);
 
+/// Why not to start a server while an OpenRGB that [`close_running_openrgb`] could not close still runs.
+const ANOTHER_OPENRGB: &str = "another OpenRGB is still running (OpenRGB's own Windows service, or another \
+     user's); not starting a second one, since both would open the same devices and flicker. Stop it and set \
+     the OpenRGB service to Manual";
+
 /// Live mode: start OpenRGB as uncoil's SDK server and wait while it runs. When `openrgb.live` changes in a
 /// way that changes OpenRGB's settings (an exclusion that turns a detector off or on, a new port), OpenRGB is
-/// restarted with them: a detector only takes effect when OpenRGB starts. `Ok` when it ran and exited
-/// cleanly; `Err` says why it did not start or how it ended.
+/// restarted with them: a detector only takes effect when OpenRGB starts. When `openrgb.mode` leaves `live`,
+/// OpenRGB is closed and this returns `Ok`, so the devices are free for their own software. `Ok` also when
+/// it ran and exited cleanly; `Err` says why it did not start or how it ended.
 pub fn serve(cfg: &Config) -> Result<(), String> {
     let mut live = cfg.openrgb_live();
     live.valid_port().ok_or("openrgb.live.port must be 1024-65535")?;
     let (exe, dir) = prerequisites()?;
     write_settings(&dir, &live)?;
     close_running_openrgb();
+    if running("OpenRGB.exe") {
+        return Err(ANOTHER_OPENRGB.into());
+    }
     let _ours = imp::Marker::create(OURS);
     loop {
         let port = live.valid_port().ok_or("openrgb.live.port must be 1024-65535")?;
@@ -240,8 +243,14 @@ pub fn serve(cfg: &Config) -> Result<(), String> {
             std::thread::sleep(WATCH);
             // a half-saved or mistyped file keeps what OpenRGB runs with
             let Ok(now) = Config::reload() else { continue };
+            if now.openrgb_mode() != OpenRgbMode::Live {
+                eprintln!("uncoild --openrgb-once: openrgb.mode is no longer live; closing OpenRGB");
+                let _ = child.kill();
+                let _ = child.wait();
+                return Ok(());
+            }
             let next = now.openrgb_live();
-            if now.openrgb_mode() != OpenRgbMode::Live || next == live || next.valid_port().is_none() {
+            if next == live || next.valid_port().is_none() {
                 continue;
             }
             live = next;

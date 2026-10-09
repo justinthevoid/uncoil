@@ -254,7 +254,9 @@ Both modes need:
    server itself at start.)
 
 Either way, if OpenRGB is already running in your session, it is closed first, and RAM is left alone while
-Corsair iCUE runs, because both would write the same bus.
+Corsair iCUE runs, because both would write the same bus. An OpenRGB it can't close, such as OpenRGB's own
+Windows service, makes live mode stop there (result `2`) rather than start a second server beside it: two
+OpenRGBs open the same devices and the lights flicker between them. Stop that service and set it to Manual.
 
 The task runs at sign-in, so turning a mode on, or switching between `hardware` and `live`, takes effect at
 your next sign-in (with `-Elevated`, when the daemon restarts). It writes no log; its result is the task's
@@ -326,9 +328,12 @@ Things to know:
   and GPU lighting through it; that is how OpenRGB's SDK works. uncoil starts it listening on `127.0.0.1`
   only, so other machines can't reach it. See
   [SECURITY.md](https://github.com/justinthevoid/uncoil/blob/main/SECURITY.md).
-- **Turning live off** stops uncoil sending frames straight away; the PC's lights stay as they were last set,
-  and the OpenRGB server keeps running until you sign out or end the **uncoil-openrgb** task in Task
-  Scheduler.
+- **Turning live off** stops uncoil sending frames straight away, and the **uncoil-openrgb** task closes
+  OpenRGB within a couple of seconds, so iCUE or the maker's app can take the devices back. Until one does,
+  the PC's lights stay as they were last set. Turning live on again takes effect at your next sign-in.
+- **Only uncoil's own server is driven.** If something else answers on the port (OpenRGB's Windows service,
+  or an OpenRGB you started), the Settings page shows an error instead of driving it: that OpenRGB has the
+  Razer devices and your exclusions on.
 - The app's Settings page shows the connection: connected with the number of devices, waiting for the
   server, or the error.
 

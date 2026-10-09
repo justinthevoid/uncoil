@@ -386,7 +386,14 @@ software (iCUE for an iCUE Link hub) keeps it; the names turned off are recorded
 `Detectors.uncoil_excluded_detectors` and turned back on when the exclusion goes, never touching one the user
 turned off. Detectors only take effect when OpenRGB starts, so the task looks at `config.json` every 2 s and
 restarts OpenRGB when `openrgb.live` changes the settings file (an exclusion that moves a detector, a new
-port); other edits restart nothing.
+port); other edits restart nothing. When `openrgb.mode` leaves `live` it closes OpenRGB and ends.
+
+Only one OpenRGB may hold the devices. The task closes an OpenRGB in the user's session before it starts its
+own, but OpenRGB's own Windows service runs in session 0, out of reach; if any OpenRGB is still running then,
+the task fails (result 2) instead of starting a second server on the same port. The daemon drives a server
+only while uncoil's marker exists (`openrgb::ours`), and the conflict check flags a second `OpenRGB.exe`
+beside uncoil's. While OpenRGB lists RAM, the client looks for `iCUE.exe` every 3 s (one process snapshot)
+and plans again when that changes, so RAM is let go soon after iCUE starts.
 
 **The client** (`crates/uncoil-openrgb`) is written from the protocol facts in OpenRGB's `OpenRGBSDK.md` and
 `NetworkProtocol.h`, std only. It asks for protocol version 5 at most (version 6 adds acknowledgements and

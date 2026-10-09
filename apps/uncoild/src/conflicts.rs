@@ -51,26 +51,49 @@ fn detail(app: &str) -> &'static str {
     }
 }
 
-/// The conflicts among running process image names, one per program, in table order. OpenRGB is left out
-/// when it is uncoil's own live OpenRGB server (`openrgb_ours`): it drives only the PC's other devices then.
+/// Another OpenRGB next to uncoil's own server, typically OpenRGB's own Windows service: it opens every
+/// device it has a detector for, the ones excluded for iCUE included.
+const SECOND_OPENRGB: &str =
+    "Another OpenRGB is running besides uncoil's own, such as OpenRGB's Windows service. Both \
+     open the same devices, so the PC's lights flicker between them and iCUE can't keep the ones you left to it; \
+     stop it, and set the OpenRGB service to Manual.";
+
+/// The conflicts among running process image names, one per program, in table order. OpenRGB counts only
+/// when it is not uncoil's own live OpenRGB server (`openrgb_ours`, which drives only the PC's other
+/// devices), so with uncoil's running it takes a second OpenRGB.
 pub fn found<'a>(names: impl IntoIterator<Item = &'a str>, openrgb_ours: bool) -> Vec<Conflict> {
     let mut apps: Vec<&str> = vec![];
+    let mut openrgbs = 0;
     for name in names {
         if let Some((_, app)) = KNOWN.iter().find(|(exe, _)| exe.eq_ignore_ascii_case(name)) {
-            if !apps.contains(app) && !(*app == OPENRGB && openrgb_ours) {
+            openrgbs += usize::from(*app == OPENRGB);
+            if !apps.contains(app) {
                 apps.push(app);
             }
         }
     }
+    if openrgb_ours && openrgbs < 2 {
+        apps.retain(|a| *a != OPENRGB);
+    }
     let order = |app: &str| KNOWN.iter().position(|(_, a)| *a == app);
     apps.sort_by_key(|a| order(a));
-    apps.into_iter().map(|app| Conflict { app: app.into(), detail: detail(app).into() }).collect()
+    apps.into_iter()
+        .map(|app| {
+            let detail = if app == OPENRGB && openrgb_ours { SECOND_OPENRGB } else { detail(app) };
+            Conflict { app: app.into(), detail: detail.into() }
+        })
+        .collect()
 }
 
 /// Look at the running processes now.
 pub fn scan(openrgb_ours: bool) -> Vec<Conflict> {
     let names = process_names();
     found(names.iter().map(String::as_str), openrgb_ours)
+}
+
+/// Is a process with this image name running (any session)? One process snapshot, no child process.
+pub fn running(image: &str) -> bool {
+    process_names().iter().any(|n| n.eq_ignore_ascii_case(image))
 }
 
 /// Image names of the running processes (empty if the snapshot fails).
@@ -141,6 +164,11 @@ mod tests {
     fn uncoils_own_openrgb_server_is_not_a_conflict() {
         assert_eq!(found(["OpenRGB.exe"], false)[0].app, OPENRGB);
         assert!(found(["OpenRGB.exe"], true).is_empty());
+        // uncoil's server plus OpenRGB's own service: still a conflict, with its own advice
+        let two = found(["OpenRGB.exe", "explorer.exe", "openrgb.exe"], true);
+        assert_eq!(two.len(), 1);
+        assert_eq!((two[0].app.as_str(), two[0].detail.as_str()), (OPENRGB, SECOND_OPENRGB));
+        assert_eq!(found(["OpenRGB.exe", "OpenRGB.exe"], false)[0].detail, detail(OPENRGB));
     }
 
     #[test]

@@ -82,7 +82,8 @@ The same applies to Fn shortcuts that stopped working: in normal mode the firmwa
   and **Last Run Result**. In live mode it should be **Running**. Otherwise: `0` ran and exited cleanly, `1`
   turned off or nothing configured (in hardware mode, nothing in `openrgb.devices`), `2` failed (OpenRGB is not
   installed, `%ProgramData%\uncoil\openrgb` is missing or not administrators-only, no entry was a plain name,
-  `openrgb.live.port` is outside 1024–65535, or OpenRGB's server stopped with an error). Reinstalling with
+  `openrgb.live.port` is outside 1024–65535, another OpenRGB such as OpenRGB's own Windows service was
+  already running, or OpenRGB's server stopped with an error). Reinstalling with
   `-OpenRgb` recreates the folder. The task runs at sign-in, so a mode you just turned on starts at the next
   one.
 - **Live mode shows "Waiting for OpenRGB's SDK server":** the daemon found nothing listening on
@@ -90,8 +91,13 @@ The same applies to Fn shortcuts that stopped working: in normal mode the firmwa
   `C:\Program Files\OpenRGB`. RAM and many motherboards also need PawnIO, OpenRGB's SMBus driver; see
   OpenRGB's instructions. A device missing from the PC column may be excluded by `openrgb.live.exclude`,
   hidden in OpenRGB, or have "Razer" in its name or vendor (those are always left to uncoil).
+- **The PC's lights flicker or race with iCUE:** two programs are writing them. Check for a second OpenRGB:
+  OpenRGB's installer can add a Windows service, **OpenRGB**, that starts with Windows and opens every
+  device it knows, including the ones you left to iCUE. uncoil shows "Another OpenRGB is running besides
+  uncoil's own" when it sees one. In an elevated PowerShell, `Stop-Service OpenRGB` then
+  `Set-Service OpenRGB -StartupType Manual`. To give the whole case to iCUE, set `openrgb.mode` to `"off"`.
 - **iCUE:** RAM lighting shares the SMBus with iCUE, so uncoil skips the RAM, in both OpenRGB modes, while
-  iCUE is running (live mode checks when it connects to OpenRGB). To give iCUE a Corsair device that
+  iCUE is running (live mode looks every few seconds, so it lets go of the RAM soon after iCUE starts). To give iCUE a Corsair device that
   OpenRGB drives, such as an iCUE Link hub, choose it on the app's PC page and pick **Leave it to its own
   software** (or add its name to `openrgb.live.exclude`): OpenRGB restarts without it and iCUE takes over.
 

@@ -9,7 +9,9 @@
 //! OpenRGB coalesces updates per device itself, so slow SMBus devices skip frames rather than lag.
 //!
 //! Razer devices that OpenRGB reports are always left alone (uncoil drives them itself), as are hidden ones,
-//! names matched by `openrgb.live.exclude`, and RAM while Corsair iCUE runs (both would write the SMBus).
+//! names matched by `openrgb.live.exclude`, and RAM while Corsair iCUE runs (both would write the SMBus;
+//! checked every few seconds, so RAM is let go soon after iCUE starts). An OpenRGB that is not uncoil's own
+//! server is never driven.
 
 use crate::{log, Shared};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -28,6 +30,8 @@ const MAX_BACKOFF: Duration = Duration::from_secs(10);
 const REFRESH: Duration = Duration::from_secs(1);
 /// OpenRGB devices are slower than USB ones; no point sending more often than this.
 const MAX_FPS: u32 = 30;
+/// How often to look whether iCUE started or quit, while OpenRGB lists RAM (one process snapshot).
+const ICUE_CHECK: Duration = Duration::from_secs(3);
 
 /// What the main loop, the desk and the status see of the live client.
 #[derive(Default)]
@@ -150,12 +154,21 @@ fn plan(controllers: &[Controller], live: &OpenRgbLive, icue: bool) -> Vec<(u32,
         .collect()
 }
 
-/// Connect, list the devices and put the ones to drive in their per-LED mode.
-fn connect(live: &OpenRgbLive) -> std::io::Result<(Client, Vec<Driven>, Vec<OpenRgbDeviceStatus>)> {
+/// What [`connect`] made: the client, the devices it drives and their status entries, and, when OpenRGB
+/// lists RAM, whether iCUE was running (RAM is driven only without it, so a change means planning again).
+type Connected = (Client, Vec<Driven>, Vec<OpenRgbDeviceStatus>, Option<bool>);
+
+/// Connect, list the devices and put the ones to drive in their per-LED mode. Only uncoil's own server is
+/// driven: another OpenRGB (its own Windows service, say) has the Razer detectors and the exclusions on.
+fn connect(live: &OpenRgbLive) -> std::io::Result<Connected> {
     let port = live.valid_port().ok_or_else(|| std::io::Error::other("openrgb.live.port must be 1024-65535"))?;
     let mut client = Client::connect(port, "uncoil", CONNECT_TIMEOUT)?;
+    if !crate::openrgb::ours() {
+        return Err(std::io::Error::other(NOT_OURS));
+    }
     let controllers = client.controllers()?;
-    let icue = controllers.iter().any(|c| c.kind == device_type::DRAM) && crate::openrgb::running("iCUE.exe");
+    let ram = controllers.iter().any(|c| c.kind == device_type::DRAM);
+    let icue = ram && crate::openrgb::running("iCUE.exe");
     let planned = plan(&controllers, live, icue);
     let mut driven = Vec::new();
     for (index, status) in &planned {
@@ -164,8 +177,12 @@ fn connect(live: &OpenRgbLive) -> std::io::Result<(Client, Vec<Driven>, Vec<Open
         let names = layout::external_led_names(&status.zones);
         driven.push(Driven { index: *index, id: status.id.clone(), names, colors, last: vec![], sent: None });
     }
-    Ok((client, driven, planned.into_iter().map(|(_, s)| s).collect()))
+    Ok((client, driven, planned.into_iter().map(|(_, s)| s).collect(), ram.then_some(icue)))
 }
+
+/// Why a server that answers is not driven.
+const NOT_OURS: &str = "this OpenRGB is not uncoil's own server (OpenRGB's Windows service or one you started?), so \
+     uncoil won't drive it. Close it; the uncoil-openrgb task starts uncoil's at sign-in.";
 
 /// Why connecting failed, in plain words: still waiting for a server, or something wrong.
 fn failure(e: &std::io::Error, port: u16) -> (OpenRgbState, String) {
@@ -216,11 +233,12 @@ pub fn spawn(shared: Arc<Shared>) {
 
 fn run(shared: &Shared) {
     let live = &shared.openrgb;
-    // the connection, the devices it drives and the settings it was made for
-    let mut conn: Option<(Client, Vec<Driven>, OpenRgbLive)> = None;
+    // the connection, the devices it drives, the settings it was made for and iCUE then (see `Connected`)
+    let mut conn: Option<(Client, Vec<Driven>, OpenRgbLive, Option<bool>)> = None;
     let mut backoff = Duration::from_secs(1);
     let mut next_try = Instant::now();
     let mut dark_frames = 0u32;
+    let mut icue_checked = Instant::now();
     loop {
         let start = Instant::now();
         let cfg = shared.config();
@@ -234,9 +252,19 @@ fn run(shared: &Shared) {
         }
         let settings = cfg.openrgb_live();
         // new port or exclusions: list the devices again
-        if conn.as_ref().is_some_and(|(_, _, made_for)| *made_for != settings) {
+        if conn.as_ref().is_some_and(|(_, _, made_for, _)| *made_for != settings) {
             conn = None;
             next_try = start;
+        }
+        // iCUE started or quit since: plan again, so RAM is dropped (or taken back) within seconds
+        if start.duration_since(icue_checked) >= ICUE_CHECK {
+            icue_checked = start;
+            if let Some((_, _, _, Some(was))) = &conn {
+                if crate::openrgb::running("iCUE.exe") != *was {
+                    conn = None;
+                    next_try = start;
+                }
+            }
         }
         if conn.is_none() {
             if start < next_try {
@@ -244,11 +272,11 @@ fn run(shared: &Shared) {
                 continue;
             }
             match connect(&settings) {
-                Ok((client, driven, devices)) => {
+                Ok((client, driven, devices, icue)) => {
                     let detail = format!("Connected; driving {} device(s).", devices.len());
                     live.set(OpenRgbState::Connected, Some(detail), Some(devices));
                     backoff = Duration::from_secs(1);
-                    conn = Some((client, driven, settings.clone()));
+                    conn = Some((client, driven, settings.clone(), icue));
                 }
                 Err(e) => {
                     let (state, detail) = failure(&e, settings.port);
@@ -259,7 +287,7 @@ fn run(shared: &Shared) {
                 }
             }
         }
-        let Some((client, driven, _)) = conn.as_mut() else { continue };
+        let Some((client, driven, _, _)) = conn.as_mut() else { continue };
         let level = shared.level();
         let dark = level <= 0.0;
         // once faded out, send a few black frames and then idle (the devices hold the frame)
