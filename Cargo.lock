@@ -4216,7 +4216,7 @@ dependencies = [
  "serde",
  "serde_json",
  "toml 0.8.2",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4242,7 +4242,7 @@ dependencies = [
  "anyhow",
  "hidapi",
  "uncoil-core",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4260,7 +4260,7 @@ dependencies = [
  "uncoil-core",
  "uncoil-hid",
  "uncoil-openrgb",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
