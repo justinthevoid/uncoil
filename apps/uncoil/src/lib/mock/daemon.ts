@@ -1,4 +1,4 @@
-// Browser-only stand-in for uncoild's control pipe, so the device pages work in `pnpm dev`.
+// Browser-only stand-in for uncoild's control pipe, so the device pages work in `bun run dev`.
 // ./daemon/*.json are the fake daemon's answers, written and checked by the `gui_mock_from_fake_answers` test in
 // apps/uncoild/src/control.rs (regenerate: UNCOIL_UPDATE_MOCK=1 cargo test -p uncoild gui_mock). They are kept
 // in memory here so writes, reads and resets behave like the daemon's.

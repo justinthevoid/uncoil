@@ -1,0 +1,4 @@
+env = false
+
+[install]
+minimumReleaseAge = 86400

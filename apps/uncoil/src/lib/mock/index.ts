@@ -1,4 +1,4 @@
-// Browser-only stand-in for the Tauri backend, so `pnpm dev` works in a plain browser for design work.
+// Browser-only stand-in for the Tauri backend, so `bun run dev` works in a plain browser for design work.
 // Only loaded (as its own chunk) when the page is not running inside Tauri; see ../api.ts.
 //
 // desk.json is a snapshot of the real `get_desk` output for the default desk, kept honest by the

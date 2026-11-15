@@ -36,8 +36,8 @@ cargo test -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openr
 cargo build --release -p uncoild -p uncoil-cli                                         # target\release\uncoild.exe, uncoil.exe
 ```
 
-The desktop app lives in `apps/uncoil` (Tauri + SvelteKit, pnpm). This website and these docs live in `site/`
-(Astro + Starlight, pnpm); see `site/README.md`.
+The desktop app lives in `apps/uncoil` (Tauri + SvelteKit, Bun). This website and these docs live in `site/`
+(Astro + Starlight, Bun); see `site/README.md`.
 
 ## Licence
 

@@ -290,7 +290,7 @@ fn main() {
 mod tests {
     use super::*;
 
-    /// The browser-only mock (`src/lib/mock/desk.json`, used by `pnpm dev` outside Tauri) must match the
+    /// The browser-only mock (`src/lib/mock/desk.json`, used by `bun run dev` outside Tauri) must match the
     /// real default desk. Regenerate with `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoil-gui`.
     #[test]
     fn mock_desk_matches_default_desk() {

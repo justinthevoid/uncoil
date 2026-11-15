@@ -6,7 +6,7 @@
 //   keys.ts      every key name the picker offers is one the engine knows
 //   mock config  the browser mock's config.json is Config::default()
 //   mock programs  the programs the mock offers are owners.toml's
-// Plain Node (it strips the TypeScript types itself), no dependencies. Run by `pnpm check`.
+// Plain Node (it strips the TypeScript types itself), no dependencies. Run by `bun run check`.
 import { readFileSync } from 'node:fs';
 
 const fx = JSON.parse(readFileSync(new URL('../src/lib/mock/fixtures.json', import.meta.url), 'utf8'));

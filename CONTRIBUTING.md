@@ -26,7 +26,7 @@ test anywhere Rust does.
 | [Rust](https://rustup.rs) | stable, 1.85+ (MSVC toolchain), with `clippy` and `rustfmt` | everything |
 | Visual Studio Build Tools | "Desktop development with C++" | linking on Windows |
 | Node.js | 22 | desktop app |
-| [pnpm](https://pnpm.io) | current major (CI uses 12) | desktop app |
+| [Bun](https://bun.sh) | 1.4.4 | desktop app |
 | WebView2 runtime | preinstalled on Windows 11 | desktop app |
 | Python | 3.10+ with `hidapi`, `pillow`, `pynput` | reference tools only |
 
@@ -80,21 +80,21 @@ The GUI crate needs the front end built first, because Tauri embeds `apps/uncoil
 
 ```powershell
 cd apps\uncoil
-pnpm install
-pnpm check            # svelte-check + TypeScript
-pnpm build            # static front end into build/
-pnpm tauri dev        # app window with hot reload
+bun install --frozen-lockfile
+bun run check            # svelte-check + TypeScript
+bun run build            # static front end into build/
+bun run tauri dev        # app window with hot reload
 cd ..\..
 cargo test -p uncoil-gui                                    # checks the browser mock matches the real desk
 $env:UNCOIL_UPDATE_MOCK=1; cargo test -p uncoil-gui         # regenerate the mock after layout changes
 ```
 
-`pnpm dev` on its own serves the UI in a browser at <http://localhost:1420> against a mock in
+`bun run dev` on its own serves the UI in a browser at <http://localhost:1420> against a mock in
 `src/lib/mock/`, which is the fastest loop for UI work and needs no hardware.
 
-Notifications (battery) from `pnpm tauri dev` show under PowerShell's name and icon, because a dev build
+Notifications (battery) from `bun run tauri dev` show under PowerShell's name and icon, because a dev build
 isn't installed; an installed build shows its own. Only one copy of the app runs at a time, so close an
-installed copy (including the one in the tray) before `pnpm tauri dev`.
+installed copy (including the one in the tray) before `bun run tauri dev`.
 
 To run your build of the daemon instead of the installed one, stop the task first
 (`Stop-ScheduledTask uncoil; Stop-Process -Name uncoild`) and then run `target\release\uncoild.exe`. It

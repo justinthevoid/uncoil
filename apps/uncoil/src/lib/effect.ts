@@ -1,5 +1,5 @@
 // Frontend port of uncoil_core::{color::rainbow, effect} (crates/uncoil-core/src/effect.rs). Kept line-for-line
-// with the Rust so the browser mock draws what the engine sends; scripts/check-mirror.mjs (part of `pnpm check`)
+// with the Rust so the browser mock draws what the engine sends; scripts/check-mirror.mjs (part of `bun run check`)
 // compares it with the engine's own colours in mock/fixtures.json. The integer hashes are bit-exact; float maths
 // runs in f64 here (f32 in Rust), so a colour can differ by a step at most.
 import type { DeskDevice, Effect, LayerEffect, Mask, PreviewPress, Rgb } from './types';

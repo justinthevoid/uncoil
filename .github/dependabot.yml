@@ -14,8 +14,8 @@ updates:
       cargo-minor-and-patch:
         update-types: [minor, patch]
 
-  # Desktop app front end (pnpm)
-  - package-ecosystem: npm
+  # Desktop app front end (Bun)
+  - package-ecosystem: bun
     directory: /apps/uncoil
     schedule:
       interval: weekly
@@ -26,7 +26,7 @@ updates:
         patterns: ["@tauri-apps/*"]
       svelte:
         patterns: ["svelte", "svelte-check", "@sveltejs/*"]
-      npm-minor-and-patch:
+      bun-minor-and-patch:
         update-types: [minor, patch]
 
   # The website.

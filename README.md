@@ -200,7 +200,7 @@ Anything uncoil wrote into a device's own memory (key maps, a saved firmware eff
 ## Build from source
 
 Requirements: Windows 10/11 x64, [Rust](https://rustup.rs) stable (1.85 or newer, MSVC toolchain with the
-Visual Studio C++ build tools). For the desktop app also Node.js 22, [pnpm](https://pnpm.io) and the
+Visual Studio C++ build tools). For the desktop app also Node.js 22, [Bun](https://bun.sh) and the
 WebView2 runtime (already on Windows 11); see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```powershell
@@ -213,13 +213,13 @@ cargo build --release -p uncoild -p uncoil-cli      # target\release\uncoild.exe
 
 # desktop app (optional)
 cd apps\uncoil
-pnpm install
-pnpm tauri dev                                      # live-reloading app window
-pnpm tauri build                                    # release build + NSIS installer
+bun install --frozen-lockfile
+bun run tauri dev                                      # live-reloading app window
+bun run tauri build                                    # release build + NSIS installer
 ```
 
-`pnpm dev` alone serves the app UI in a browser against a mock with the real desk geometry, which is handy
-for design work without hardware. Notifications from a dev build (`pnpm tauri dev`) show under PowerShell's
+`bun run dev` alone serves the app UI in a browser against a mock with the real desk geometry, which is handy
+for design work without hardware. Notifications from a dev build (`bun run tauri dev`) show under PowerShell's
 name and icon, because the app isn't installed; an installed build shows its own.
 
 ### Layout

@@ -19,8 +19,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
 const app = join(root, 'apps/uncoil');
 const out = join(root, 'THIRD_PARTY_NOTICES.md');
-const win = process.platform === 'win32';
-const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, encoding: 'utf8', maxBuffer: 64 << 20, shell: win, stdio: ['ignore', 'pipe', 'inherit'] });
+const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'inherit'] });
 const lf = (s) => s.replace(/\r\n/g, '\n').trim();
 
 // ---- Rust ----------------------------------------------------------------------------------------------
@@ -31,25 +30,25 @@ const rust = lf(readFileSync(rustFile, 'utf8'));
 rmSync(rustFile);
 
 // ---- npm: the packages in the bundle -------------------------------------------------------------------
-run('pnpm', ['exec', 'vite', 'build', '--sourcemap'], app);
+run('bun', ['x', '--no-install', 'vite', 'build', '--sourcemap'], app);
 const bundled = new Set(['tailwindcss']);
 const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
 for (const map of walk(join(app, '.svelte-kit/output/client')).filter((f) => f.endsWith('.map'))) {
 	for (const src of JSON.parse(readFileSync(map, 'utf8')).sources ?? []) {
-		const m = /node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?((?:@[^\\/]+[\\/])?[^\\/]+)/.exec(src);
+		const m = /node_modules[\\/](?:\.bun[\\/][^\\/]+[\\/]node_modules[\\/])?((?:@[^\\/]+[\\/])?[^\\/]+)/.exec(src);
 		if (m) bundled.add(m[1].replace(/\\/g, '/'));
 	}
 }
 // the real build, without source maps
-run('pnpm', ['exec', 'vite', 'build'], app);
+run('bun', ['x', '--no-install', 'vite', 'build'], app);
 
 /** npm packages that ship no licence file, and the Rust crate (same repository, same licence) that does. */
 const SAME_AS_CRATE = { '@tauri-apps/plugin-opener': 'tauri-plugin-opener' };
-const listed = Object.values(JSON.parse(run('pnpm', ['licenses', 'list', '--json'], app))).flat();
+const listed = Object.values(JSON.parse(run('bun', ['pm', 'licenses', '--json'], app))).flat();
 const npm = [];
 for (const name of [...bundled].sort()) {
 	const p = listed.find((x) => x.name === name);
-	if (!p) throw new Error(`${name} is in the bundle but pnpm doesn't list it`);
+	if (!p) throw new Error(`${name} is in the bundle but Bun doesn't list it`);
 	const dir = p.paths[0];
 	// LICENSE, LICENSE.md, or one file per licence of a dual-licensed package (LICENSE-MIT, LICENSE-APACHE-2.0)
 	const files = readdirSync(dir).filter((f) => /^(licen[cs]e|copying)([-.](?!spdx$)[\w.-]+)?$/i.test(f)).sort();

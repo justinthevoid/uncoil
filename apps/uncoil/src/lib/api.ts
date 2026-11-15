@@ -1,6 +1,6 @@
 // Typed wrappers over the Tauri commands in src-tauri/src/main.rs.
 //
-// Outside Tauri (plain `pnpm dev` in a browser, for design work) calls go to a local mock instead.
+// Outside Tauri (plain `bun run dev` in a browser, for design work) calls go to a local mock instead.
 // The mock is a dynamic import, so it ships as a separate chunk the Tauri app never loads.
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import type { AppSettings, Config, DeskDevice, PreviewPress, Status, OpenRgbDevice } from './types';
@@ -37,7 +37,7 @@ export async function onConfigChanged(handler: () => void): Promise<() => void> 
 	return listen('config-changed', handler);
 }
 
-/** Open a web page in the system browser (the Tauri opener plugin; a new tab under `pnpm dev`). */
+/** Open a web page in the system browser (the Tauri opener plugin; a new tab under `bun run dev`). */
 export async function openExternal(url: string) {
 	if (inTauri) {
 		const { openUrl } = await import('@tauri-apps/plugin-opener');

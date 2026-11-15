@@ -21,7 +21,7 @@
 ## Checklist
 
 - [ ] `cargo fmt --all --check`, clippy (`-D warnings`) and `cargo test` pass locally
-- [ ] For app changes: `pnpm check` and `pnpm build` pass; states read without colour; reduced motion respected
+- [ ] For app changes: `bun run check` and `bun run build` pass; states read without colour; reduced motion respected
 - [ ] For device files: tested on real hardware, the wave travels the right way, the README table updated; experimental files changed through `tools/devices/gen_experimental.py` and `validate.py` passes
 - [ ] Nothing writes a device's onboard memory without the user explicitly asking for it
 - [ ] No HID captures with keystrokes, Synapse logs, serial numbers or usernames in the diff

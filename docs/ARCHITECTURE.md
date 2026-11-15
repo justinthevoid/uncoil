@@ -472,7 +472,7 @@ devices to `get_desk` / `preview_frame` as `external`, so its preview builds the
   generate); `UNCOIL_UPDATE_MOCK=1` rewrites them.
 - The TypeScript mirrors (`effect.ts`, `effects.ts`, `keys.ts` and the mock's default config) are checked
   against `apps/uncoil/src/lib/mock/fixtures.json`, which `cargo test -p uncoil-core ts_mirror` writes
-  from the Rust engine (and compares when not updating). `pnpm check` runs
+  from the Rust engine (and compares when not updating). `bun run check` runs
   `apps/uncoil/scripts/check-mirror.mjs` (colours within one step).
 
 ## Footprint

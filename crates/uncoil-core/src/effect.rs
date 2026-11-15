@@ -981,7 +981,7 @@ mod tests {
 
     /// `apps/uncoil/src/lib/mock/fixtures.json`: what the engine answers, for the TypeScript mirrors
     /// (`effect.ts`, `effects.ts`, `keys.ts`, the mock's default config) to be checked against by
-    /// `apps/uncoil/scripts/check-mirror.mjs` (part of `pnpm check`). Regenerate with
+    /// `apps/uncoil/scripts/check-mirror.mjs` (part of `bun run check`). Regenerate with
     /// `UNCOIL_UPDATE_MOCK=1 cargo test -p uncoil-core ts_mirror`.
     #[test]
     fn ts_mirror_fixtures() {

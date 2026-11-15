@@ -43,14 +43,12 @@ jobs:
           }
 
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          version: 12
+          bun-version: 1.4.4
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
-          cache: pnpm
-          cache-dependency-path: apps/uncoil/pnpm-lock.yaml
 
       - name: Test
         run: cargo test --locked -p uncoil-core -p uncoil-hid -p uncoild -p uncoil-cli -p uncoil-openrgb
@@ -63,12 +61,12 @@ jobs:
       - name: Check THIRD_PARTY_NOTICES.md
         run: |
           cargo install cargo-about --locked --features cli --version 0.9.2
-          pnpm --dir apps/uncoil install --frozen-lockfile
+          bun install --cwd apps/uncoil --frozen-lockfile
           node scripts/notices/notices.mjs --check
 
       - name: Build desktop app and installer
         working-directory: apps/uncoil
-        run: pnpm tauri build
+        run: bun run tauri build
 
       - name: Stage release files
         shell: pwsh

@@ -5,16 +5,16 @@ The settings window for uncoil: a live preview of your desk lighting plus the co
 `%LOCALAPPDATA%\uncoil\status.json` for the Devices page. The preview is drawn from `uncoil-core`'s real
 effect code, so what you see is exactly what the engine sends to the hardware.
 
-Stack: Tauri 2, SvelteKit 3 (static SPA) with Svelte 5, Tailwind CSS 4, pnpm.
+Stack: Tauri 2, SvelteKit 3 (static SPA) with Svelte 5, Tailwind CSS 4, Bun.
 
 ## Develop
 
 ```sh
-pnpm install
-pnpm tauri dev      # app window with hot reload (starts the Vite dev server on :1420)
+bun install --frozen-lockfile
+bun run tauri dev      # app window with hot reload (starts the Vite dev server on :1420)
 ```
 
-`pnpm dev` on its own serves the UI in a normal browser at http://localhost:1420. Outside Tauri the
+`bun run dev` on its own serves the UI in a normal browser at http://localhost:1420. Outside Tauri the
 backend calls go to a mock (`src/lib/mock/`) with the real desk geometry and a TypeScript port of the
 effect maths, which is handy for design work. If `uncoil-core`'s device layouts change, refresh the mock:
 
@@ -25,10 +25,10 @@ UNCOIL_UPDATE_MOCK=1 cargo test -p uncoil-gui   # from the repo root; plain `car
 ## Build
 
 ```sh
-pnpm tauri build    # release build plus NSIS installer under target/release/bundle/
+bun run tauri build    # release build plus NSIS installer under target/release/bundle/
 ```
 
-Other checks: `pnpm check` (svelte-check / TypeScript), `pnpm build` (frontend only, into `build/`),
+Other checks: `bun run check` (svelte-check / TypeScript), `bun run build` (frontend only, into `build/`),
 `cargo build -p uncoil-gui` (Rust side only, from the repo root).
 
 ## Layout

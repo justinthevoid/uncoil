@@ -587,7 +587,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: cfg-if 1.0.5, socket2 0.6.5, toml_datetime 0.6.3
+Used by: cfg-if 1.0.5, socket2 0.6.5
 
 ```text
 Copyright (c) 2014 Alex Crichton
@@ -1515,11 +1515,10 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: getrandom 0.4.3
+Used by: rand_core 0.10.1
 
 ```text
-Copyright (c) 2018-2026 The rust-random Project Developers
-Copyright (c) 2014 The Rust Project Developers
+Copyright (c) 2018-2026 The Rand Project Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1549,10 +1548,11 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: ppv-lite86 0.2.21
+Used by: getrandom 0.4.3
 
 ```text
-Copyright (c) 2019 The CryptoCorrosion Contributors
+Copyright (c) 2018-2026 The rust-random Project Developers
+Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1615,10 +1615,76 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
+Used by: chacha20 0.10.2
+
+```text
+Copyright (c) 2019-2026 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+
+### MIT License
+
 Used by: cpufeatures 0.2.17
 
 ```text
 Copyright (c) 2020-2025 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+
+### MIT License
+
+Used by: cpufeatures 0.3.1
+
+```text
+Copyright (c) 2020-2026 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1768,7 +1834,7 @@ SOFTWARE.
 
 ### MIT License
 
-Used by: serde_spanned 0.6.9, serde_spanned 1.1.1, toml 0.8.2, toml 1.1.6+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.20.2, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0
+Used by: serde_spanned 1.1.1, toml 1.1.6+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0
 
 ```text
 Copyright (c) Individual contributors
@@ -1954,7 +2020,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: rand 0.9.5, rand_chacha 0.9.0, rand_core 0.9.5
+Used by: rand 0.10.3
 
 ```text
 Copyright 2018 Developers of the Rand project
@@ -2016,40 +2082,6 @@ SOFTWARE.
 
 ### MIT License
 
-Used by: zerocopy 0.8.59
-
-```text
-Copyright 2023 The Fuchsia Authors
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-
-```
-
-### MIT License
-
 Used by: utf8_iter 1.0.4
 
 ```text
@@ -2083,7 +2115,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-runtime-wry 2.12.1, tauri-runtime 2.12.1, tauri-utils 2.10.1, tauri 2.12.1
+Used by: tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-runtime-wry 2.12.1, tauri-runtime 2.12.1, tauri-utils 2.10.1, tauri 2.12.2
 
 ```text
 MIT License
@@ -2668,7 +2700,7 @@ SOFTWARE.
 
 ### MIT License
 
-Used by: brotli-decompressor 6.0.1, dpi 0.1.2, tauri-plugin-autostart 2.7.0, tauri-plugin-notification 2.5.1, tauri-plugin-opener 2.7.0, tauri-plugin-single-instance 2.5.2, tauri-winrt-notification 0.8.1, webview2-com-macros 0.8.1, webview2-com-sys 0.39.1, webview2-com 0.39.1, windows-collections 0.3.2, windows-core 0.62.2, windows-future 0.3.2, windows-implement 0.60.2, windows-interface 0.59.3, windows-link 0.2.1, windows-numerics 0.3.1, windows-registry 0.6.1, windows-result 0.4.1, windows-strings 0.5.1, windows-sys 0.59.0, windows-sys 0.61.2, windows-targets 0.52.6, windows-threading 0.2.1, windows-version 0.1.7, windows 0.62.2, windows_x86_64_msvc 0.52.6
+Used by: brotli-decompressor 6.0.1, dpi 0.1.2, tauri-plugin-autostart 2.7.0, tauri-plugin-notification 2.8.0, tauri-plugin-opener 2.7.2, tauri-plugin-single-instance 2.5.5, tauri-winrt-notification 0.8.1, webview2-com-macros 0.8.1, webview2-com-sys 0.39.1, webview2-com 0.39.1, windows-collections 0.3.2, windows-core 0.62.2, windows-future 0.3.2, windows-implement 0.60.2, windows-interface 0.59.3, windows-link 0.2.1, windows-numerics 0.3.1, windows-registry 0.6.1, windows-result 0.4.1, windows-strings 0.5.1, windows-sys 0.61.2, windows-threading 0.2.1, windows-version 0.1.7, windows 0.62.2
 
 ```text
 MIT License
@@ -2907,7 +2939,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: adler2 2.0.1, anyhow 1.0.104, camino 1.2.6, cargo-platform 0.1.9, cargo_metadata 0.19.2, displaydoc 0.2.7, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, fastrand 2.5.0, itoa 1.0.18, once_cell 1.21.4, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, semver 1.0.28, serde-untagged 0.1.9, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_repr 0.1.21, servo_arc 0.4.3, syn 2.0.119, syn 3.0.6, thiserror-impl 2.0.21, thiserror 2.0.21, typeid 1.0.3, unicode-ident 1.0.26, zmij 1.0.23
+Used by: adler2 2.0.1, anyhow 1.0.104, camino 1.2.6, cargo-platform 0.1.9, cargo_metadata 0.19.2, displaydoc 0.2.7, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, fastrand 2.5.0, itoa 1.0.18, once_cell 1.21.4, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, semver 1.0.28, serde-untagged 0.1.9, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.154, serde_repr 0.1.21, servo_arc 0.4.3, syn 2.0.119, syn 3.0.6, thiserror-impl 2.0.21, thiserror 2.0.21, typeid 1.0.3, unicode-ident 1.0.26, zmij 1.0.23
 
 ```text
 Permission is hereby granted, free of charge, to any
@@ -2938,7 +2970,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: winnow 0.5.40, winnow 1.0.4
+Used by: winnow 1.0.4
 
 ```text
 Permission is hereby granted, free of charge, to any person obtaining
@@ -4689,7 +4721,7 @@ the following restrictions:
 
 ## The desktop app's front end (npm)
 
-### @lucide/svelte 1.50.0 (ISC)
+### @lucide/svelte 1.70.0 (ISC)
 
 ```text
 ISC License
@@ -4737,7 +4769,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @sveltejs/kit 3.0.0 (MIT)
+### @sveltejs/kit 3.1.1 (MIT)
 
 ```text
 Copyright (c) 2020 [these people](https://github.com/sveltejs/kit/graphs/contributors)
@@ -4749,7 +4781,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### @tauri-apps/api 2.12.1 (Apache-2.0 OR MIT)
+### @tauri-apps/api 2.12.4 (Apache-2.0 OR MIT)
 
 ```text
 Apache License
@@ -4954,7 +4986,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @tauri-apps/plugin-opener 2.7.0 (MIT OR Apache-2.0)
+### @tauri-apps/plugin-opener 2.7.2 (MIT OR Apache-2.0)
 
 The package has no licence file of its own. It is the front end of the Rust crate `tauri-plugin-opener`, from the same repository and under the same licence, whose text is listed under Rust crates above.
 
@@ -4984,7 +5016,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### svelte 5.57.1 (MIT)
+### svelte 5.57.3 (MIT)
 
 ```text
 Copyright (c) 2016-2025 [Svelte Contributors](https://github.com/sveltejs/svelte/graphs/contributors)
@@ -4996,7 +5028,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### tailwindcss 4.3.3 (MIT)
+### tailwindcss 4.3.4 (MIT)
 
 ```text
 MIT License

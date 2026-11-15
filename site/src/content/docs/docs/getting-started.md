@@ -147,7 +147,7 @@ devices' batteries every 10 minutes and notifies you once at the level you pick 
 at 10 %, and once when charging reaches 100 %. Only one copy of the app runs; starting it again brings up
 the open window. These preferences live in `%APPDATA%\uncoil\app.json`, apart from the engine's config.
 
-Developers: notifications from a dev build (`pnpm tauri dev`) show under PowerShell's name and icon, because
+Developers: notifications from a dev build (`bun run tauri dev`) show under PowerShell's name and icon, because
 the app isn't installed.
 
 ## Update
