@@ -21,8 +21,12 @@
   "devDependencies": {
     "typescript": "^7.0.2"
   },
-  "packageManager": "pnpm@12.4.2",
+  "packageManager": "bun@1.4.4",
+  "trustedDependencies": ["esbuild"],
   "engines": {
     "node": ">=22.12"
+  },
+  "overrides": {
+    "http-cache-semantics": ">=4.3.0"
   }
 }

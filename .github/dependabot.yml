@@ -30,7 +30,7 @@ updates:
         update-types: [minor, patch]
 
   # The website.
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /site
     schedule:
       interval: weekly

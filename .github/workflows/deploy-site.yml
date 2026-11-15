@@ -40,21 +40,25 @@ jobs:
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
-          package_json_file: site/package.json
+          package_json_file: apps/uncoil/package.json
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
           cache: pnpm
-          cache-dependency-path: site/pnpm-lock.yaml
+          cache-dependency-path: apps/uncoil/pnpm-lock.yaml
 
-      - run: pnpm install --frozen-lockfile
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+
+      - run: bun install --frozen-lockfile
 
       # The site imports the app's effect maths; the app's tsconfig extends SvelteKit's generated one.
       - working-directory: apps/uncoil
         run: pnpm install --frozen-lockfile && pnpm exec svelte-kit sync
 
-      - run: pnpm build
+      - run: bun run build
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

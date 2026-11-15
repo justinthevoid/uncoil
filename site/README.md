@@ -24,15 +24,15 @@ static Astro project.
 
 ```sh
 cd site
-pnpm install
-pnpm dev        # http://localhost:4321/uncoil/
+bun install --frozen-lockfile
+bun run dev        # http://localhost:4321/uncoil/
 ```
 
 ## Build and preview
 
 ```sh
-pnpm build      # -> site/dist, fully static
-pnpm preview    # serves dist at http://localhost:4321/uncoil/
+bun run build      # -> site/dist, fully static
+bun run preview    # serves dist at http://localhost:4321/uncoil/
 ```
 
 The build must finish without warnings.
@@ -68,7 +68,7 @@ served by GitHub Pages with that custom domain.
 - **Another host or address:** build with `SITE` and `BASE` set, for example
 
   ```sh
-  SITE=https://justinthevoid.github.io BASE=/uncoil pnpm build
+  SITE=https://justinthevoid.github.io BASE=/uncoil bun run build
   ```
 
 ## Open items

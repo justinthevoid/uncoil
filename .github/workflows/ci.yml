@@ -83,13 +83,16 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
       - working-directory: site
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
       # The site imports the app's effect maths; the app's tsconfig extends SvelteKit's generated one.
       - working-directory: apps/uncoil
         run: pnpm install --frozen-lockfile && pnpm exec svelte-kit sync
       - working-directory: site
-        run: pnpm build
+        run: bun run build
 
   # Device files: checks Rust's parser doesn't (matrix names vs layout names, key ids, unique product ids),
   # and that the experimental files are exactly what the generator produces.

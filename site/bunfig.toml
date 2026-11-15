@@ -1,0 +1,6 @@
+env = false
+
+[install]
+# Keep pnpm's one-day publication window and its existing emergency fix exception.
+minimumReleaseAge = 86400
+minimumReleaseAgeExcludes = ["http-cache-semantics@4.3.0"]
